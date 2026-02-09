@@ -4,6 +4,25 @@ import json
 from pathlib import Path
 
 import streamlit as st
+from azure.storage.blob import BlobServiceClient
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+@st.cache_data(show_spinner=False, ttl=60)
+def load_from_azure(conn_str: str, container: str, blob_name: str) -> bytes:
+    if not conn_str or not container or not blob_name:
+        raise ValueError("Faltan credenciales/config de Azure")
+    try:
+        service = BlobServiceClient.from_connection_string(conn_str)
+        cc = service.get_container_client(container)
+        blob = cc.get_blob_client(blob_name)
+        return blob.download_blob().readall()
+    except Exception as e:
+        raise RuntimeError(f"Azure error: {e}")
+
 
 
 @st.cache_data(show_spinner=False)

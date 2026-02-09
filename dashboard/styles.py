@@ -6,7 +6,11 @@ import streamlit as st
 def inject_styles() -> None:
     css = """
     <style>
-      .block-container { padding-top: 1.2rem; padding-bottom: 2rem; }
+      .block-container {
+        padding-top: 1.2rem;
+        padding-bottom: 2rem;
+        max-width: 100% !important;
+      }
 
       h1, h2, h3 { letter-spacing: -0.02em; }
 

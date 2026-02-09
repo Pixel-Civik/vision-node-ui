@@ -72,6 +72,8 @@ def normalize_events(data) -> pd.DataFrame:
         for c in cols:
             if c not in df.columns:
                 df[c] = pd.NA
+        df["track_id"] = pd.to_numeric(df["track_id"], errors="coerce")
+        df["age"] = pd.to_numeric(df["age"], errors="coerce")
         return df[cols]
 
     if "event_type" in keys and "time" in keys:
@@ -97,6 +99,8 @@ def normalize_events(data) -> pd.DataFrame:
         for c in cols:
             if c not in df.columns:
                 df[c] = pd.NA
+        df["track_id"] = pd.to_numeric(df["track_id"], errors="coerce")
+        df["age"] = pd.to_numeric(df["age"], errors="coerce")
         return df[cols]
 
     if "event_type" in keys and "time_start" in keys and "time_end" in keys:
