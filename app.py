@@ -17,8 +17,8 @@ load_dotenv(env_path)
 
 from dashboard.data import load_json_from_bytes, load_sample_bytes, read_bytes_from_path, load_from_azure
 from dashboard.normalize import normalize_events
-from dashboard.present import render_dashboard
-from dashboard.styles import inject_styles
+from dashboard.views.present import render_dashboard
+from dashboard.style.styles import inject_styles
 
 
 @dataclass(frozen=True)
@@ -44,10 +44,21 @@ def main() -> None:
     alt.data_transformers.disable_max_rows()
     inject_styles()
 
-    st.title("Dashboard de Eventos")
-    st.caption("Vista tipo PowerBI para eventos enter/exit (y presence si aplica).")
+    # Header formal y ejecutivo
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.title("Dashboard de Análisis de Tráfico")
+        st.markdown("Análisis de entradas y salidas en tiempo real")
+        st.caption("Visualización de patrones de comportamiento y métricas de tráfico")
+    with col2:
+        st.metric("Estado del Sistema", "Activo", "Conectado")
 
     with st.sidebar:
+        st.markdown("### Panel de Control")
+        st.markdown("---")
+        st.markdown("Fuente de Datos")
+        source_kind = st.selectbox("Seleccionar origen", options=[s.kind for s in SOURCES], format_func=lambda k: next(s.label for s in SOURCES if s.kind == k))
+        st.markdown("---")
         st.subheader("Fuente de datos")
         src = st.radio(
             "Elegir",

@@ -84,7 +84,7 @@ def inject_css() -> None:
         width: 6px;
       }
 
-      ::-webkit-scrollbar-track {
+      ::-.webkit-scrollbar-track {
         background: #f3f4f6;
       }
 
@@ -95,55 +95,6 @@ def inject_css() -> None:
 
       ::-webkit-scrollbar-thumb:hover {
         background: #6b7280;
-      }
-
-      /* Texto profesional */
-      .stMarkdown {
-        color: #374151;
-        line-height: 1.5;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      }
-
-      /* Expanders formales */
-      .streamlit-expanderHeader {
-        background-color: #f9fafb;
-        border-radius: 4px;
-        border: 1px solid #e5e7eb;
-        font-weight: 500;
-        color: #1f2937;
-      }
-
-      .streamlit-expanderContent {
-        border-radius: 0 0 4px 4px;
-        border: 1px solid #e5e7eb;
-        border-top: none;
-        background: white;
-      }
-
-      /* Inputs formales */
-      .stDateInput input,
-      .stTimeInput input {
-        border-radius: 4px;
-        border: 1px solid #d1d5db;
-        background: white;
-        font-family: inherit;
-      }
-
-      /* Sliders formales */
-      .stSlider > div > div {
-        background: #2563eb;
-        border-radius: 2px;
-        height: 4px;
-      }
-
-      /* Toggle switches formales */
-      .stToggle > div {
-        background-color: #e5e7eb;
-        border-radius: 16px;
-      }
-
-      .stToggle > div > div {
-        background-color: #2563eb;
       }
 
       /* Gráficas formales */
@@ -162,39 +113,6 @@ def inject_css() -> None:
         margin-top: 2rem;
         padding-top: 1rem;
         border-top: 1px solid #e5e7eb;
-      }
-
-      /* Separadores discretos */
-      hr {
-        border: none;
-        border-top: 1px solid #e5e7eb;
-        margin: 1.5rem 0;
-      }
-
-      /* Labels formales */
-      .kpi-label {
-        color: #4b5563;
-        font-size: 0.75rem;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin: 0 0 0.25rem 0;
-      }
-
-      /* Contenedores de datos */
-      .data-container {
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 6px;
-        padding: 1rem;
-        margin: 0.5rem 0;
-      }
-
-      /* Texto de ayuda discreto */
-      .stCaption {
-        color: #6b7280;
-        font-size: 0.8rem;
-        font-style: italic;
       }
     </style>
     """,
