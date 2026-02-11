@@ -2,7 +2,7 @@ import altair as alt
 import pandas as pd
 
 def palette():
-    return {"enter": "#10B981", "exit": "#EF4444", "presence": "#2E86DE"}
+    return {"enter": "#10B981", "exit": "#EF4444"}
 
 def utc_scale():
     return alt.Scale(type="utc")

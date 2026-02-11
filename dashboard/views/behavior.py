@@ -51,12 +51,19 @@ def render_behavior(f: pd.DataFrame, start_ts, end_ts, metric_mode: str, pal: di
         if ha.empty:
             st.info("No existen datos en el horario 09:00 - 23:00.")
         else:
+            hours = list(range(9, 24))
+            hour_labels = [_fmt_hour_label(h) for h in hours]
             ha["hour_label"] = ha["hour"].apply(_fmt_hour_label)
             ch_hora = (
                 alt.Chart(ha)
                 .mark_line(point=True, strokeWidth=3)
                 .encode(
-                    x=alt.X("hour_label:N", title="Hora", sort=alt.EncodingSortField(field="hour", order="ascending")),
+                    x=alt.X(
+                        "hour_label:N",
+                        title="Hora",
+                        sort=hour_labels,
+                        axis=alt.Axis(values=hour_labels, labelOverlap=False),
+                    ),
                     y=alt.Y("events_avg:Q", title="Promedio de Eventos"),
                     color=alt.Color("event_type:N", title="", scale=alt.Scale(domain=list(pal.keys()), range=list(pal.values()))),
                     tooltip=["hour_label:N", "event_type:N", alt.Tooltip("events_avg:Q", format=".2f", title="Promedio")],
@@ -91,7 +98,7 @@ def render_behavior(f: pd.DataFrame, start_ts, end_ts, metric_mode: str, pal: di
     else:
         st.caption("Seleccionar un rango superior a 48 horas para visualizar evolución diaria.")
     st.divider()
-    st.markdown("**3. Promedio por Día de Semana**")
+    st.markdown("**3. Promedio por Día de Semana (Circular)**")
     dw = f_ee.copy()
     dw_counts = dw.groupby(["dow", "event_type"], as_index=False).size().rename(columns={"size": "total_count"})
     days_per_dow = dw.groupby("dow")["local_date"].nunique().rename("num_days").reset_index()
@@ -99,18 +106,20 @@ def render_behavior(f: pd.DataFrame, start_ts, end_ts, metric_mode: str, pal: di
     dw_avg["avg_count"] = dw_avg["total_count"] / dw_avg["num_days"]
     dw_avg["dow_name"] = dw_avg["dow"].map({0: "Lunes", 1: "Martes", 2: "Miércoles", 3: "Jueves", 4: "Viernes", 5: "Sábado", 6: "Domingo"})
     dw_avg["dow_name"] = pd.Categorical(dw_avg["dow_name"], categories=["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"], ordered=True)
-    if not dw_avg.empty:
-        cwd = (
-            alt.Chart(dw_avg)
-            .mark_line(point=True, strokeWidth=3)
+    dw_pie = dw_avg.groupby("dow_name", as_index=False)["avg_count"].sum()
+    total_avg = float(dw_pie["avg_count"].sum() or 1.0)
+    dw_pie["pct"] = (dw_pie["avg_count"] / total_avg) * 100.0
+    if not dw_pie.empty:
+        pie = (
+            alt.Chart(dw_pie)
+            .mark_arc(innerRadius=70)
             .encode(
-                x=alt.X("dow_name:N", title=""),
-                y=alt.Y("avg_count:Q", title="Promedio de Eventos"),
-                color=alt.Color("event_type:N", title="", scale=alt.Scale(domain=list(pal.keys()), range=list(pal.values()))),
-                tooltip=["dow_name:N", "event_type:N", alt.Tooltip("avg_count:Q", format=".1f", title="Promedio"), alt.Tooltip("num_days:Q", title="Días contados")],
+                theta=alt.Theta("avg_count:Q"),
+                color=alt.Color("dow_name:N", title=""),
+                tooltip=["dow_name:N", alt.Tooltip("avg_count:Q", format=".2f", title="Promedio"), alt.Tooltip("pct:Q", format=".1f", title="%")],
             )
-            .properties(height=250)
+            .properties(height=260)
         )
-        st.altair_chart(cwd, use_container_width=True)
+        st.altair_chart(pie, use_container_width=True)
     else:
         st.info("Datos insuficientes para promedio semanal.")

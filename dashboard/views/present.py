@@ -49,9 +49,9 @@ def render_dashboard(df_raw: pd.DataFrame, source_name: str) -> None:
 
     start_ts, end_ts, _tz = build_time_range(df, min_d, max_d, default_end_date)
     with st.sidebar:
-        sel_sites, sel_channels, sel_zones, sel_events, show_presence, hour_min, hour_max, dow_sel, align_series, metric_mode = build_sidebar_filters(sites, channels, zones, events)
+        sel_sites, sel_channels, sel_zones, sel_events, hour_min, hour_max, dow_sel, align_series, metric_mode = build_sidebar_filters(sites, channels, zones, events)
 
-    f = apply_data_filters(df, start_ts, end_ts, sel_sites, sel_channels, sel_zones, sel_events, show_presence, hour_min, hour_max, dow_sel)
+    f = apply_data_filters(df, start_ts, end_ts, sel_sites, sel_channels, sel_zones, sel_events, hour_min, hour_max, dow_sel)
     if f.empty:
         st.warning("No se encontraron eventos con los filtros seleccionados.")
         return
