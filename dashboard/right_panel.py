@@ -4,6 +4,7 @@ import streamlit as st
 from .core.utils import utc_scale
 
 def render_right_panel(f: pd.DataFrame, enters: int, exits: int, total_ev: int, start_ts, end_ts, pal: dict):
+    f = f[f["event_type"].isin(["enter", "exit"])].copy()
     st.subheader("Distribución Entrada/Salida")
     donut_df = pd.DataFrame([{"event_type": "enter", "count": enters}, {"event_type": "exit", "count": exits}])
     donut_df["pct"] = (donut_df["count"] / max(1, donut_df["count"].sum())) * 100.0

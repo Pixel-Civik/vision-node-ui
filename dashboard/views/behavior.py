@@ -2,7 +2,6 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 from ..core.analytics import ts_metric
-from ..core.utils import utc_scale
 
 def _fmt_hour_label(h: int) -> str:
     from datetime import datetime as dt_lib
@@ -16,9 +15,12 @@ def render_behavior(f: pd.DataFrame, start_ts, end_ts, metric_mode: str, pal: di
     if duration_hours <= 48:
         st.markdown("**1. Evolución Temporal por Hora**")
         evo_base = f_ee.copy()
-        evo_base["local_ts"] = evo_base["local_date"] + pd.to_timedelta(evo_base["hour"], unit="h")
         bucket_evo = "15min" if duration_hours <= 12 else "1H"
-        g_evo = ts_metric(evo_base, bucket=bucket_evo, metric=metric)
+        evo_base["ts_local"] = evo_base["local_date"] + pd.to_timedelta(evo_base["hour"], unit="h")
+        evo_tmp = evo_base.copy()
+        evo_tmp["ts"] = evo_tmp["ts_local"]
+        evo_tmp = evo_tmp.drop(columns=["ts_local"], errors="ignore")
+        g_evo = ts_metric(evo_tmp, bucket=bucket_evo, metric=metric)
         if g_evo.empty:
             st.info("No existen datos en el rango seleccionado.")
         else:
@@ -26,7 +28,7 @@ def render_behavior(f: pd.DataFrame, start_ts, end_ts, metric_mode: str, pal: di
                 alt.Chart(g_evo)
                 .mark_line(point=True, strokeWidth=3)
                 .encode(
-                    x=alt.X("ts:T", title="Tiempo", scale=utc_scale()),
+                    x=alt.X("ts:T", title="Tiempo"),
                     y=alt.Y("count:Q", title=y_title),
                     color=alt.Color("event_type:N", title="", scale=alt.Scale(domain=list(pal.keys()), range=list(pal.values()))),
                     tooltip=[alt.Tooltip("ts:T", title="Tiempo", format="%d %b %H:%M"), "event_type:N", "count:Q"],
@@ -35,7 +37,7 @@ def render_behavior(f: pd.DataFrame, start_ts, end_ts, metric_mode: str, pal: di
             )
             st.altair_chart(ch_evo, use_container_width=True)
     else:
-        st.markdown("**1. Perfil Promedio por Hora (09:00 - 23:00)**")
+        st.markdown("**1. Perfil Promedio por Hora (08:00 - 23:00)**")
         ha_base = f_ee.copy()
         if metric == "personas" and "track_id" in ha_base.columns:
             ha_base = ha_base.copy()
@@ -47,12 +49,16 @@ def render_behavior(f: pd.DataFrame, start_ts, end_ts, metric_mode: str, pal: di
             a["date"] = a["local_date"]
             a = a.groupby(["date", "hour", "event_type"], as_index=False).size().rename(columns={"size": "events_avg"})
             ha = a.groupby(["hour", "event_type"], as_index=False)["events_avg"].mean()
-        ha = ha[(ha["hour"] >= 9) & (ha["hour"] <= 23)].copy()
+        ha = ha[(ha["hour"] >= 8) & (ha["hour"] <= 23)].copy()
         if ha.empty:
-            st.info("No existen datos en el horario 09:00 - 23:00.")
+            st.info("No existen datos en el horario 08:00 - 23:00.")
         else:
-            hours = list(range(9, 24))
+            hours = list(range(8, 24))
             hour_labels = [_fmt_hour_label(h) for h in hours]
+            event_types = ["enter", "exit"]
+            full = pd.DataFrame({"hour": hours}).merge(pd.DataFrame({"event_type": event_types}), how="cross")
+            ha = full.merge(ha, on=["hour", "event_type"], how="left")
+            ha["events_avg"] = ha["events_avg"].fillna(0)
             ha["hour_label"] = ha["hour"].apply(_fmt_hour_label)
             ch_hora = (
                 alt.Chart(ha)
@@ -87,7 +93,7 @@ def render_behavior(f: pd.DataFrame, start_ts, end_ts, metric_mode: str, pal: di
                 alt.Chart(dd)
                 .mark_line(point=True, strokeWidth=3)
                 .encode(
-                    x=alt.X("date:T", title="Fecha", scale=utc_scale()),
+                    x=alt.X("date:T", title="Fecha"),
                     y=alt.Y("count:Q", title=y_title),
                     color=alt.Color("event_type:N", title="", scale=alt.Scale(domain=list(pal.keys()), range=list(pal.values()))),
                     tooltip=[alt.Tooltip("date:T", title="Fecha", format="%d %b"), "event_type:N", "count:Q"],

@@ -10,22 +10,39 @@ def utc_scale():
 def utc_scale_domain(domain):
     return alt.Scale(type="utc", domain=domain)
 
+def _to_lima_naive(ts: pd.Series) -> pd.Series:
+    try:
+        local = ts.dt.tz_convert("America/Lima")
+        return local.dt.tz_localize(None)
+    except Exception:
+        utc = ts.dt.tz_convert("UTC").dt.tz_localize(None)
+        return utc + pd.Timedelta(hours=-5)
+
 def with_hour_and_dow(f: pd.DataFrame) -> pd.DataFrame:
     out = f.copy()
-    try:
-        local_ts = out["ts"].dt.tz_convert("America/Lima")
-    except Exception:
-        local_ts = out["ts"].dt.tz_convert(pd.Timedelta(hours=-5))
+    local_ts = _to_lima_naive(out["ts"])
     out["hour"] = local_ts.dt.hour
     out["dow"] = local_ts.dt.dayofweek
     out["local_date"] = local_ts.dt.floor("D")
     return out
 
 def bucket_age(v) -> str:
-    try:
-        a = float(v)
-    except Exception:
+    if v is None:
         return "N/D"
+    s = str(v).strip()
+    if not s:
+        return "N/D"
+    low = s.lower()
+    if "no_detect" in low or low in {"nd", "n/d", "na", "none"}:
+        return "N/D"
+    import re
+    m = re.search(r"(\d+)\s*-\s*(\d+)", s)
+    if m:
+        return f"{int(m.group(1))}-{int(m.group(2))}"
+    try:
+        a = float(s)
+    except Exception:
+        return s
     if a < 0:
         return "N/D"
     if a < 18:

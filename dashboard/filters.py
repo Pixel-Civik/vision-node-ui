@@ -5,7 +5,7 @@ def build_sidebar_filters(sites, channels, zones, events):
     sel_sites = st.multiselect("Ubicación", options=sites, default=sites[:1] if len(sites) >= 1 else sites)
     sel_channels = st.multiselect("Dispositivo", options=channels, default=channels)
     sel_zones = st.multiselect("Zona", options=zones, default=zones)
-    allowed_events = [e for e in events if e in ("enter", "exit")]
+    allowed_events = [e for e in events if e in ("enter", "exit", "pasante", "visit")]
     sel_events = st.multiselect("Tipo de Evento", options=allowed_events, default=allowed_events)
     hour_min, hour_max = st.slider("Rango Horario", min_value=0, max_value=23, value=(9, 23))
     dow_names = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]

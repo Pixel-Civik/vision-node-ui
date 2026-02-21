@@ -48,13 +48,32 @@ def normalize_events(data) -> pd.DataFrame:
 
     if "event" in keys and "time" in keys:
         df = pd.DataFrame(data)
-        df["event_type"] = df.get("event")
+        raw_event = df.get("event")
+        if raw_event is None:
+            df["event_type"] = pd.NA
+        else:
+            raw_event = raw_event.astype("string").str.strip().str.lower()
+            df["event_type"] = raw_event.replace(
+                {
+                    "time_in_zone": "visit",
+                }
+            )
         df["zone_name"] = df.get("zone")
         df["ts"] = _to_dt(df.get("time"))
-        df["ts_start"] = pd.NaT
-        df["ts_end"] = pd.NaT
-        df["duration_s"] = pd.NA
-        df["format"] = "global"
+        if "time_start" in df.columns:
+            df["ts_start"] = _to_dt(df.get("time_start"))
+        else:
+            df["ts_start"] = pd.NaT
+        if "time_end" in df.columns:
+            df["ts_end"] = _to_dt(df.get("time_end"))
+        else:
+            df["ts_end"] = pd.NaT
+        if "dwell_sec" in df.columns:
+            df["duration_s"] = pd.to_numeric(df.get("dwell_sec"), errors="coerce")
+        else:
+            df["duration_s"] = pd.NA
+        has_visit_fields = df["ts_start"].notna().any() or df["ts_end"].notna().any() or df["duration_s"].notna().any()
+        df["format"] = "visit" if has_visit_fields else "global"
         cols = [
             "format",
             "site",
@@ -68,12 +87,17 @@ def normalize_events(data) -> pd.DataFrame:
             "time",
             "event",
             "zone",
+            "time_start",
+            "time_end",
+            "dwell_sec",
+            "ts_start",
+            "ts_end",
+            "duration_s",
         ]
         for c in cols:
             if c not in df.columns:
                 df[c] = pd.NA
         df["track_id"] = pd.to_numeric(df["track_id"], errors="coerce")
-        df["age"] = pd.to_numeric(df["age"], errors="coerce")
         return df[cols]
 
     if "event_type" in keys and "time" in keys:

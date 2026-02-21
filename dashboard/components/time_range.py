@@ -26,7 +26,11 @@ def build_time_range(df: pd.DataFrame, min_d: pd.Timestamp, max_d: pd.Timestamp,
     default_end_date_clamped = max_d if default_end_date > max_d else default_end_date
     default_start_time = time(0, 0)
     default_end_time = time(23, 59, 59)
-    range_sel = st.selectbox("Seleccionar período", options=["Período Completo (Alineado)", "Día", "Semana", "Mes", "Personalizado"], index=0)
+    range_sel = st.selectbox(
+        "Seleccionar período",
+        options=["Período Completo", "Período Completo (Alineado)", "Día", "Semana", "Mes", "Personalizado"],
+        index=1,
+    )
     if range_sel == "Día":
         d_def = max(min(today, max_d), min_d)
         col_d1, col_d2, col_d3 = st.columns([2, 1.2, 1.2])
@@ -99,6 +103,15 @@ def build_time_range(df: pd.DataFrame, min_d: pd.Timestamp, max_d: pd.Timestamp,
             sel_end_time = st.time_input("Hora de Fin", value=default_end_time)
         ts_start_local = pd.Timestamp.combine(sel_start_date, sel_start_time).replace(tzinfo=tz_info)
         ts_end_local = pd.Timestamp.combine(sel_end_date, sel_end_time).replace(tzinfo=tz_info)
+        return ts_start_local.tz_convert("UTC"), ts_end_local.tz_convert("UTC"), tz_info
+    if range_sel == "Período Completo":
+        ts_start_local = pd.Timestamp.combine(min_d, default_start_time).replace(tzinfo=tz_info)
+        ts_end_local = pd.Timestamp.combine(max_d, default_end_time).replace(tzinfo=tz_info)
+        return ts_start_local.tz_convert("UTC"), ts_end_local.tz_convert("UTC"), tz_info
+    if range_sel == "Período Completo (Alineado)":
+        st.caption("Nota: el alineado real de enter/exit se aplica en el análisis (toggle “Alinear a rango común”). Aquí se mantiene el período completo para no ocultar zonas visitadas (time_in_zone).")
+        ts_start_local = pd.Timestamp.combine(min_d, default_start_time).replace(tzinfo=tz_info)
+        ts_end_local = pd.Timestamp.combine(max_d, default_end_time).replace(tzinfo=tz_info)
         return ts_start_local.tz_convert("UTC"), ts_end_local.tz_convert("UTC"), tz_info
     ts_start_local = pd.Timestamp.combine(default_start_date, default_start_time).replace(tzinfo=tz_info)
     ts_end_local = pd.Timestamp.combine(default_end_date_clamped, default_end_time).replace(tzinfo=tz_info)
