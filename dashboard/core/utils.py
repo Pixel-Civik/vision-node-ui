@@ -11,15 +11,20 @@ def utc_scale_domain(domain):
     return alt.Scale(type="utc", domain=domain)
 
 def _to_lima_naive(ts: pd.Series) -> pd.Series:
+    # Si el usuario reporta que los eventos de las 19:00 aparecen como 14:00,
+    # significa que el JSON tiene offset +00:00 pero representa hora local.
+    # Estrategia: Tomar la hora UTC "tal cual" como si fuera local (ignorar offset).
     try:
-        local = ts.dt.tz_convert("America/Lima")
-        return local.dt.tz_localize(None)
+        # Convertir a UTC y quitar info de zona (queda la hora "cruda" del string original si era +00:00)
+        utc_naive = ts.dt.tz_convert("UTC").dt.tz_localize(None)
+        return utc_naive
     except Exception:
-        utc = ts.dt.tz_convert("UTC").dt.tz_localize(None)
-        return utc + pd.Timedelta(hours=-5)
+        # Fallback
+        return ts.dt.tz_localize(None)
 
 def with_hour_and_dow(f: pd.DataFrame) -> pd.DataFrame:
     out = f.copy()
+    # Usamos la hora "cruda" del JSON asumiendo que el dispositivo manda hora local con tag UTC
     local_ts = _to_lima_naive(out["ts"])
     out["hour"] = local_ts.dt.hour
     out["dow"] = local_ts.dt.dayofweek

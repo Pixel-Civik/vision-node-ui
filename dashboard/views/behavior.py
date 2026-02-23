@@ -60,23 +60,20 @@ def render_behavior(f: pd.DataFrame, start_ts, end_ts, metric_mode: str, pal: di
             ha = full.merge(ha, on=["hour", "event_type"], how="left")
             ha["events_avg"] = ha["events_avg"].fillna(0)
             ha["hour_label"] = ha["hour"].apply(_fmt_hour_label)
-            ch_hora = (
-                alt.Chart(ha)
-                .mark_line(point=True, strokeWidth=3)
-                .encode(
-                    x=alt.X(
-                        "hour_label:N",
-                        title="Hora",
-                        sort=hour_labels,
-                        axis=alt.Axis(values=hour_labels, labelOverlap=False),
-                    ),
-                    y=alt.Y("events_avg:Q", title="Promedio de Eventos"),
-                    color=alt.Color("event_type:N", title="", scale=alt.Scale(domain=list(pal.keys()), range=list(pal.values()))),
-                    tooltip=["hour_label:N", "event_type:N", alt.Tooltip("events_avg:Q", format=".2f", title="Promedio")],
-                )
-                .properties(height=300)
+            ch_hora_base = alt.Chart(ha).encode(
+                x=alt.X(
+                    "hour_label:N",
+                    title="Hora",
+                    sort=hour_labels,
+                    axis=alt.Axis(values=hour_labels, labelOverlap=False),
+                ),
+                y=alt.Y("events_avg:Q", title="Promedio de Eventos"),
+                color=alt.Color("event_type:N", title="", scale=alt.Scale(domain=list(pal.keys()), range=list(pal.values()))),
+                tooltip=["hour_label:N", "event_type:N", alt.Tooltip("events_avg:Q", format=".2f", title="Promedio")],
             )
-            st.altair_chart(ch_hora, use_container_width=True)
+            ch_line = ch_hora_base.mark_line(point=True, strokeWidth=3)
+            ch_text = ch_hora_base.mark_text(align="center", dy=-10).encode(text=alt.Text("events_avg:Q", format=".0f"))
+            st.altair_chart((ch_line + ch_text).properties(height=300), use_container_width=True)
     st.divider()
     st.markdown("**2. Evolución Diaria**")
     if duration_hours > 48:
