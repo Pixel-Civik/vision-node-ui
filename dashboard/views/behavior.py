@@ -37,7 +37,7 @@ def render_behavior(f: pd.DataFrame, start_ts, end_ts, metric_mode: str, pal: di
             )
             st.altair_chart(ch_evo, use_container_width=True)
     else:
-        st.markdown("**1. Perfil Promedio por Hora (08:00 - 23:00)**")
+        st.markdown("**1. Perfil Promedio por Hora (07:00 - 23:00)**")
         ha_base = f_ee.copy()
         if metric == "personas" and "track_id" in ha_base.columns:
             ha_base = ha_base.copy()
@@ -49,11 +49,11 @@ def render_behavior(f: pd.DataFrame, start_ts, end_ts, metric_mode: str, pal: di
             a["date"] = a["local_date"]
             a = a.groupby(["date", "hour", "event_type"], as_index=False).size().rename(columns={"size": "events_avg"})
             ha = a.groupby(["hour", "event_type"], as_index=False)["events_avg"].mean()
-        ha = ha[(ha["hour"] >= 8) & (ha["hour"] <= 23)].copy()
+        ha = ha[(ha["hour"] >= 7) & (ha["hour"] <= 23)].copy()
         if ha.empty:
-            st.info("No existen datos en el horario 08:00 - 23:00.")
+            st.info("No existen datos en el horario 07:00 - 23:00.")
         else:
-            hours = list(range(8, 24))
+            hours = list(range(7, 24))
             hour_labels = [_fmt_hour_label(h) for h in hours]
             event_types = ["enter", "exit"]
             full = pd.DataFrame({"hour": hours}).merge(pd.DataFrame({"event_type": event_types}), how="cross")
