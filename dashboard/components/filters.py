@@ -16,7 +16,7 @@ def build_sidebar_filters(sites, channels, zones, events):
             st.session_state["filter_dow"] = list(range(7))
             st.session_state["filter_metric"] = "Eventos"
             st.session_state["filter_channels"] = ["101"] if "101" in channels else channels[:1]
-            st.session_state["filter_events"] = [e for e in ["enter", "exit", "pasante"] if e in events]
+            st.session_state["filter_events"] = [e for e in ["enter", "exit", "pasante", "visitor"] if e in events]
             st.session_state["filter_hours"] = (7, 23)
         elif preset == "Canal 701: Solo Entrada (door_mixed_2)":
             st.session_state["filter_dow"] = list(range(7))
@@ -42,14 +42,14 @@ def build_sidebar_filters(sites, channels, zones, events):
     else:
         st.session_state["preset_view_prev"] = preset
 
-    sel_sites = st.multiselect("Ubicación", options=sites, default=sites[:1] if len(sites) >= 1 else sites, key="filter_sites")
+    sel_sites = st.multiselect("Ubicación", options=sites, default=sites, key="filter_sites")
     sel_channels = st.multiselect("Dispositivo", options=channels, default=channels, key="filter_channels")
     sel_zones = st.multiselect("Zona", options=zones, default=zones, key="filter_zones")
-    allowed_events = [e for e in events if e in ("enter", "exit", "pasante", "visit")]
+    allowed_events = [e for e in events if e in ("enter", "exit", "pasante", "visitor", "visit")]
     sel_events = st.multiselect("Tipo de Evento", options=allowed_events, default=allowed_events, key="filter_events")
     hour_min, hour_max = st.slider("Rango Horario", min_value=0, max_value=23, value=(7, 23), key="filter_hours")
     dow_names = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
     dow_sel = st.multiselect("Día de la Semana", options=list(range(7)), default=list(range(7)), format_func=lambda i: dow_names[i], key="filter_dow")
-    align_series = st.toggle("Alinear a rango común (enter/exit y dispositivos)", value=True, key="filter_align")
+    align_series = st.toggle("Alinear a rango común (enter/exit y dispositivos)", value=False, key="filter_align")
     metric_mode = st.selectbox("Métrica de Análisis", options=["Eventos", "Personas"], index=0, key="filter_metric")
     return sel_sites, sel_channels, sel_zones, sel_events, hour_min, hour_max, dow_sel, align_series, metric_mode

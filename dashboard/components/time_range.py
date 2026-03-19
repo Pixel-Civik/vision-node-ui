@@ -18,18 +18,22 @@ def build_time_range(df: pd.DataFrame, min_d: pd.Timestamp, max_d: pd.Timestamp,
     except Exception:
         local_ts_all = df["ts"].dt.tz_convert("UTC")
     local_dates = local_ts_all.dt.floor("D")
-    months = sorted(local_dates.dt.to_period("M").unique().tolist())
+    try:
+        local_dates_naive = local_dates.dt.tz_localize(None)
+    except Exception:
+        local_dates_naive = local_dates
+    months = sorted(local_dates_naive.dt.to_period("M").unique().tolist())
     month_labels = [str(m) for m in months]
-    weeks = sorted(local_dates.dt.to_period("W-MON").unique().tolist())
+    weeks = sorted(local_dates_naive.dt.to_period("W-MON").unique().tolist())
     today = pd.Timestamp.now(tz=tz_info).date()
     default_start_date = min_d
     default_end_date_clamped = max_d if default_end_date > max_d else default_end_date
-    default_start_time = time(0, 0)
+    default_start_time = time(7, 0)
     default_end_time = time(23, 59, 59)
     range_sel = st.selectbox(
         "Seleccionar período",
         options=["Período Completo", "Período Completo (Alineado)", "Día", "Semana", "Mes", "Personalizado"],
-        index=1,
+        index=0,
     )
     if range_sel == "Día":
         d_def = max(min(today, max_d), min_d)

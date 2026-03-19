@@ -2,6 +2,8 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 from ..core.analytics import ts_metric
+from ..data import supabase_rpc
+import os
 
 def _fmt_hour_label(h: int) -> str:
     from datetime import datetime as dt_lib
@@ -13,29 +15,74 @@ def render_behavior(f: pd.DataFrame, start_ts, end_ts, metric_mode: str, pal: di
     metric = "eventos" if metric_mode == "Eventos" else "personas"
     y_title = "Eventos" if metric == "eventos" else "Personas (tracks únicos)"
     if duration_hours <= 48:
-        st.markdown("**1. Evolución Temporal por Hora**")
-        evo_base = f_ee.copy()
-        bucket_evo = "15min" if duration_hours <= 12 else "1H"
-        evo_base["ts_local"] = evo_base["local_date"] + pd.to_timedelta(evo_base["hour"], unit="h")
-        evo_tmp = evo_base.copy()
-        evo_tmp["ts"] = evo_tmp["ts_local"]
-        evo_tmp = evo_tmp.drop(columns=["ts_local"], errors="ignore")
-        g_evo = ts_metric(evo_tmp, bucket=bucket_evo, metric=metric)
-        if g_evo.empty:
-            st.info("No existen datos en el rango seleccionado.")
+        st.markdown("**1. Conteo por Hora (exacto)**")
+        if metric != "eventos":
+            st.caption("El conteo exacto por hora desde Supabase aplica a la métrica Eventos.")
+        site_vals = [str(x) for x in f_ee["site"].dropna().unique().tolist()] if "site" in f_ee.columns else []
+        site_name = site_vals[0] if len(site_vals) == 1 else None
+        if not site_name or f_ee.empty or metric != "eventos":
+            st.info("Selecciona una única ubicación y métrica Eventos para ver el conteo exacto por hora.")
         else:
-            ch_evo = (
-                alt.Chart(g_evo)
-                .mark_line(point=True, strokeWidth=3)
-                .encode(
-                    x=alt.X("ts:T", title="Tiempo"),
-                    y=alt.Y("count:Q", title=y_title),
-                    color=alt.Color("event_type:N", title="", scale=alt.Scale(domain=list(pal.keys()), range=list(pal.values()))),
-                    tooltip=[alt.Tooltip("ts:T", title="Tiempo", format="%d %b %H:%M"), "event_type:N", "count:Q"],
+            start_date = pd.to_datetime(f_ee["local_date"]).min().date()
+            end_date = pd.to_datetime(f_ee["local_date"]).max().date()
+            sb_url = os.getenv("SUPABASE_URL", "")
+            sb_key = os.getenv("SUPABASE_ANON_KEY", "") or os.getenv("SUPABASE_KEY", "")
+            try:
+                rows = supabase_rpc(
+                    sb_url,
+                    sb_key,
+                    "traffic_hourly_enter_exit",
+                    {"p_site": site_name, "p_start_date": str(start_date), "p_end_date": str(end_date)},
                 )
-                .properties(height=300)
-            )
-            st.altair_chart(ch_evo, use_container_width=True)
+                h = pd.DataFrame(rows)
+                if h.empty:
+                    st.info("No existen datos en el rango seleccionado.")
+                else:
+                    h["hour"] = pd.to_numeric(h["hour"], errors="coerce")
+                    h = h[h["hour"].notna()].copy()
+                    h["hour"] = h["hour"].astype(int)
+                    h = h[h["hour"].between(7, 23)].copy()
+                    h = h.groupby(["hour", "event_type"], as_index=False)["count"].sum()
+                    hours = list(range(7, 24))
+                    hour_labels = [_fmt_hour_label(x) for x in hours]
+                    full = pd.DataFrame({"hour": hours}).merge(pd.DataFrame({"event_type": ["enter", "exit"]}), how="cross")
+                    h = full.merge(h, on=["hour", "event_type"], how="left")
+                    h["count"] = pd.to_numeric(h["count"], errors="coerce").fillna(0).astype(int)
+                    h["hour_label"] = h["hour"].apply(_fmt_hour_label)
+                    ch = (
+                        alt.Chart(h)
+                        .mark_line(point=True, strokeWidth=3)
+                        .encode(
+                            x=alt.X("hour_label:N", title="Hora", sort=hour_labels, axis=alt.Axis(values=hour_labels, labelOverlap=False)),
+                            y=alt.Y("count:Q", title=y_title),
+                            color=alt.Color("event_type:N", title="", scale=alt.Scale(domain=list(pal.keys()), range=list(pal.values()))),
+                            tooltip=["hour_label:N", "event_type:N", "count:Q"],
+                        )
+                        .properties(height=300)
+                    )
+                    st.altair_chart(ch, use_container_width=True)
+                    if start_date == end_date:
+                        rows2 = supabase_rpc(sb_url, sb_key, "traffic_hourly_cumulative_enter_exit", {"p_site": site_name, "p_day": str(start_date)})
+                        cdf = pd.DataFrame(rows2)
+                        if not cdf.empty:
+                            cdf["hour"] = pd.to_numeric(cdf["hour"], errors="coerce")
+                            cdf = cdf[cdf["hour"].notna()].copy()
+                            cdf["hour"] = cdf["hour"].astype(int)
+                            cdf = cdf[cdf["hour"].between(7, 23)].copy()
+                            cdf["hour_label"] = cdf["hour"].apply(_fmt_hour_label)
+                            cch = (
+                                alt.Chart(cdf)
+                                .mark_line(point=True, strokeWidth=3)
+                                .encode(
+                                    x=alt.X("hour_label:N", title="Hora", sort=hour_labels),
+                                    y=alt.Y("net_cum:Q", title="Neto acumulado"),
+                                    tooltip=["hour_label:N", "net_cum:Q"],
+                                )
+                                .properties(height=180)
+                            )
+                            st.altair_chart(cch, use_container_width=True)
+            except Exception as e:
+                st.error(f"Error Supabase RPC: {e}")
     else:
         st.markdown("**1. Perfil Promedio por Hora (07:00 - 23:00)**")
         ha_base = f_ee.copy()

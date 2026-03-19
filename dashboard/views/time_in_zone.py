@@ -1,8 +1,9 @@
 import altair as alt
 import pandas as pd
 import streamlit as st
+from ..data import supabase_rpc
 
-def render_time_in_zone(f: pd.DataFrame):
+def render_time_in_zone(f: pd.DataFrame, ctx: dict):
     st.subheader("Tiempo en Zona")
     base = f.copy()
     if "event_type" not in base.columns:
@@ -40,18 +41,40 @@ def render_time_in_zone(f: pd.DataFrame):
     else:
         all_visits = base.copy()
         zone_sel = ""
-    c1, c2, c3, c4 = st.columns(4)
-    d = base["duration_s"]
-    c1.metric("Registros", f"{int(len(base))}")
-    c2.metric("Mediana", f"{float(d.median()):.1f}s ({float((d.median()/60.0)):.2f}m)")
-    c3.metric("Promedio", f"{float(d.mean()):.1f}s ({float((d.mean()/60.0)):.2f}m)")
-    c4.metric("P90", f"{float(d.quantile(0.90)):.1f}s ({float((d.quantile(0.90)/60.0)):.2f}m)")
+    sb_url = str(ctx.get("sb_url") or "").strip()
+    sb_key = str(ctx.get("sb_key") or "").strip()
+    if not sb_url or not sb_key:
+        st.warning("Faltan credenciales de Supabase en el .env.")
+        return
 
-    if "local_date" in base.columns:
-        num_days = int(base["local_date"].nunique())
-    else:
-        num_days = int(base["ts"].dt.floor("D").nunique())
-    st.metric("Promedio Visitas/Día", f"{round(len(base) / max(1, num_days), 2)}")
+    p_zones = [str(zone_sel)] if zone_sel else None
+    payload = {
+        "p_start_ts": ctx["start_ts"].isoformat(),
+        "p_end_ts": ctx["end_ts"].isoformat(),
+        "p_sites": ctx.get("sel_sites"),
+        "p_channels": ctx.get("sel_channels"),
+        "p_zones": p_zones,
+        "p_hour_min": None,
+        "p_hour_max": None,
+        "p_dows": ctx.get("dow_sel"),
+    }
+
+    kpi_rows = supabase_rpc(sb_url, sb_key, "dashboard_tiz_kpis", payload)
+    kpi = kpi_rows[0] if kpi_rows else {}
+    n = int(kpi.get("n") or 0)
+    days = int(kpi.get("days") or 1)
+    avg_visits_per_day = float(kpi.get("avg_visits_per_day") or 0)
+    avg_s = float(kpi.get("avg_s") or 0)
+    median_s = float(kpi.get("median_s") or 0)
+    p90_s = float(kpi.get("p90_s") or 0)
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Registros", f"{n}")
+    c2.metric("Mediana", f"{median_s:.1f}s ({(median_s/60.0):.2f}m)")
+    c3.metric("Promedio", f"{avg_s:.1f}s ({(avg_s/60.0):.2f}m)")
+    c4.metric("P90", f"{p90_s:.1f}s ({(p90_s/60.0):.2f}m)")
+
+    st.metric("Promedio Visitas/Día", f"{round(n / max(1, days), 2)}")
 
     def _sla_bucket(v: float) -> str:
         if v < 15:
@@ -69,10 +92,13 @@ def render_time_in_zone(f: pd.DataFrame):
     v1, v2 = st.columns([1, 1])
     with v1:
         st.markdown("**SLA de Colas (distribución)**")
-        sla = base.copy()
-        sla["bucket"] = sla["duration_s"].apply(_sla_bucket)
         order = ["<15s", "15-30s", "30-60s", "1-2m", "2-5m", "5m+"]
-        sla = sla.groupby("bucket", as_index=False).size().rename(columns={"size": "count"})
+        sla_rows = supabase_rpc(sb_url, sb_key, "dashboard_tiz_sla_buckets", payload)
+        sla = pd.DataFrame(sla_rows)
+        if sla.empty:
+            st.info("Sin datos para SLA.")
+            return
+        sla["count"] = pd.to_numeric(sla["count"], errors="coerce").fillna(0).astype(int)
         total = float(sla["count"].sum() or 1.0)
         sla["pct"] = (sla["count"] / total) * 100.0
         sla["bucket"] = pd.Categorical(sla["bucket"], categories=order, ordered=True)
@@ -102,12 +128,12 @@ def render_time_in_zone(f: pd.DataFrame):
         st.altair_chart(hist, use_container_width=True)
 
     st.markdown("**Picos por Hora (hora local)**")
-    if "hour" in base.columns:
-        by_hour = (
-            base.groupby("hour", as_index=False)
-            .agg(count=("duration_s", "size"), avg_duration_s=("duration_s", "mean"))
-            .sort_values("hour")
-        )
+    by_hour_rows = supabase_rpc(sb_url, sb_key, "dashboard_tiz_by_hour", payload)
+    by_hour = pd.DataFrame(by_hour_rows)
+    if not by_hour.empty:
+        by_hour["hour"] = pd.to_numeric(by_hour["hour"], errors="coerce").fillna(0).astype(int)
+        by_hour["count"] = pd.to_numeric(by_hour["count"], errors="coerce").fillna(0).astype(int)
+        by_hour["avg_s"] = pd.to_numeric(by_hour["avg_s"], errors="coerce").fillna(0.0)
         bar_h = (
             alt.Chart(by_hour)
             .mark_bar(opacity=0.25, color="#2563EB")
@@ -122,8 +148,8 @@ def render_time_in_zone(f: pd.DataFrame):
             .mark_line(point=True, color="#111827", strokeWidth=3)
             .encode(
                 x=alt.X("hour:O", title=""),
-                y=alt.Y("avg_duration_s:Q", title="Promedio (s)"),
-                tooltip=["hour:O", alt.Tooltip("avg_duration_s:Q", format=".1f", title="Promedio (s)")],
+                y=alt.Y("avg_s:Q", title="Promedio (s)"),
+                tooltip=["hour:O", alt.Tooltip("avg_s:Q", format=".1f", title="Promedio (s)")],
             )
         )
         st.altair_chart(alt.layer(bar_h, line_h).resolve_scale(y="independent").properties(height=240), use_container_width=True)
@@ -168,12 +194,11 @@ def render_time_in_zone(f: pd.DataFrame):
     st.altair_chart(alt.layer(bar, line).resolve_scale(y="independent").properties(height=260), use_container_width=True)
 
     st.markdown("**Tendencia Diaria (visitas vs tiempo promedio)**")
-    if "local_date" in base.columns:
-        by_day = (
-            base.groupby("local_date", as_index=False)
-            .agg(count=("duration_s", "size"), avg_duration_s=("duration_s", "mean"))
-            .sort_values("local_date")
-        )
+    by_day_rows = supabase_rpc(sb_url, sb_key, "dashboard_tiz_by_day", payload)
+    by_day = pd.DataFrame(by_day_rows)
+    if not by_day.empty:
+        by_day["count"] = pd.to_numeric(by_day["count"], errors="coerce").fillna(0).astype(int)
+        by_day["avg_s"] = pd.to_numeric(by_day["avg_s"], errors="coerce").fillna(0.0)
         bar_d = (
             alt.Chart(by_day)
             .mark_bar(opacity=0.22, color="#2563EB")
@@ -188,8 +213,8 @@ def render_time_in_zone(f: pd.DataFrame):
             .mark_line(point=True, color="#111827", strokeWidth=3)
             .encode(
                 x=alt.X("local_date:T", title=""),
-                y=alt.Y("avg_duration_s:Q", title="Promedio (s)"),
-                tooltip=[alt.Tooltip("local_date:T", title="Fecha", format="%d %b"), alt.Tooltip("avg_duration_s:Q", format=".1f", title="Promedio (s)")],
+                y=alt.Y("avg_s:Q", title="Promedio (s)"),
+                tooltip=[alt.Tooltip("local_date:T", title="Fecha", format="%d %b"), alt.Tooltip("avg_s:Q", format=".1f", title="Promedio (s)")],
             )
         )
         st.altair_chart(alt.layer(bar_d, line_d).resolve_scale(y="independent").properties(height=240), use_container_width=True)
@@ -217,14 +242,14 @@ def render_time_in_zone(f: pd.DataFrame):
 
     if zone_col in all_visits.columns and all_visits[zone_col].notna().any():
         st.markdown("**Top Zonas por Tiempo (mediana y P90)**")
-        z = all_visits.copy()
-        z = z[z[zone_col].notna()].copy()
-        stats = (
-            z.groupby(zone_col, as_index=False)["duration_s"]
-            .agg(count="size", median="median", p90=lambda s: float(s.quantile(0.90)))
-            .sort_values(["median", "count"], ascending=[False, False])
-            .head(12)
-        )
+        stats_rows = supabase_rpc(sb_url, sb_key, "dashboard_tiz_zone_stats", {**payload, "p_limit": 12})
+        stats = pd.DataFrame(stats_rows)
+        if stats.empty:
+            return
+        stats = stats.rename(columns={"zone": zone_col, "n": "count", "median_s": "median", "p90_s": "p90"})
+        stats["count"] = pd.to_numeric(stats["count"], errors="coerce").fillna(0).astype(int)
+        stats["median"] = pd.to_numeric(stats["median"], errors="coerce").fillna(0.0)
+        stats["p90"] = pd.to_numeric(stats["p90"], errors="coerce").fillna(0.0)
         bars = (
             alt.Chart(stats)
             .mark_bar(color="#7C3AED")

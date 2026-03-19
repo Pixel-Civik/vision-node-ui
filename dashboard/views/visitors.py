@@ -1,8 +1,9 @@
 import altair as alt
 import pandas as pd
 import streamlit as st
+from ..data import supabase_rpc
 
-def render_visitors(f: pd.DataFrame):
+def render_visitors(f: pd.DataFrame, ctx: dict):
     st.subheader("Pasantes")
     base = f.copy()
     if "event_type" not in base.columns:
@@ -24,24 +25,55 @@ def render_visitors(f: pd.DataFrame):
             if base.empty:
                 st.info("Sin datos para la zona seleccionada.")
                 return
+
+    sb_url = str(ctx.get("sb_url") or "").strip()
+    sb_key = str(ctx.get("sb_key") or "").strip()
+    if not sb_url or not sb_key:
+        st.warning("Faltan credenciales de Supabase en el .env.")
+        return
+
+    p_zones = None
+    if zone_col and zones and zone_sel != "Todas":
+        p_zones = [str(zone_sel)]
+
+    payload = {
+        "p_start_ts": ctx["start_ts"].isoformat(),
+        "p_end_ts": ctx["end_ts"].isoformat(),
+        "p_sites": ctx.get("sel_sites"),
+        "p_channels": ctx.get("sel_channels"),
+        "p_zones": p_zones,
+        "p_events": ["pasante"],
+        "p_hour_min": None,
+        "p_hour_max": None,
+        "p_dows": ctx.get("dow_sel"),
+    }
+
+    kpi_rows = supabase_rpc(sb_url, sb_key, "dashboard_kpi", payload)
+    kpi = kpi_rows[0] if kpi_rows else {}
+    total = int(kpi.get("total") or 0)
+    num_days = int(kpi.get("days") or 1)
+    avg_per_day = float(kpi.get("avg_per_day") or 0)
+    zones_n = int(base["zone_name"].nunique() if "zone_name" in base.columns else 0)
+    devices = int(base["channel"].nunique() if "channel" in base.columns else 0)
+
     c1, c2, c3 = st.columns(3)
     with c1:
-        st.metric("Total Pasantes", f"{int(len(base))}")
+        st.metric("Total Pasantes", f"{total}")
     with c2:
-        st.metric("Zonas", f"{int(base['zone_name'].nunique() if 'zone_name' in base.columns else 0)}")
+        st.metric("Zonas", f"{zones_n}")
     with c3:
-        st.metric("Dispositivos", f"{int(base['channel'].nunique() if 'channel' in base.columns else 0)}")
-    if "local_date" in base.columns:
-        num_days = int(base["local_date"].nunique())
-    else:
-        num_days = int(base["ts"].dt.floor("D").nunique())
-    st.metric("Promedio Pasantes/Día", f"{round(len(base) / max(1, num_days), 2)}")
+        st.metric("Dispositivos", f"{devices}")
+    st.metric("Promedio Pasantes/Día", f"{round(total / max(1, num_days), 2)}")
 
-    if "hour" in base.columns:
-        st.markdown("**Picos por Hora (hora local)**")
-        by_hour = base.groupby("hour", as_index=False).size().rename(columns={"size": "count"}).sort_values("hour")
+    st.markdown("**Picos por Hora (hora local)**")
+    by_hour_rows = supabase_rpc(sb_url, sb_key, "dashboard_hourly_totals", payload)
+    by_hour = pd.DataFrame(by_hour_rows)
+    if not by_hour.empty:
+        by_hour = by_hour[by_hour["event_type"] == "pasante"].copy()
+        by_hour["hour"] = pd.to_numeric(by_hour["hour"], errors="coerce").fillna(0).astype(int)
+        by_hour["count"] = pd.to_numeric(by_hour["count"], errors="coerce").fillna(0).astype(int)
         full = pd.DataFrame({"hour": list(range(24))})
-        by_hour = full.merge(by_hour, on="hour", how="left")
+        by_hour = full.merge(by_hour[["hour", "count"]], on="hour", how="left")
         by_hour["count"] = by_hour["count"].fillna(0).astype(int)
         peak_row = by_hour.sort_values(["count", "hour"], ascending=[False, True]).head(1)
         if not peak_row.empty:
@@ -61,31 +93,32 @@ def render_visitors(f: pd.DataFrame):
         st.altair_chart(ch_hour, use_container_width=True)
 
     st.markdown("**Pasantes por Hora (serie)**")
-    if "local_date" in base.columns and "hour" in base.columns:
-        s = base.copy()
-        s["local_ts"] = s["local_date"] + pd.to_timedelta(s["hour"], unit="h")
-        series = s.groupby("local_ts", as_index=False).size().rename(columns={"size": "count"}).sort_values("local_ts")
-        x_field = "local_ts:T"
-    else:
-        b = base.copy()
-        b = b[b["ts"].notna()].copy()
-        b = b.set_index("ts").sort_index()
-        series = b.resample("1H").size().rename("count").reset_index().rename(columns={"ts": "local_ts"})
-        x_field = "local_ts:T"
+    series_rows = supabase_rpc(sb_url, sb_key, "dashboard_timeseries_hourly", payload)
+    series = pd.DataFrame(series_rows)
+    if series.empty:
+        return
+    series = series[series["event_type"] == "pasante"].copy()
+    series["count"] = pd.to_numeric(series["count"], errors="coerce").fillna(0).astype(int)
     ch = (
         alt.Chart(series)
         .mark_line(point=True, strokeWidth=3, color="#111827")
         .encode(
-            x=alt.X(x_field, title="Tiempo"),
+            x=alt.X("local_ts_hour:T", title="Tiempo"),
             y=alt.Y("count:Q", title="Pasantes"),
-            tooltip=[alt.Tooltip(x_field, title="Tiempo", format="%d %b %H:%M"), "count:Q"],
+            tooltip=[alt.Tooltip("local_ts_hour:T", title="Tiempo", format="%d %b %H:%M"), "count:Q"],
         )
         .properties(height=220)
     )
     st.altair_chart(ch, use_container_width=True)
     st.markdown("**Pasantes por Zona**")
     if "zone_name" in base.columns:
-        z = base.groupby("zone_name", as_index=False).size().rename(columns={"size": "count"})
+        z_rows = supabase_rpc(sb_url, sb_key, "dashboard_breakdown_zone", payload)
+        z = pd.DataFrame(z_rows)
+        if z.empty:
+            return
+        z = z[z["event_type"] == "pasante"].copy()
+        z = z.rename(columns={"zone": "zone_name"})
+        z["count"] = pd.to_numeric(z["count"], errors="coerce").fillna(0).astype(int)
         cz = (
             alt.Chart(z)
             .mark_bar(color="#111827")
@@ -99,7 +132,12 @@ def render_visitors(f: pd.DataFrame):
         st.altair_chart(cz, use_container_width=True)
     st.markdown("**Pasantes por Dispositivo**")
     if "channel" in base.columns:
-        cam = base.groupby("channel", as_index=False).size().rename(columns={"size": "count"})
+        cam_rows = supabase_rpc(sb_url, sb_key, "dashboard_breakdown_channel", payload)
+        cam = pd.DataFrame(cam_rows)
+        if cam.empty:
+            return
+        cam = cam[cam["event_type"] == "pasante"].copy()
+        cam["count"] = pd.to_numeric(cam["count"], errors="coerce").fillna(0).astype(int)
         cc = (
             alt.Chart(cam)
             .mark_bar(color="#2563EB")

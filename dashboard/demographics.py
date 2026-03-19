@@ -2,8 +2,9 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 from .core.utils import bucket_age, with_hour_and_dow
+from .data import supabase_rpc
 
-def render_demographics(f: pd.DataFrame):
+def render_demographics(f: pd.DataFrame, start_ts, end_ts, ctx: dict):
     demo = f.copy()
     if "event_type" in demo.columns:
         demo = demo[demo["event_type"] == "enter"].copy()
@@ -15,6 +16,18 @@ def render_demographics(f: pd.DataFrame):
     if not has_demo:
         return
     st.subheader("Análisis Demográfico")
+    sb_url = str(ctx.get("sb_url") or "").strip()
+    sb_key = str(ctx.get("sb_key") or "").strip()
+    payload = {
+        "p_start_ts": start_ts.isoformat(),
+        "p_end_ts": end_ts.isoformat(),
+        "p_sites": ctx.get("sel_sites"),
+        "p_channels": ctx.get("sel_channels"),
+        "p_zones": ctx.get("sel_zones"),
+        "p_hour_min": ctx.get("hour_min"),
+        "p_hour_max": ctx.get("hour_max"),
+        "p_dows": ctx.get("dow_sel"),
+    }
     if demo.get("gender").notna().any():
         g1, g2 = st.columns([1.4, 1.0])
         gg = demo[demo["gender"].notna()].copy()
@@ -39,7 +52,11 @@ def render_demographics(f: pd.DataFrame):
                 st.altair_chart(chg, use_container_width=True)
         with g2:
             st.markdown("**Distribución por Género: Porcentaje Total**")
-            pct = gg.groupby("gender", as_index=False).size().rename(columns={"size": "count"})
+            rows = supabase_rpc(sb_url, sb_key, "dashboard_demo_gender_total", payload) if sb_url and sb_key else []
+            pct = pd.DataFrame(rows)
+            if pct.empty:
+                pct = gg.groupby("gender", as_index=False).size().rename(columns={"size": "count"})
+            pct["count"] = pd.to_numeric(pct["count"], errors="coerce").fillna(0).astype(int)
             pct["pct"] = (pct["count"] / max(1, pct["count"].sum())) * 100.0
             dp = (
                 alt.Chart(pct)
@@ -100,7 +117,13 @@ def render_demographics(f: pd.DataFrame):
                 st.altair_chart(ch_age, use_container_width=True)
             with a2:
                 st.markdown("**Edad: Distribución Total**")
-                ab = aa.groupby("age_bucket", as_index=False).size().rename(columns={"size": "count"})
+                rows = supabase_rpc(sb_url, sb_key, "dashboard_demo_age_total", payload) if sb_url and sb_key else []
+                ab = pd.DataFrame(rows)
+                if not ab.empty:
+                    ab = ab.rename(columns={"age": "age_bucket"})
+                    ab["count"] = pd.to_numeric(ab["count"], errors="coerce").fillna(0).astype(int)
+                else:
+                    ab = aa.groupby("age_bucket", as_index=False).size().rename(columns={"size": "count"})
                 total = float(ab["count"].sum() or 1.0)
                 ab["pct"] = (ab["count"] / total) * 100.0
                 pie_age = (

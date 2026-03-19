@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import pandas as pd
 import streamlit as st
 
@@ -52,6 +53,24 @@ def render_dashboard(df_raw: pd.DataFrame, source_name: str) -> None:
     with st.sidebar:
         sel_sites, sel_channels, sel_zones, sel_events, hour_min, hour_max, dow_sel, align_series, metric_mode = build_sidebar_filters(sites, channels, zones, events)
 
+    sb_url = os.getenv("SUPABASE_URL", "")
+    sb_key = os.getenv("SUPABASE_ANON_KEY", "") or os.getenv("SUPABASE_KEY", "")
+    ctx = {
+        "sb_url": sb_url,
+        "sb_key": sb_key,
+        "start_ts": start_ts,
+        "end_ts": end_ts,
+        "sel_sites": sel_sites or None,
+        "sel_channels": sel_channels or None,
+        "sel_zones": sel_zones or None,
+        "sel_events": sel_events or None,
+        "hour_min": int(hour_min),
+        "hour_max": int(hour_max),
+        "dow_sel": dow_sel or None,
+        "metric_mode": metric_mode,
+        "source_name": source_name,
+    }
+
     start_ts_exec = start_ts
     end_ts_exec = end_ts
     if align_series and sel_channels and len(sel_channels) > 1:
@@ -74,7 +93,7 @@ def render_dashboard(df_raw: pd.DataFrame, source_name: str) -> None:
                     end_ts_exec = end_ts
 
     f = apply_data_filters(df, start_ts_exec, end_ts_exec, sel_sites, sel_channels, sel_zones, sel_events, hour_min, hour_max, dow_sel, apply_hour_filter=True)
-    f_traffic = apply_data_filters(df, start_ts, end_ts, sel_sites, sel_channels, [], sel_events, hour_min, hour_max, dow_sel, apply_hour_filter=False)
+    f_traffic = apply_data_filters(df, start_ts, end_ts, sel_sites, sel_channels, [], [], hour_min, hour_max, dow_sel, apply_hour_filter=False)
     if f.empty:
         if not f_traffic.empty:
             st.warning("Hay eventos en el período seleccionado, pero el filtro horario los está ocultando. Ajusta el rango horario (p.ej. 0–23) o usa un preset sin recorte por horas.")
@@ -85,7 +104,7 @@ def render_dashboard(df_raw: pd.DataFrame, source_name: str) -> None:
 
     pal = palette_utils()
     f_ee = f[f["event_type"].isin(["enter", "exit"])].copy()
-    enters, exits, total_ev = render_exec_metrics(f_ee if not f_ee.empty else f)
+    enters, exits, total_ev = render_exec_metrics(ctx, start_ts_exec, end_ts_exec)
     f_ee_all = f_traffic[f_traffic["event_type"].isin(["enter", "exit"])].copy()
     exits_all = int((f_ee_all["event_type"] == "exit").sum()) if not f_ee_all.empty else 0
     enters_all = int((f_ee_all["event_type"] == "enter").sum()) if not f_ee_all.empty else 0
@@ -148,13 +167,13 @@ def render_dashboard(df_raw: pd.DataFrame, source_name: str) -> None:
             st.subheader("Análisis de Patrones de Comportamiento")
             render_behavior(f_ee if not f_ee.empty else f, start_ts_exec, end_ts_exec, metric_mode, pal)
         with right:
-            render_right_panel(f_ee if not f_ee.empty else f, enters, exits, total_ev, start_ts_exec, end_ts_exec, pal)
-        render_advanced(f_ee if not f_ee.empty else f)
-        render_demographics(f_ee if not f_ee.empty else f)
+            render_right_panel(f_ee if not f_ee.empty else f, enters, exits, total_ev, start_ts_exec, end_ts_exec, pal, ctx)
+        render_advanced(f_ee if not f_ee.empty else f, start_ts_exec, end_ts_exec, ctx)
+        render_demographics(f_ee if not f_ee.empty else f, start_ts_exec, end_ts_exec, ctx)
     idx = 1
     if has_pasantes or has_visits or has_enters:
         with tabs[idx]:
-            render_traffic(f_traffic)
+            render_traffic(f_traffic, ctx)
         idx += 1
     with tabs[idx]:
         render_table(f)

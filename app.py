@@ -7,7 +7,6 @@ from pathlib import Path
 import altair as alt
 import pandas as pd
 import os
-import requests
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -15,7 +14,7 @@ from dotenv import load_dotenv
 env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(env_path)
 
-from dashboard.data import load_json_from_bytes, load_sample_bytes, read_bytes_from_path, load_from_azure
+from dashboard.data import load_json_from_bytes, load_from_supabase
 from dashboard.normalize import normalize_events
 from dashboard.views.present import render_dashboard
 from dashboard.style.styles import inject_styles
@@ -28,11 +27,7 @@ class DataSource:
 
 
 SOURCES = [
-    DataSource("azure", "Home (Auto)"),
-    DataSource("sample", "Ejemplo (incluido)"),
-    DataSource("upload", "Subir archivo JSON"),
-    DataSource("path", "Ruta local (servidor)"),
-    DataSource("url", "URL (SAS/publica)"),
+    DataSource("supabase", "Supabase"),
 ]
 
 
@@ -56,97 +51,43 @@ def main() -> None:
     with st.sidebar:
         st.markdown("### Panel de Control")
         st.markdown("---")
-        st.markdown("Fuente de Datos")
-        source_kind = st.selectbox("Seleccionar origen", options=[s.kind for s in SOURCES], format_func=lambda k: next(s.label for s in SOURCES if s.kind == k))
-        st.markdown("---")
         st.subheader("Fuente de datos")
-        src = st.radio(
-            "Elegir",
-            options=[s.kind for s in SOURCES],
-            format_func=lambda k: next(s.label for s in SOURCES if s.kind == k),
-            label_visibility="collapsed",
-        )
+        src = "supabase"
+        st.caption("Fuente activa: Supabase")
 
         raw_bytes: bytes | None = None
         source_name = ""
 
-        if src == "sample":
-            raw_bytes = load_sample_bytes()
-            source_name = "sample"
+        if src == "supabase":
+            sb_url_env = os.getenv("SUPABASE_URL", "")
+            sb_key_env = os.getenv("SUPABASE_ANON_KEY", "") or os.getenv("SUPABASE_KEY", "")
+            st.caption("Lee eventos desde la vista tracking_logs_view.")
 
-        if src == "upload":
-            up = st.file_uploader("JSON", type=["json"])
-            if up is not None:
-                raw_bytes = up.read()
-                source_name = up.name
+            sb_url = sb_url_env
+            sb_key = sb_key_env
+            if not sb_url:
+                sb_url = st.text_input("SUPABASE_URL", value="", placeholder="https://xxxx.supabase.co")
+            if not sb_key:
+                sb_key = st.text_input("SUPABASE_ANON_KEY (o SUPABASE_KEY)", value="", type="password")
 
-        if src == "path":
-            p_front = Path(__file__).resolve().parent / "tracking-logs.json"
-            if p_front.exists():
-                default_path = str(p_front)
-            else:
-                default_path = str(Path(__file__).resolve().parents[1] / "server" / "examples" / "tracking_logs.sample.json")
-            path_str = st.text_input("Ruta al JSON", value=default_path)
-            if path_str.strip():
+            if st.button("Recargar Supabase"):
                 try:
-                    raw_bytes = read_bytes_from_path(Path(path_str))
-                    source_name = path_str
-                except Exception as e:
-                    st.error(f"No se pudo leer la ruta: {e}")
+                    load_from_supabase.clear()
+                except Exception:
+                    pass
 
-        if src == "url":
-            url = st.text_input("URL (SAS o pública)")
-            headers = {}
-            token = st.text_input("Bearer (opcional)", type="password")
-            if token.strip():
-                headers["Authorization"] = f"Bearer {token.strip()}"
-            if url.strip():
+            if (sb_url and sb_key) or (sb_url_env and sb_key_env):
                 try:
-                    r = requests.get(url.strip(), headers=headers, timeout=30)
-                    r.raise_for_status()
-                    raw_bytes = r.content
-                    source_name = url.strip()
+                    rows2 = load_from_supabase(
+                        sb_url,
+                        sb_key,
+                        view="tracking_logs_view",
+                        max_rows=200000,
+                    )
+                    raw_bytes = json.dumps(rows2, ensure_ascii=False).encode("utf-8")
+                    source_name = "supabase://tracking_logs_view"
                 except Exception as e:
-                    st.error(f"No se pudo descargar la URL: {e}")
-
-        if src == "azure":
-            cs = os.getenv("AZURE_STORAGE_CONNECTION_STRING", "")
-            
-            # Ajustar defaults según tu estructura
-            # Ruta: processed/<site>/tracking_logs.json
-            container = "videos"
-            blob_path = "processed/miraflores1/tracking_logs.json"
-            
-            # Carga automática si hay connection string en env
-            if cs:
-                if "azure_loaded" not in st.session_state:
-                     try:
-                        raw_bytes = load_from_azure(cs, container, blob_path)
-                        source_name = f"azure://{container}/{blob_path}"
-                        st.session_state["azure_loaded"] = True
-                     except Exception as e:
-                        st.error(f"Error Azure Auto: {e}")
-                else:
-                    # Si ya cargó, intentamos refrescar solo si explícitamente se pide o al recargar
-                    try:
-                        raw_bytes = load_from_azure(cs, container, blob_path)
-                        source_name = f"azure://{container}/{blob_path}"
-                    except Exception:
-                         pass
-
-            if not cs:
-                st.warning("No se detectó AZURE_STORAGE_CONNECTION_STRING. Configura el .env o Railway.")
-                cs_input = st.text_input("Connection String (Manual)", type="password")
-                if st.button("Cargar Manual"):
-                    if not cs_input:
-                         st.error("Falta Connection String")
-                    else:
-                        try:
-                            raw_bytes = load_from_azure(cs_input, container, blob_path)
-                            source_name = f"azure://{container}/{blob_path}"
-                            st.session_state["azure_loaded"] = True
-                        except Exception as e:
-                            st.error(f"Error: {e}")
+                    st.error(f"Error Supabase: {e}")
 
         st.divider()
         st.subheader("Filtros")

@@ -4,25 +4,11 @@ import json
 from pathlib import Path
 
 import streamlit as st
-from azure.storage.blob import BlobServiceClient
 import os
 from dotenv import load_dotenv
+import requests
 
 load_dotenv()
-
-
-@st.cache_data(show_spinner=False, ttl=60)
-def load_from_azure(conn_str: str, container: str, blob_name: str) -> bytes:
-    if not conn_str or not container or not blob_name:
-        raise ValueError("Faltan credenciales/config de Azure")
-    try:
-        service = BlobServiceClient.from_connection_string(conn_str)
-        cc = service.get_container_client(container)
-        blob = cc.get_blob_client(blob_name)
-        return blob.download_blob().readall()
-    except Exception as e:
-        raise RuntimeError(f"Azure error: {e}")
-
 
 
 @st.cache_data(show_spinner=False)
@@ -47,3 +33,97 @@ def load_json_from_bytes(raw: bytes):
         return data
     raise ValueError("JSON inesperado")
 
+
+@st.cache_data(show_spinner=False, ttl=60)
+def load_from_supabase(
+    sb_url: str,
+    sb_key: str,
+    *,
+    view: str = "tracking_logs_view",
+    site: str | None = None,
+    since_iso: str | None = None,
+    until_iso: str | None = None,
+    max_rows: int = 50000,
+    page_size: int = 10000,
+) -> list[dict]:
+    sb_url = str(sb_url or "").replace("`", "").replace("\"", "").replace("'", "").strip().rstrip("/")
+    sb_key = str(sb_key or "").replace("`", "").replace("\"", "").replace("'", "").strip()
+    if not sb_url or not sb_key:
+        raise ValueError("Faltan credenciales/config de Supabase (SUPABASE_URL/SUPABASE_KEY)")
+
+    base = f"{sb_url}/rest/v1/{str(view).strip()}"
+    headers = {
+        "apikey": sb_key,
+        "Authorization": f"Bearer {sb_key}",
+        "Accept": "application/json",
+    }
+
+    cols = [
+        "site",
+        "channel",
+        "event",
+        "zone",
+        "time",
+        "track_id",
+        "gender",
+        "age",
+        "dwell_sec",
+        "time_start",
+        "time_end",
+        "duration_sec",
+        "crossed",
+        "confirmed",
+        "inferred",
+    ]
+
+    out: list[dict] = []
+    offset = 0
+    while offset < int(max_rows):
+        requested = int(min(page_size, max_rows - offset))
+        params: list[tuple[str, str]] = [
+            ("select", ",".join(cols)),
+            ("order", "time.asc"),
+            ("limit", str(requested)),
+            ("offset", str(int(offset))),
+        ]
+        if site:
+            params.append(("site", f"eq.{site}"))
+        if since_iso:
+            params.append(("time", f"gte.{since_iso}"))
+        if until_iso:
+            params.append(("time", f"lt.{until_iso}"))
+
+        r = requests.get(base, headers=headers, params=params, timeout=60)
+        r.raise_for_status()
+        batch = r.json()
+        if not isinstance(batch, list):
+            break
+        batch = [x for x in batch if isinstance(x, dict)]
+        batch_n = len(batch)
+        if batch_n == 0:
+            break
+        out.extend(batch)
+        offset += batch_n
+
+    return out
+
+
+@st.cache_data(show_spinner=False, ttl=60)
+def supabase_rpc(sb_url: str, sb_key: str, fn: str, payload: dict) -> list[dict]:
+    sb_url = str(sb_url or "").replace("`", "").replace("\"", "").replace("'", "").strip().rstrip("/")
+    sb_key = str(sb_key or "").replace("`", "").replace("\"", "").replace("'", "").strip()
+    if not sb_url or not sb_key:
+        raise ValueError("Faltan credenciales/config de Supabase (SUPABASE_URL/SUPABASE_KEY)")
+    url = f"{sb_url}/rest/v1/rpc/{str(fn).strip()}"
+    headers = {
+        "apikey": sb_key,
+        "Authorization": f"Bearer {sb_key}",
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+    r = requests.post(url, headers=headers, json=(payload or {}), timeout=60)
+    r.raise_for_status()
+    data = r.json()
+    if isinstance(data, list):
+        return [x for x in data if isinstance(x, dict)]
+    return []
