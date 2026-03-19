@@ -24,3 +24,6 @@ streamlit run app.py
 - Subir archivo JSON
 - Ruta local a un JSON (útil si tienes el blob descargado)
 - URL HTTP/HTTPS (útil para SAS/publica)
+
+### Enlace soportado
+https://vision-node-ui-d5lzsmkvgcxattjo4pfnoc.streamlit.app/
