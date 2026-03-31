@@ -7,7 +7,6 @@ def _to_dt(s: pd.Series) -> pd.Series:
     if s is None:
         return pd.Series([], dtype="datetime64[ns, UTC]")
     out = pd.to_datetime(s, errors="coerce", utc=True)
-    out = out + pd.Timedelta(hours=5)
     if out.isna().any():
         try:
             from datetime import datetime
@@ -25,8 +24,8 @@ def _to_dt(s: pd.Series) -> pd.Series:
                 try:
                     dt = datetime.fromisoformat(t)
                     if dt.tzinfo is None:
-                        return pd.Timestamp(dt, tz="UTC") + pd.Timedelta(hours=5)
-                    return pd.Timestamp(dt).tz_convert("UTC") + pd.Timedelta(hours=5)
+                        return pd.Timestamp(dt, tz="UTC")
+                    return pd.Timestamp(dt).tz_convert("UTC")
                 except Exception:
                     return pd.NaT
             fixed = s[mask].map(parse_one)

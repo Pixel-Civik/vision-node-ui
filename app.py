@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(env_path)
 
-from dashboard.data import load_json_from_bytes, load_from_supabase
+from dashboard.data import load_json_from_bytes, load_from_supabase, supabase_rpc
 from dashboard.normalize import normalize_events
 from dashboard.views.present import render_dashboard
 from dashboard.style.styles import inject_styles
@@ -73,6 +73,7 @@ def main() -> None:
             if st.button("Recargar Supabase"):
                 try:
                     load_from_supabase.clear()
+                    supabase_rpc.clear()
                 except Exception:
                     pass
 
