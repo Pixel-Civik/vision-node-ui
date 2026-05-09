@@ -1,7 +1,8 @@
 import altair as alt
+import numpy as np
 import pandas as pd
 import streamlit as st
-from ..data import supabase_rpc
+
 
 def render_time_in_zone(f: pd.DataFrame, ctx: dict):
     st.subheader("Tiempo en Zona")
@@ -13,23 +14,25 @@ def render_time_in_zone(f: pd.DataFrame, ctx: dict):
     if base.empty:
         st.info("No hay eventos de tiempo en zona (visit) en el rango seleccionado.")
         return
+
     if "duration_s" in base.columns:
         base["duration_s"] = pd.to_numeric(base["duration_s"], errors="coerce")
     elif "dwell_sec" in base.columns:
         base["duration_s"] = pd.to_numeric(base["dwell_sec"], errors="coerce")
     else:
         base["duration_s"] = pd.NA
+
     base = base[base["duration_s"].notna()].copy()
     if base.empty:
         st.info("No hay duración válida (dwell_sec) para tiempo en zona.")
         return
-    zone_col = "zone_name" if "zone_name" in base.columns else "zone"
-    base["duration_s"] = pd.to_numeric(base["duration_s"], errors="coerce")
-    base = base[base["duration_s"].notna()].copy()
+
     base["duration_s"] = base["duration_s"].astype("float64")
     base["duration_min"] = base["duration_s"] / 60.0
+    zone_col = "zone_name" if "zone_name" in base.columns else "zone"
+    all_visits = base.copy()
+
     if zone_col in base.columns:
-        all_visits = base.copy()
         zones = sorted([z for z in base[zone_col].dropna().astype("string").unique().tolist() if str(z).strip()])
         if zones:
             default_zone = "queue" if "queue" in zones else zones[0]
@@ -39,75 +42,47 @@ def render_time_in_zone(f: pd.DataFrame, ctx: dict):
                 st.info("Sin datos para la zona seleccionada.")
                 return
     else:
-        all_visits = base.copy()
         zone_sel = ""
-    sb_url = str(ctx.get("sb_url") or "").strip()
-    sb_key = str(ctx.get("sb_key") or "").strip()
-    if not sb_url or not sb_key:
-        st.warning("Faltan credenciales de Supabase en el .env.")
-        return
 
-    p_zones = [str(zone_sel)] if zone_sel else None
-    payload = {
-        "p_start_ts": ctx["start_ts"].isoformat(),
-        "p_end_ts": ctx["end_ts"].isoformat(),
-        "p_sites": ctx.get("sel_sites"),
-        "p_channels": ctx.get("sel_channels"),
-        "p_zones": p_zones,
-        "p_hour_min": None,
-        "p_hour_max": None,
-        "p_dows": ctx.get("dow_sel"),
-    }
-
-    kpi_rows = supabase_rpc(sb_url, sb_key, "dashboard_tiz_kpis", payload)
-    kpi = kpi_rows[0] if kpi_rows else {}
-    n = int(kpi.get("n") or 0)
-    days = int(kpi.get("days") or 1)
-    avg_visits_per_day = float(kpi.get("avg_visits_per_day") or 0)
-    avg_s = float(kpi.get("avg_s") or 0)
-    median_s = float(kpi.get("median_s") or 0)
-    p90_s = float(kpi.get("p90_s") or 0)
+    # ── KPIs desde pandas ────────────────────────────────────────────────────
+    n        = len(base)
+    avg_s    = float(base["duration_s"].mean() or 0)
+    median_s = float(base["duration_s"].median() or 0)
+    p90_s    = float(np.percentile(base["duration_s"].dropna(), 90)) if n > 0 else 0.0
+    days     = int(base["local_date"].nunique()) if "local_date" in base.columns else 1
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Registros", f"{n}")
-    c2.metric("Mediana", f"{median_s:.1f}s ({(median_s/60.0):.2f}m)")
-    c3.metric("Promedio", f"{avg_s:.1f}s ({(avg_s/60.0):.2f}m)")
-    c4.metric("P90", f"{p90_s:.1f}s ({(p90_s/60.0):.2f}m)")
-
+    c2.metric("Mediana", f"{median_s:.1f}s ({median_s/60:.2f}m)")
+    c3.metric("Promedio", f"{avg_s:.1f}s ({avg_s/60:.2f}m)")
+    c4.metric("P90", f"{p90_s:.1f}s ({p90_s/60:.2f}m)")
     st.metric("Promedio Visitas/Día", f"{round(n / max(1, days), 2)}")
 
+    # ── SLA buckets + histograma ──────────────────────────────────────────────
     def _sla_bucket(v: float) -> str:
-        if v < 15:
-            return "<15s"
-        if v < 30:
-            return "15-30s"
-        if v < 60:
-            return "30-60s"
-        if v < 120:
-            return "1-2m"
-        if v < 300:
-            return "2-5m"
+        if v < 15:   return "<15s"
+        if v < 30:   return "15-30s"
+        if v < 60:   return "30-60s"
+        if v < 120:  return "1-2m"
+        if v < 300:  return "2-5m"
         return "5m+"
 
+    order = ["<15s", "15-30s", "30-60s", "1-2m", "2-5m", "5m+"]
     v1, v2 = st.columns([1, 1])
     with v1:
         st.markdown("**SLA de Colas (distribución)**")
-        order = ["<15s", "15-30s", "30-60s", "1-2m", "2-5m", "5m+"]
-        sla_rows = supabase_rpc(sb_url, sb_key, "dashboard_tiz_sla_buckets", payload)
-        sla = pd.DataFrame(sla_rows)
-        if sla.empty:
-            st.info("Sin datos para SLA.")
-            return
-        sla["count"] = pd.to_numeric(sla["count"], errors="coerce").fillna(0).astype(int)
-        total = float(sla["count"].sum() or 1.0)
-        sla["pct"] = (sla["count"] / total) * 100.0
-        sla["bucket"] = pd.Categorical(sla["bucket"], categories=order, ordered=True)
+        sla = base.copy()
+        sla["bucket"] = sla["duration_s"].apply(_sla_bucket)
+        sla_agg = sla.groupby("bucket", as_index=False).size().rename(columns={"size": "count"})
+        total = float(sla_agg["count"].sum() or 1)
+        sla_agg["pct"] = (sla_agg["count"] / total) * 100.0
+        sla_agg["bucket"] = pd.Categorical(sla_agg["bucket"], categories=order, ordered=True)
         pie = (
-            alt.Chart(sla)
+            alt.Chart(sla_agg)
             .mark_arc(innerRadius=70)
             .encode(
                 theta=alt.Theta("count:Q"),
-                color=alt.Color("bucket:N", title=""),
+                color=alt.Color("bucket:N", title="", sort=order),
                 tooltip=["bucket:N", "count:Q", alt.Tooltip("pct:Q", format=".1f", title="%")],
             )
             .properties(height=260)
@@ -127,13 +102,13 @@ def render_time_in_zone(f: pd.DataFrame, ctx: dict):
         )
         st.altair_chart(hist, use_container_width=True)
 
-    st.markdown("**Picos por Hora (hora local)**")
-    by_hour_rows = supabase_rpc(sb_url, sb_key, "dashboard_tiz_by_hour", payload)
-    by_hour = pd.DataFrame(by_hour_rows)
-    if not by_hour.empty:
-        by_hour["hour"] = pd.to_numeric(by_hour["hour"], errors="coerce").fillna(0).astype(int)
-        by_hour["count"] = pd.to_numeric(by_hour["count"], errors="coerce").fillna(0).astype(int)
-        by_hour["avg_s"] = pd.to_numeric(by_hour["avg_s"], errors="coerce").fillna(0.0)
+    # ── Picos por hora ────────────────────────────────────────────────────────
+    if "hour" in base.columns:
+        st.markdown("**Picos por Hora (hora local)**")
+        by_hour = (
+            base.groupby("hour", as_index=False)
+            .agg(count=("duration_s", "size"), avg_s=("duration_s", "mean"))
+        )
         bar_h = (
             alt.Chart(by_hour)
             .mark_bar(opacity=0.25, color="#2563EB")
@@ -152,53 +127,47 @@ def render_time_in_zone(f: pd.DataFrame, ctx: dict):
                 tooltip=["hour:O", alt.Tooltip("avg_s:Q", format=".1f", title="Promedio (s)")],
             )
         )
-        st.altair_chart(alt.layer(bar_h, line_h).resolve_scale(y="independent").properties(height=240), use_container_width=True)
+        st.altair_chart(
+            alt.layer(bar_h, line_h).resolve_scale(y="independent").properties(height=240),
+            use_container_width=True,
+        )
 
+    # ── Evolución por hora (resample) ─────────────────────────────────────────
     st.markdown("**Evolución por Hora (volumen vs tiempo promedio)**")
-    if "local_date" in base.columns and "hour" in base.columns:
-        byh_base = base.copy()
-        byh_base["local_ts"] = byh_base["local_date"] + pd.to_timedelta(byh_base["hour"], unit="h")
-        byh = (
-            byh_base.groupby("local_ts", as_index=False)
-            .agg(count=("duration_s", "size"), avg_duration_s=("duration_s", "mean"))
-            .sort_values("local_ts")
-        )
-        x_field = "local_ts:T"
-    else:
-        s = base.copy()
-        s = s[s["ts"].notna()].copy()
-        s = s.set_index("ts").sort_index()
-        tmp = s["duration_s"].resample("1H").agg(["size", "mean"]).reset_index()
+    s = base[base["ts"].notna()].copy().set_index("ts").sort_index()
+    if not s.empty:
+        tmp = s["duration_s"].resample("1h").agg(["size", "mean"]).reset_index()
         tmp = tmp.rename(columns={"size": "count", "mean": "avg_duration_s"})
-        byh = tmp
-        x_field = "ts:T"
-
-    bar = (
-        alt.Chart(byh)
-        .mark_bar(opacity=0.22, color="#2563EB")
-        .encode(
-            x=alt.X(x_field, title="Tiempo"),
-            y=alt.Y("count:Q", title="Visitas"),
-            tooltip=[alt.Tooltip(x_field, title="Tiempo", format="%d %b %H:%M"), alt.Tooltip("count:Q", title="Visitas")],
+        bar = (
+            alt.Chart(tmp)
+            .mark_bar(opacity=0.22, color="#2563EB")
+            .encode(
+                x=alt.X("ts:T", title="Tiempo"),
+                y=alt.Y("count:Q", title="Visitas"),
+                tooltip=[alt.Tooltip("ts:T", title="Tiempo", format="%d %b %H:%M"), alt.Tooltip("count:Q", title="Visitas")],
+            )
         )
-    )
-    line = (
-        alt.Chart(byh)
-        .mark_line(point=True, color="#111827", strokeWidth=3)
-        .encode(
-            x=alt.X(x_field, title=""),
-            y=alt.Y("avg_duration_s:Q", title="Promedio (s)"),
-            tooltip=[alt.Tooltip(x_field, title="Tiempo", format="%d %b %H:%M"), alt.Tooltip("avg_duration_s:Q", format=".1f", title="Promedio (s)")],
+        line = (
+            alt.Chart(tmp)
+            .mark_line(point=True, color="#111827", strokeWidth=3)
+            .encode(
+                x=alt.X("ts:T", title=""),
+                y=alt.Y("avg_duration_s:Q", title="Promedio (s)"),
+                tooltip=[alt.Tooltip("ts:T", title="Tiempo", format="%d %b %H:%M"), alt.Tooltip("avg_duration_s:Q", format=".1f", title="Promedio (s)")],
+            )
         )
-    )
-    st.altair_chart(alt.layer(bar, line).resolve_scale(y="independent").properties(height=260), use_container_width=True)
+        st.altair_chart(
+            alt.layer(bar, line).resolve_scale(y="independent").properties(height=260),
+            use_container_width=True,
+        )
 
-    st.markdown("**Tendencia Diaria (visitas vs tiempo promedio)**")
-    by_day_rows = supabase_rpc(sb_url, sb_key, "dashboard_tiz_by_day", payload)
-    by_day = pd.DataFrame(by_day_rows)
-    if not by_day.empty:
-        by_day["count"] = pd.to_numeric(by_day["count"], errors="coerce").fillna(0).astype(int)
-        by_day["avg_s"] = pd.to_numeric(by_day["avg_s"], errors="coerce").fillna(0.0)
+    # ── Tendencia diaria ──────────────────────────────────────────────────────
+    if "local_date" in base.columns:
+        st.markdown("**Tendencia Diaria (visitas vs tiempo promedio)**")
+        by_day = (
+            base.groupby("local_date", as_index=False)
+            .agg(count=("duration_s", "size"), avg_s=("duration_s", "mean"))
+        )
         bar_d = (
             alt.Chart(by_day)
             .mark_bar(opacity=0.22, color="#2563EB")
@@ -217,16 +186,21 @@ def render_time_in_zone(f: pd.DataFrame, ctx: dict):
                 tooltip=[alt.Tooltip("local_date:T", title="Fecha", format="%d %b"), alt.Tooltip("avg_s:Q", format=".1f", title="Promedio (s)")],
             )
         )
-        st.altair_chart(alt.layer(bar_d, line_d).resolve_scale(y="independent").properties(height=240), use_container_width=True)
+        st.altair_chart(
+            alt.layer(bar_d, line_d).resolve_scale(y="independent").properties(height=240),
+            use_container_width=True,
+        )
 
-    st.markdown("**Mapa de Calor (hora vs día): duración promedio**")
+    # ── Mapa de calor hora × día ──────────────────────────────────────────────
     if "hour" in base.columns and "dow" in base.columns:
+        st.markdown("**Mapa de Calor (hora vs día): duración promedio**")
         hm = (
             base.groupby(["dow", "hour"], as_index=False)
             .agg(avg_duration_s=("duration_s", "mean"), count=("duration_s", "size"))
         )
-        hm["dow_name"] = hm["dow"].map({0: "Lunes", 1: "Martes", 2: "Miércoles", 3: "Jueves", 4: "Viernes", 5: "Sábado", 6: "Domingo"})
-        hm["dow_name"] = pd.Categorical(hm["dow_name"], categories=["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"], ordered=True)
+        dow_names = {0: "Lunes", 1: "Martes", 2: "Miércoles", 3: "Jueves", 4: "Viernes", 5: "Sábado", 6: "Domingo"}
+        hm["dow_name"] = hm["dow"].map(dow_names)
+        hm["dow_name"] = pd.Categorical(hm["dow_name"], categories=list(dow_names.values()), ordered=True)
         heat = (
             alt.Chart(hm)
             .mark_rect(cornerRadius=4)
@@ -240,16 +214,18 @@ def render_time_in_zone(f: pd.DataFrame, ctx: dict):
         )
         st.altair_chart(heat, use_container_width=True)
 
+    # ── Top zonas ─────────────────────────────────────────────────────────────
     if zone_col in all_visits.columns and all_visits[zone_col].notna().any():
         st.markdown("**Top Zonas por Tiempo (mediana y P90)**")
-        stats_rows = supabase_rpc(sb_url, sb_key, "dashboard_tiz_zone_stats", {**payload, "p_limit": 12})
-        stats = pd.DataFrame(stats_rows)
-        if stats.empty:
-            return
-        stats = stats.rename(columns={"zone": zone_col, "n": "count", "median_s": "median", "p90_s": "p90"})
-        stats["count"] = pd.to_numeric(stats["count"], errors="coerce").fillna(0).astype(int)
-        stats["median"] = pd.to_numeric(stats["median"], errors="coerce").fillna(0.0)
-        stats["p90"] = pd.to_numeric(stats["p90"], errors="coerce").fillna(0.0)
+        def _zone_stats(grp):
+            d = grp["duration_s"].dropna()
+            return pd.Series({
+                "count":    len(d),
+                "median":   float(d.median()) if len(d) else 0.0,
+                "p90":      float(np.percentile(d, 90)) if len(d) else 0.0,
+            })
+        stats = all_visits.groupby(zone_col).apply(_zone_stats).reset_index()
+        stats = stats.sort_values("median", ascending=False).head(12)
         bars = (
             alt.Chart(stats)
             .mark_bar(color="#7C3AED")
@@ -262,7 +238,8 @@ def render_time_in_zone(f: pd.DataFrame, ctx: dict):
         )
         st.altair_chart(bars, use_container_width=True)
 
+    # ── Tabla de auditoría ────────────────────────────────────────────────────
     st.markdown("**Muestra de eventos (para auditoría)**")
-    cols = [c for c in ["site", "channel", zone_col, "ts", "duration_s", "track_id", "time_start", "time_end", "dwell_sec"] if c in base.columns]
-    sample = base.sort_values("ts").tail(30)[cols] if cols else base.sort_values("ts").tail(30)
+    show_cols = [c for c in ["site", "channel", "camera_name", zone_col, "ts", "duration_s", "track_id", "time_enter", "time_end", "dwell_sec"] if c in base.columns]
+    sample = base.sort_values("ts").tail(30)[show_cols] if show_cols else base.sort_values("ts").tail(30)
     st.dataframe(sample, use_container_width=True, hide_index=True)

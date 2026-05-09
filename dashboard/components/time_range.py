@@ -4,7 +4,7 @@ from datetime import time
 def get_tz():
     try:
         from zoneinfo import ZoneInfo
-        return ZoneInfo("America/Lima")
+        return ZoneInfo("UTC")
     except Exception:
         from zoneinfo import ZoneInfo
         return ZoneInfo("UTC")
@@ -14,7 +14,7 @@ def build_time_range(df: pd.DataFrame, min_d: pd.Timestamp, max_d: pd.Timestamp,
     st.markdown("### Rango Temporal")
     tz_info = get_tz()
     try:
-        local_ts_all = df["ts"].dt.tz_convert("America/Lima")
+        local_ts_all = df["ts"].dt.tz_convert("UTC")
     except Exception:
         local_ts_all = df["ts"].dt.tz_convert("UTC")
     local_dates = local_ts_all.dt.floor("D")

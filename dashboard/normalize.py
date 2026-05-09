@@ -63,8 +63,8 @@ def normalize_events(data) -> pd.DataFrame:
             )
         df["zone_name"] = df.get("zone")
         df["ts"] = _to_dt(df.get("time"))
-        if "time_start" in df.columns:
-            df["ts_start"] = _to_dt(df.get("time_start"))
+        if "time_enter" in df.columns:
+            df["ts_start"] = _to_dt(df.get("time_enter"))
         else:
             df["ts_start"] = pd.NaT
         if "time_end" in df.columns:
@@ -90,9 +90,11 @@ def normalize_events(data) -> pd.DataFrame:
             "time",
             "event",
             "zone",
-            "time_start",
+            "time_enter",
             "time_end",
             "dwell_sec",
+            "clip_url",
+            "camera_name",
             "ts_start",
             "ts_end",
             "duration_s",
@@ -130,11 +132,11 @@ def normalize_events(data) -> pd.DataFrame:
         df["age"] = pd.to_numeric(df["age"], errors="coerce")
         return df[cols]
 
-    if "event_type" in keys and "time_start" in keys and "time_end" in keys:
+    if "event_type" in keys and "time_enter" in keys and "time_end" in keys:
         df = pd.DataFrame(data)
         df["event_type"] = df.get("event_type")
         df["zone_name"] = df.get("zone_name")
-        df["ts_start"] = _to_dt(df.get("time_start"))
+        df["ts_start"] = _to_dt(df.get("time_enter"))
         df["ts_end"] = _to_dt(df.get("time_end"))
         df["ts"] = df["ts_start"]
         df["duration_s"] = (df["ts_end"] - df["ts_start"]).dt.total_seconds()
@@ -150,7 +152,7 @@ def normalize_events(data) -> pd.DataFrame:
             "ts_end",
             "duration_s",
             "track_id",
-            "time_start",
+            "time_enter",
             "time_end",
         ]
         for c in cols:

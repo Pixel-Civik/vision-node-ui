@@ -61,6 +61,7 @@ def load_from_supabase(
     cols = [
         "site",
         "channel",
+        "camera_name",
         "event",
         "zone",
         "time",
@@ -68,12 +69,9 @@ def load_from_supabase(
         "gender",
         "age",
         "dwell_sec",
-        "time_start",
+        "time_enter",
         "time_end",
-        "duration_sec",
-        "crossed",
-        "confirmed",
-        "inferred",
+        "clip_url",
     ]
 
     out: list[dict] = []
@@ -122,6 +120,8 @@ def supabase_rpc(sb_url: str, sb_key: str, fn: str, payload: dict) -> list[dict]
         "Content-Type": "application/json",
     }
     r = requests.post(url, headers=headers, json=(payload or {}), timeout=60)
+    if r.status_code in (400, 404):
+        return []   # RPC no existe — degradar silenciosamente
     r.raise_for_status()
     data = r.json()
     if isinstance(data, list):

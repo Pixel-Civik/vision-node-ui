@@ -13,15 +13,16 @@ def utc_scale_domain(domain):
 def with_hour_and_dow(f: pd.DataFrame) -> pd.DataFrame:
     out = f.copy()
     try:
-        local_ts = out["ts"].dt.tz_convert("America/Lima")
+        local_ts = out["ts"].dt.tz_convert("UTC")
     except Exception:
-        try:
-            local_ts = out["ts"].dt.tz_convert("UTC") + pd.Timedelta(hours=-5)
-        except Exception:
-            local_ts = out["ts"]
+        local_ts = out["ts"]
     out["hour"] = local_ts.dt.hour
     out["dow"] = local_ts.dt.dayofweek
     out["local_date"] = local_ts.dt.floor("D")
+    try:
+        out["local_date"] = out["local_date"].dt.tz_localize(None)
+    except Exception:
+        pass
     return out
 
 def bucket_age(v) -> str:
