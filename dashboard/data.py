@@ -34,7 +34,7 @@ def load_json_from_bytes(raw: bytes):
     raise ValueError("JSON inesperado")
 
 
-@st.cache_data(show_spinner=False, ttl=60)
+@st.cache_data(show_spinner="Descargando eventos desde Supabase...", ttl=60)
 def load_from_supabase(
     sb_url: str,
     sb_key: str,
@@ -106,7 +106,7 @@ def load_from_supabase(
     return out
 
 
-@st.cache_data(show_spinner=False, ttl=60)
+@st.cache_data(show_spinner="Consultando métricas...", ttl=60)
 def supabase_rpc(sb_url: str, sb_key: str, fn: str, payload: dict) -> list[dict]:
     sb_url = str(sb_url or "").replace("`", "").replace("\"", "").replace("'", "").strip().rstrip("/")
     sb_key = str(sb_key or "").replace("`", "").replace("\"", "").replace("'", "").strip()

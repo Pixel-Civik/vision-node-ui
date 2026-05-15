@@ -16,6 +16,11 @@ def render_demographics(f: pd.DataFrame, start_ts, end_ts, ctx: dict):
     if not has_demo:
         return
     st.subheader("Análisis Demográfico")
+    st.caption(
+        "Muestra la distribución por género y rango de edad de las personas que ingresaron al local. "
+        "Estos datos provienen del modelo de clasificación del sistema de visión y son estimaciones — "
+        "la precisión depende de la calidad de la imagen y el ángulo de la cámara."
+    )
     sb_url = str(ctx.get("sb_url") or "").strip()
     sb_key = str(ctx.get("sb_key") or "").strip()
     payload = {

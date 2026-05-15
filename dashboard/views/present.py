@@ -15,6 +15,7 @@ from ..demographics import render_demographics
 from ..components.table import render_table
 from ..core.utils import palette as palette_utils
 from .traffic import render_traffic
+from ..export import render_export_panel
 
 
 def _date_range(df: pd.DataFrame) -> tuple[pd.Timestamp, pd.Timestamp]:
@@ -104,7 +105,7 @@ def render_dashboard(df_raw: pd.DataFrame, source_name: str) -> None:
 
     pal = palette_utils()
     f_ee = f[f["event_type"].isin(["enter", "exit"])].copy()
-    enters, exits, total_ev = render_exec_metrics(ctx, start_ts_exec, end_ts_exec)
+    enters, exits, total_ev, kpi_dict = render_exec_metrics(ctx, start_ts_exec, end_ts_exec)
     f_ee_all = f_traffic[f_traffic["event_type"].isin(["enter", "exit"])].copy()
     exits_all = int((f_ee_all["event_type"] == "exit").sum()) if not f_ee_all.empty else 0
     enters_all = int((f_ee_all["event_type"] == "enter").sum()) if not f_ee_all.empty else 0
@@ -113,6 +114,10 @@ def render_dashboard(df_raw: pd.DataFrame, source_name: str) -> None:
     has_visits = bool((f_traffic["event_type"] == "visit").any())
     has_enters = bool((f_traffic["event_type"] == "enter").any())
     has_visitors = bool((f_traffic["event_type"] == "visitor").any())
+    _, col_exp = st.columns([4, 1])
+    with col_exp:
+        render_export_panel(f, ctx, kpi_dict)
+
     tab_labels = ["Resumen Ejecutivo"]
     if has_pasantes or has_visits or has_enters or has_visitors:
         tab_labels.append("Visitantes y Colas")
@@ -120,48 +125,9 @@ def render_dashboard(df_raw: pd.DataFrame, source_name: str) -> None:
     tabs = st.tabs(tab_labels)
     with tabs[0]:
         if exits == 0 and exits_all > 0:
-            st.warning(f"Hay {exits_all} salidas fuera del rango horario/días seleccionados.")
+            st.warning(f"Hay {exits_all} salidas en el período que están fuera del rango horario seleccionado.")
         if enters == 0 and enters_all > 0:
-            st.warning(f"Hay {enters_all} entradas fuera del rango horario/días seleccionados.")
-        with st.expander("Validación de conteo (enter/exit)", expanded=False):
-            def _fmt_lima(ts: pd.Timestamp) -> str:
-                try:
-                    return ts.tz_convert("America/Lima").strftime("%Y-%m-%d %H:%M")
-                except Exception:
-                    return (ts.tz_convert("UTC") + pd.Timedelta(hours=-5)).strftime("%Y-%m-%d %H:%M")
-
-            st.caption(f"Rango seleccionado: {_fmt_lima(start_ts)} → {_fmt_lima(end_ts)} (Lima)")
-            st.caption(f"Rango aplicado a enter/exit: {_fmt_lima(start_ts_exec)} → {_fmt_lima(end_ts_exec)} (Lima)")
-
-            if not f_ee.empty and "channel" in f_ee.columns:
-                by_ch = f_ee.groupby(["channel", "event_type"], as_index=False).size().rename(columns={"size": "count"}).sort_values(["channel", "event_type"])
-                st.markdown("**Conteo por canal (rango aplicado + horario)**")
-                st.dataframe(by_ch, use_container_width=True, hide_index=True)
-            if not f_ee_all.empty and "channel" in f_ee_all.columns:
-                by_ch_all = f_ee_all.groupby(["channel", "event_type"], as_index=False).size().rename(columns={"size": "count"}).sort_values(["channel", "event_type"])
-                st.markdown("**Conteo por canal (período sin recorte horario)**")
-                st.dataframe(by_ch_all, use_container_width=True, hide_index=True)
-
-            if not f_ee_all.empty and "zone_name" in f_ee_all.columns:
-                by_zone = f_ee_all.groupby(["zone_name", "event_type"], as_index=False).size().rename(columns={"size": "count"}).sort_values("count", ascending=False)
-                st.markdown("**Conteo por zona (período sin recorte horario)**")
-                st.dataframe(by_zone, use_container_width=True, hide_index=True)
-
-            bounce_base = f_ee_all.copy()
-            bounce_base = bounce_base[bounce_base["track_id"].notna()].copy()
-            if not bounce_base.empty and "track_id" in bounce_base.columns:
-                bounce_base = bounce_base.sort_values(["channel", "track_id", "ts"])
-                bounce_base["next_event"] = bounce_base.groupby(["channel", "track_id"])["event_type"].shift(-1)
-                bounce_base["next_ts"] = bounce_base.groupby(["channel", "track_id"])["ts"].shift(-1)
-                bounce_base["delta_s"] = (bounce_base["next_ts"] - bounce_base["ts"]).dt.total_seconds()
-                rebote = bounce_base[(bounce_base["event_type"] == "exit") & (bounce_base["next_event"] == "enter") & (bounce_base["delta_s"] <= 4)].copy()
-                if not rebote.empty:
-                    st.warning(f"Se detectaron {int(len(rebote))} reingresos rápidos (exit→enter <= 4s). Posible 'rebote' de tracking.")
-                    if "channel" in rebote.columns:
-                        by_rebote = rebote.groupby("channel", as_index=False).size().rename(columns={"size": "pairs"}).sort_values("pairs", ascending=False)
-                        st.dataframe(by_rebote, use_container_width=True, hide_index=True)
-                else:
-                    st.caption("No se detectaron reingresos rápidos (exit→enter <= 4s) en el período.")
+            st.warning(f"Hay {enters_all} entradas en el período que están fuera del rango horario seleccionado.")
         left, right = st.columns([2, 1])
         with left:
             st.subheader("Análisis de Patrones de Comportamiento")
@@ -171,7 +137,7 @@ def render_dashboard(df_raw: pd.DataFrame, source_name: str) -> None:
         render_advanced(f_ee if not f_ee.empty else f, start_ts_exec, end_ts_exec, ctx)
         render_demographics(f_ee if not f_ee.empty else f, start_ts_exec, end_ts_exec, ctx)
     idx = 1
-    if has_pasantes or has_visits or has_enters:
+    if has_pasantes or has_visits or has_enters or has_visitors:
         with tabs[idx]:
             render_traffic(f_traffic, ctx)
         idx += 1

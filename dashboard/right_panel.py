@@ -7,6 +7,10 @@ from .data import supabase_rpc
 def render_right_panel(f: pd.DataFrame, enters: int, exits: int, total_ev: int, start_ts, end_ts, pal: dict, ctx: dict):
     f = f[f["event_type"].isin(["enter", "exit"])].copy()
     st.subheader("Distribución Entrada/Salida")
+    st.caption(
+        "Muestra cómo se reparten los eventos entre entradas y salidas, "
+        "qué zonas y cámaras concentran más actividad."
+    )
     donut_df = pd.DataFrame([{"event_type": "enter", "count": enters}, {"event_type": "exit", "count": exits}])
     donut_df["pct"] = (donut_df["count"] / max(1, donut_df["count"].sum())) * 100.0
     donut = (
@@ -45,31 +49,37 @@ def render_right_panel(f: pd.DataFrame, enters: int, exits: int, total_ev: int, 
     by_zone = pd.DataFrame(by_zone_rows) if by_zone_rows else pd.DataFrame(columns=["zone", "event_type", "count"])
     if not by_zone.empty:
         by_zone = by_zone.rename(columns={"zone": "zone_name", "count": "size"})
-    ch3 = (
-        alt.Chart(by_zone)
-        .mark_bar()
-        .encode(
-            y=alt.Y("zone_name:N", sort="-x", title="Zona"),
-            x=alt.X("size:Q", title="Eventos"),
-            color=alt.Color("event_type:N", title="Evento", scale=alt.Scale(domain=list(pal.keys()), range=list(pal.values()))),
-            tooltip=["zone_name:N", "event_type:N", "size:Q"],
+    if by_zone.empty:
+        st.info("Sin datos de zona en el período seleccionado.")
+    else:
+        ch3 = (
+            alt.Chart(by_zone)
+            .mark_bar()
+            .encode(
+                y=alt.Y("zone_name:N", sort="-x", title="Zona"),
+                x=alt.X("size:Q", title="Eventos"),
+                color=alt.Color("event_type:N", title="Evento", scale=alt.Scale(domain=list(pal.keys()), range=list(pal.values()))),
+                tooltip=["zone_name:N", "event_type:N", "size:Q"],
+            )
+            .properties(height=280)
         )
-        .properties(height=280)
-    )
-    st.altair_chart(ch3, use_container_width=True)
+        st.altair_chart(ch3, use_container_width=True)
     by_cam_rows = supabase_rpc(sb_url, sb_key, "dashboard_breakdown_channel", payload) if sb_url and sb_key else []
     by_cam = pd.DataFrame(by_cam_rows) if by_cam_rows else pd.DataFrame(columns=["channel", "event_type", "count"])
     if not by_cam.empty:
         by_cam = by_cam.rename(columns={"count": "size"})
-    ch4 = (
-        alt.Chart(by_cam)
-        .mark_bar()
-        .encode(
-            y=alt.Y("channel:N", sort="-x", title="Dispositivo"),
-            x=alt.X("size:Q", title="Eventos"),
-            color=alt.Color("event_type:N", title="Evento", scale=alt.Scale(domain=list(pal.keys()), range=list(pal.values()))),
-            tooltip=["channel:N", "event_type:N", "size:Q"],
+    if by_cam.empty:
+        st.info("Sin datos de dispositivo en el período seleccionado.")
+    else:
+        ch4 = (
+            alt.Chart(by_cam)
+            .mark_bar()
+            .encode(
+                y=alt.Y("channel:N", sort="-x", title="Dispositivo"),
+                x=alt.X("size:Q", title="Eventos"),
+                color=alt.Color("event_type:N", title="Evento", scale=alt.Scale(domain=list(pal.keys()), range=list(pal.values()))),
+                tooltip=["channel:N", "event_type:N", "size:Q"],
+            )
+            .properties(height=280)
         )
-        .properties(height=280)
-    )
-    st.altair_chart(ch4, use_container_width=True)
+        st.altair_chart(ch4, use_container_width=True)

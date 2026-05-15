@@ -5,6 +5,11 @@ from .data import supabase_rpc
 
 def render_advanced(f: pd.DataFrame, start_ts, end_ts, ctx: dict):
     st.subheader("Mapa de Calor: Día de Semana x Hora")
+    st.caption(
+        "Visualiza en qué combinación de día y hora ocurre más tráfico (entradas + salidas). "
+        "Los colores más oscuros indican mayor concentración de eventos — "
+        "útil para identificar los momentos de mayor actividad de la semana."
+    )
     sb_url = str(ctx.get("sb_url") or "").strip()
     sb_key = str(ctx.get("sb_key") or "").strip()
     payload = {

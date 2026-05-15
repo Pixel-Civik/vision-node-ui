@@ -49,50 +49,48 @@ def main() -> None:
         st.metric("Estado del Sistema", "Activo", "Conectado")
 
     with st.sidebar:
-        st.markdown("### Panel de Control")
-        st.markdown("---")
-        st.subheader("Fuente de datos")
-        src = "supabase"
-        st.caption("Fuente activa: Supabase")
-
         raw_bytes: bytes | None = None
         source_name = ""
 
-        if src == "supabase":
-            sb_url_env = os.getenv("SUPABASE_URL", "")
-            sb_key_env = os.getenv("SUPABASE_ANON_KEY", "") or os.getenv("SUPABASE_KEY", "")
-            st.caption("Lee eventos desde la vista tracking_logs_view.")
+        sb_url_env = os.getenv("SUPABASE_URL", "")
+        sb_key_env = os.getenv("SUPABASE_ANON_KEY", "") or os.getenv("SUPABASE_KEY", "")
+        sb_url = sb_url_env
+        sb_key = sb_key_env
 
-            sb_url = sb_url_env
-            sb_key = sb_key_env
-            if not sb_url:
-                sb_url = st.text_input("SUPABASE_URL", value="", placeholder="https://xxxx.supabase.co")
-            if not sb_key:
-                sb_key = st.text_input("SUPABASE_ANON_KEY (o SUPABASE_KEY)", value="", type="password")
+        if not sb_url:
+            sb_url = st.text_input("SUPABASE_URL", value="", placeholder="https://xxxx.supabase.co")
+        if not sb_key:
+            sb_key = st.text_input("Clave Supabase", value="", type="password")
 
-            if st.button("Recargar Supabase"):
-                try:
-                    load_from_supabase.clear()
-                    supabase_rpc.clear()
-                except Exception:
-                    pass
-
-            if (sb_url and sb_key) or (sb_url_env and sb_key_env):
-                try:
+        if (sb_url and sb_key) or (sb_url_env and sb_key_env):
+            try:
+                with st.status("Cargando datos...", expanded=False) as _status:
+                    _status.update(label="Conectando a Supabase...")
                     rows2 = load_from_supabase(
                         sb_url,
                         sb_key,
                         view="tracking_logs_view",
                         max_rows=200000,
                     )
-                    raw_bytes = json.dumps(rows2, ensure_ascii=False).encode("utf-8")
-                    source_name = "supabase://tracking_logs_view"
-                except Exception as e:
-                    st.error(f"Error Supabase: {e}")
+                    _status.update(
+                        label=f"✓ {len(rows2):,} eventos cargados",
+                        state="complete",
+                        expanded=False,
+                    )
+                raw_bytes = json.dumps(rows2, ensure_ascii=False).encode("utf-8")
+                source_name = "supabase://tracking_logs_view"
+            except Exception as e:
+                st.error(f"Error al conectar: {e}")
+
+        if st.button("Actualizar datos", type="secondary"):
+            try:
+                load_from_supabase.clear()
+                supabase_rpc.clear()
+                st.rerun()
+            except Exception:
+                pass
 
         st.divider()
-        st.subheader("Filtros")
-        st.caption("Los filtros aparecen cuando el JSON se carga correctamente.")
 
     if raw_bytes is None:
         st.info("Selecciona una fuente y carga el JSON.")

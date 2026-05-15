@@ -6,6 +6,11 @@ from ..data import supabase_rpc
 
 def render_store_visitors(f: pd.DataFrame, ctx: dict) -> None:
     st.subheader("Visitantes (cruce fachada)")
+    st.caption(
+        "Muestra los eventos de **cruce de fachada** (tipo `visitor`): personas que pasaron frente "
+        "al local y fueron detectadas por la cámara exterior. "
+        "A diferencia de 'Entradas', este evento no implica que la persona haya ingresado al local."
+    )
     base = f.copy()
     if "event_type" not in base.columns:
         st.info("Datos insuficientes.")
@@ -67,6 +72,7 @@ def render_store_visitors(f: pd.DataFrame, ctx: dict) -> None:
     c3.metric("Identificadores Únicos", f"{tracks}")
     c4.metric("Dispositivos / Zonas", f"{devices} / {zones_n}")
 
+    st.markdown("**Picos por Hora (hora local)**")
     by_hour_rows = supabase_rpc(sb_url, sb_key, "dashboard_hourly_totals", payload)
     by_hour = pd.DataFrame(by_hour_rows)
     if not by_hour.empty:
@@ -94,6 +100,7 @@ def render_store_visitors(f: pd.DataFrame, ctx: dict) -> None:
         )
         st.altair_chart(ch_hour, use_container_width=True)
 
+    st.markdown("**Visitantes por Hora (serie temporal)**")
     series_rows = supabase_rpc(sb_url, sb_key, "dashboard_timeseries_hourly", payload)
     series = pd.DataFrame(series_rows)
     if not series.empty:

@@ -4,6 +4,17 @@ import pandas as pd
 def palette():
     return {"enter": "#10B981", "exit": "#EF4444"}
 
+
+def full_palette() -> dict:
+    """Extended palette covering all event types."""
+    return {
+        "enter":   "#10B981",
+        "exit":    "#EF4444",
+        "pasante": "#6B7280",
+        "visitor": "#3B82F6",
+        "visit":   "#7C3AED",
+    }
+
 def utc_scale():
     return alt.Scale(type="utc")
 
@@ -13,7 +24,7 @@ def utc_scale_domain(domain):
 def with_hour_and_dow(f: pd.DataFrame) -> pd.DataFrame:
     out = f.copy()
     try:
-        local_ts = out["ts"].dt.tz_convert("UTC")
+        local_ts = out["ts"].dt.tz_convert("America/Lima")
     except Exception:
         local_ts = out["ts"]
     out["hour"] = local_ts.dt.hour

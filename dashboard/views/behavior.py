@@ -10,6 +10,11 @@ def _fmt_hour_label(h: int) -> str:
     return dt_lib(2000, 1, 1, h, 0).strftime("%I %p").lstrip("0")
 
 def render_behavior(f: pd.DataFrame, start_ts, end_ts, metric_mode: str, pal: dict):
+    st.caption(
+        "Analiza cuándo ocurren los picos de tráfico, cómo evolucionan día a día "
+        "y qué días de la semana concentran más actividad. "
+        "Usa los filtros del panel lateral para acotar el rango horario o días específicos."
+    )
     duration_hours = (end_ts - start_ts).total_seconds() / 3600.0
     f_ee = f[f["event_type"].isin(["enter", "exit"])].copy()
     metric = "eventos" if metric_mode == "Eventos" else "personas"

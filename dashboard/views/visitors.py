@@ -5,6 +5,11 @@ from ..data import supabase_rpc
 
 def render_visitors(f: pd.DataFrame, ctx: dict):
     st.subheader("Pasantes")
+    st.caption(
+        "Muestra los eventos de **tráfico peatonal** en la vereda (tipo `pasante`): "
+        "personas que caminaron frente al local sin necesariamente haber entrado. "
+        "Se usa para calcular la tasa de conversión: qué porcentaje del flujo externo ingresó al local."
+    )
     base = f.copy()
     if "event_type" not in base.columns:
         st.info("Datos insuficientes.")

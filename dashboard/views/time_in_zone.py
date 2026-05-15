@@ -6,6 +6,11 @@ import streamlit as st
 
 def render_time_in_zone(f: pd.DataFrame, ctx: dict):
     st.subheader("Tiempo en Zona")
+    st.caption(
+        "Analiza cuánto tiempo permanecen las personas en una zona específica (evento `visit`/`time_in_zone`). "
+        "Útil para medir tiempos de espera en colas, permanencia en áreas de exhibición o zonas de atención. "
+        "Selecciona la zona en el desplegable para filtrar el análisis."
+    )
     base = f.copy()
     if "event_type" not in base.columns:
         st.info("Datos insuficientes.")
@@ -52,11 +57,47 @@ def render_time_in_zone(f: pd.DataFrame, ctx: dict):
     days     = int(base["local_date"].nunique()) if "local_date" in base.columns else 1
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Registros", f"{n}")
-    c2.metric("Mediana", f"{median_s:.1f}s ({median_s/60:.2f}m)")
-    c3.metric("Promedio", f"{avg_s:.1f}s ({avg_s/60:.2f}m)")
-    c4.metric("P90", f"{p90_s:.1f}s ({p90_s/60:.2f}m)")
-    st.metric("Promedio Visitas/Día", f"{round(n / max(1, days), 2)}")
+    c1.metric(
+        "Registros",
+        f"{n:,}",
+        help="Total de eventos de permanencia en la zona seleccionada dentro del período.",
+    )
+    c2.metric(
+        "Mediana de permanencia",
+        f"{median_s:.1f}s",
+        f"{median_s/60:.2f} min",
+        delta_color="off",
+        help=(
+            "Tiempo de permanencia del visitante 'típico': la mitad estuvo menos de este tiempo "
+            "y la otra mitad más. Es más robusta que el promedio porque no se ve afectada por "
+            "valores extremos (ej. alguien que estuvo 2 horas)."
+        ),
+    )
+    c3.metric(
+        "Promedio de permanencia",
+        f"{avg_s:.1f}s",
+        f"{avg_s/60:.2f} min",
+        delta_color="off",
+        help=(
+            "Tiempo promedio de permanencia en la zona. Puede ser mayor que la mediana si hay "
+            "pocos visitantes con tiempos muy altos que 'jalan' el promedio hacia arriba."
+        ),
+    )
+    c4.metric(
+        "P90 de permanencia",
+        f"{p90_s:.1f}s",
+        f"{p90_s/60:.2f} min",
+        delta_color="off",
+        help=(
+            "Percentil 90: el 90% de los visitantes estuvo menos de este tiempo en la zona. "
+            "Útil para dimensionar el peor caso frecuente (sin contar el 10% más extremo)."
+        ),
+    )
+    st.metric(
+        "Visitas/día (prom.)",
+        f"{round(n / max(1, days), 1)}",
+        help=f"Promedio de eventos de permanencia por día. Total {n:,} registros en {days} día(s).",
+    )
 
     # ── SLA buckets + histograma ──────────────────────────────────────────────
     def _sla_bucket(v: float) -> str:

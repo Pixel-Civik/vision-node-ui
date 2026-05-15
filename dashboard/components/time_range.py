@@ -31,8 +31,8 @@ def build_time_range(df: pd.DataFrame, min_d: pd.Timestamp, max_d: pd.Timestamp,
     default_start_time = time(7, 0)
     default_end_time = time(23, 59, 59)
     range_sel = st.selectbox(
-        "Seleccionar período",
-        options=["Período Completo", "Período Completo (Alineado)", "Día", "Semana", "Mes", "Personalizado"],
+        "Período",
+        options=["Período Completo", "Día", "Semana", "Mes", "Personalizado"],
         index=0,
     )
     if range_sel == "Día":

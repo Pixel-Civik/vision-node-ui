@@ -6,6 +6,11 @@ from ..data import supabase_rpc
 
 def render_entrances(f: pd.DataFrame, ctx: dict) -> None:
     st.subheader("Visitantes (ingreso tienda)")
+    st.caption(
+        "Muestra los eventos de **ingreso** al local (tipo `enter`): cuántos ocurren por hora, "
+        "cómo se distribuyen en el tiempo y qué zonas o cámaras registran más entradas. "
+        "Cada evento representa una persona que cruzó el umbral de entrada detectado por la cámara."
+    )
     base = f.copy()
     if "event_type" not in base.columns:
         st.info("Datos insuficientes.")
@@ -67,6 +72,7 @@ def render_entrances(f: pd.DataFrame, ctx: dict) -> None:
     c3.metric("Identificadores Únicos", f"{tracks}")
     c4.metric("Dispositivos / Zonas", f"{devices} / {zones_n}")
 
+    st.markdown("**Picos por Hora (hora local)**")
     by_hour_rows = supabase_rpc(sb_url, sb_key, "dashboard_hourly_totals", payload)
     by_hour = pd.DataFrame(by_hour_rows)
     if not by_hour.empty:
@@ -94,6 +100,7 @@ def render_entrances(f: pd.DataFrame, ctx: dict) -> None:
         )
         st.altair_chart(ch_hour, use_container_width=True)
 
+    st.markdown("**Entradas por Hora (serie temporal)**")
     series_rows = supabase_rpc(sb_url, sb_key, "dashboard_timeseries_hourly", payload)
     series = pd.DataFrame(series_rows)
     if not series.empty:
