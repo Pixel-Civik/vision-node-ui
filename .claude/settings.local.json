@@ -6,7 +6,20 @@
       "Bash(pip install *)",
       "Bash(python -c \"import reportlab; import openpyxl; print\\('OK reportlab', reportlab.Version, '| openpyxl', openpyxl.__version__\\)\")",
       "Bash(python -c ' *)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Bash(npm --version)",
+      "Bash(npx create-next-app@latest frontend-next --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-git)",
+      "Bash(npm install *)",
+      "Bash(npx shadcn@latest init --defaults --base-color slate)",
+      "Bash(npx shadcn@latest init --defaults)",
+      "Bash(npx shadcn@latest add card badge tabs select checkbox slider separator dialog)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(Get-ChildItem \"C:\\\\Users\\\\USER\\\\Desktop\\\\ACCESORIO\\\\Pixel-Civik\\\\vision-node\\\\frontend-next\\\\src\" -Recurse -File)",
+      "Bash(Select-Object FullName)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
 }
