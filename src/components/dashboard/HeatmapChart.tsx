@@ -2,22 +2,27 @@
 
 import type { HeatmapRow } from "@/lib/types";
 
-const DOWS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+const DOWS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 7);
 
 function cellColor(val: number, max: number): string {
-  if (max === 0) return "#f9fafb";
-  const ratio = val / max;
-  if (ratio === 0) return "#f9fafb";
-  if (ratio < 0.25) return "#d1fae5";
-  if (ratio < 0.5) return "#6ee7b7";
-  if (ratio < 0.75) return "#34d399";
-  return "#10B981";
+  if (max === 0 || val === 0) return "#F8FAFC";
+  const r = val / max;
+  if (r < 0.15) return "#DBEAFE";
+  if (r < 0.35) return "#93C5FD";
+  if (r < 0.55) return "#60A5FA";
+  if (r < 0.75) return "#3B82F6";
+  return "#1D4ED8";
+}
+
+function cellTextColor(val: number, max: number): string {
+  if (max === 0 || val === 0) return "transparent";
+  return val / max >= 0.55 ? "#FFFFFF" : "#1E40AF";
 }
 
 export function HeatmapChart({ rows, loading }: { rows: HeatmapRow[]; loading: boolean }) {
   if (loading) {
-    return <div className="h-52 bg-gray-100 rounded-lg animate-pulse" />;
+    return <div className="h-52 bg-slate-50 rounded-xl animate-pulse" />;
   }
 
   const map = new Map<string, number>();
@@ -30,33 +35,60 @@ export function HeatmapChart({ rows, loading }: { rows: HeatmapRow[]; loading: b
   }
 
   return (
-    <div className="space-y-2 overflow-x-auto">
-      <p className="text-xs text-gray-500">
-        Mapa de calor — intensidad de tráfico por hora y día de semana. Verde oscuro = más eventos.
+    <div className="space-y-3">
+      <p className="text-xs text-slate-500">
+        Intensidad de tráfico por hora y día. Azul oscuro = mayor concentración de eventos.
       </p>
-      <div className="min-w-max">
-        <div className="flex gap-px ml-20">
-          {HOURS.map((h) => (
-            <div key={h} className="w-8 text-center text-[10px] text-gray-400">{h}h</div>
-          ))}
-        </div>
-        <div className="flex flex-col gap-px mt-1">
-          {DOWS.map((dow, di) => (
-            <div key={dow} className="flex items-center gap-px">
-              <div className="w-20 text-[10px] text-gray-500 text-right pr-2">{dow}</div>
-              {HOURS.map((h) => {
-                const val = map.get(`${di}-${h}`) ?? 0;
-                return (
-                  <div
-                    key={h}
-                    title={`${dow} ${h}h: ${val}`}
-                    className="w-8 h-7 rounded-sm cursor-default transition-opacity hover:opacity-80"
-                    style={{ backgroundColor: cellColor(val, maxVal) }}
-                  />
-                );
-              })}
-            </div>
-          ))}
+      <div className="overflow-x-auto">
+        <div className="min-w-max">
+          {/* Hour headers */}
+          <div className="flex gap-px ml-10 mb-1">
+            {HOURS.map((h) => (
+              <div key={h} className="w-9 text-center text-[10px] text-slate-400 font-medium">
+                {h}h
+              </div>
+            ))}
+          </div>
+
+          {/* Grid */}
+          <div className="flex flex-col gap-px">
+            {DOWS.map((dow, di) => (
+              <div key={dow} className="flex items-center gap-px">
+                <div className="w-10 text-[10px] text-slate-500 font-medium pr-1 text-right">
+                  {dow}
+                </div>
+                {HOURS.map((h) => {
+                  const val = map.get(`${di}-${h}`) ?? 0;
+                  return (
+                    <div
+                      key={h}
+                      title={`${dow} ${h}h: ${val} eventos`}
+                      className="w-9 h-7 rounded flex items-center justify-center cursor-default transition-opacity hover:opacity-75"
+                      style={{ backgroundColor: cellColor(val, maxVal) }}
+                    >
+                      {val > 0 && (
+                        <span
+                          className="text-[9px] font-semibold leading-none"
+                          style={{ color: cellTextColor(val, maxVal) }}
+                        >
+                          {val > 999 ? `${(val / 1000).toFixed(1)}k` : val}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+
+          {/* Legend */}
+          <div className="flex items-center gap-1.5 mt-3 ml-10">
+            <span className="text-[10px] text-slate-400">Menor</span>
+            {["#DBEAFE", "#93C5FD", "#60A5FA", "#3B82F6", "#1D4ED8"].map((c) => (
+              <div key={c} className="w-6 h-3 rounded-sm" style={{ backgroundColor: c }} />
+            ))}
+            <span className="text-[10px] text-slate-400">Mayor</span>
+          </div>
         </div>
       </div>
     </div>

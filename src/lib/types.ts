@@ -74,3 +74,7 @@ export interface ConversionHourRow {
   conv_enter_pct: number;
   conv_visitor_pct: number;
 }
+
+export interface GenderRow { gender: string; count: number; }
+export interface AgeRow { age: string; count: number; }
+export interface TIZRaw { ts: string; duration_s: number; zone_name: string | null; }

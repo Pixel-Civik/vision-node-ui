@@ -1,12 +1,22 @@
 "use client";
 
 import {
-  ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
+  ComposedChart, Area, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 import type { HourlyRow } from "@/lib/types";
 
-const COLORS = { enter: "#10B981", exit: "#EF4444" };
+const FIXED_HEIGHTS = [42, 68, 55, 83, 60, 72, 85, 90, 65, 78, 88, 70, 52, 60, 45, 55];
+
+function SkeletonChart() {
+  return (
+    <div className="h-64 bg-slate-50 rounded-xl animate-pulse flex items-end gap-[3px] px-4 pb-4 pt-6">
+      {FIXED_HEIGHTS.map((h, i) => (
+        <div key={i} className="bg-slate-200 rounded-t flex-1" style={{ height: `${h}%` }} />
+      ))}
+    </div>
+  );
+}
 
 function buildHourly(rows: HourlyRow[]) {
   const map = new Map<number, { hour: number; enter: number; exit: number }>();
@@ -20,52 +30,54 @@ function buildHourly(rows: HourlyRow[]) {
   return Array.from(map.values()).sort((a, b) => a.hour - b.hour);
 }
 
-function SkeletonChart() {
-  return (
-    <div className="h-64 bg-gray-100 rounded-lg animate-pulse flex items-end gap-1 p-4">
-      {Array.from({ length: 16 }, (_, i) => (
-        <div
-          key={i}
-          className="bg-gray-200 rounded flex-1"
-          style={{ height: `${30 + Math.random() * 60}%` }}
-        />
-      ))}
-    </div>
-  );
-}
-
 export function BehaviorChart({ rows, loading }: { rows: HourlyRow[]; loading: boolean }) {
   if (loading) return <SkeletonChart />;
 
   const data = buildHourly(rows);
-  const fmt = (h: number) => `${h}h`;
 
   return (
-    <div className="space-y-2">
-      <p className="text-xs text-gray-500">
-        Picos de tráfico por hora (hora Lima). Las barras muestran entradas/salidas; la línea señala tendencia.
-      </p>
-      <ResponsiveContainer width="100%" height={260}>
-        <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-          <XAxis dataKey="hour" tickFormatter={fmt} tick={{ fontSize: 11 }} />
-          <YAxis tick={{ fontSize: 11 }} />
-          <Tooltip
-            formatter={(v, name) => [v, name === "enter" ? "Entradas" : "Salidas"]}
-            labelFormatter={(h) => `Hora ${h}:00`}
-          />
-          <Legend formatter={(v) => (v === "enter" ? "Entradas" : "Salidas")} />
-          <Bar dataKey="enter" fill={COLORS.enter} opacity={0.85} radius={[3, 3, 0, 0]} />
-          <Bar dataKey="exit" fill={COLORS.exit} opacity={0.85} radius={[3, 3, 0, 0]} />
-          <Line
-            type="monotone"
-            dataKey="enter"
-            stroke={COLORS.enter}
-            strokeWidth={2}
-            dot={false}
-          />
-        </ComposedChart>
-      </ResponsiveContainer>
-    </div>
+    <ResponsiveContainer width="100%" height={260}>
+      <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+        <defs>
+          <linearGradient id="enterGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#059669" stopOpacity={0.15} />
+            <stop offset="95%" stopColor="#059669" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+        <XAxis
+          dataKey="hour"
+          tickFormatter={(h) => `${h}h`}
+          tick={{ fontSize: 11, fill: "#94A3B8" }}
+          axisLine={false}
+          tickLine={false}
+        />
+        <YAxis
+          tick={{ fontSize: 11, fill: "#94A3B8" }}
+          axisLine={false}
+          tickLine={false}
+        />
+        <Tooltip
+          contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 12 }}
+          formatter={(v, name) => [v, name === "enter" ? "Entradas" : "Salidas"]}
+          labelFormatter={(h) => `${h}:00 h`}
+        />
+        <Legend
+          formatter={(v) => (v === "enter" ? "Entradas" : "Salidas")}
+          wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
+        />
+        <Bar dataKey="exit" fill="#FCA5A5" radius={[4, 4, 0, 0]} maxBarSize={22} />
+        <Bar dataKey="enter" fill="#6EE7B7" radius={[4, 4, 0, 0]} maxBarSize={22} />
+        <Area
+          type="monotone"
+          dataKey="enter"
+          stroke="#059669"
+          strokeWidth={2.5}
+          fill="url(#enterGrad)"
+          dot={false}
+          activeDot={{ r: 5, fill: "#059669" }}
+        />
+      </ComposedChart>
+    </ResponsiveContainer>
   );
 }

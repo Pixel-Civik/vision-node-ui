@@ -16,7 +16,10 @@
       "Bash(npx tsc *)",
       "Bash(npm run *)",
       "Bash(Get-ChildItem \"C:\\\\Users\\\\USER\\\\Desktop\\\\ACCESORIO\\\\Pixel-Civik\\\\vision-node\\\\frontend-next\\\\src\" -Recurse -File)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(node *)",
+      "WebFetch(domain:pixelcivik.com)",
+      "WebSearch"
     ]
   },
   "enabledMcpjsonServers": [

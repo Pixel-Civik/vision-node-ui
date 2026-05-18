@@ -5,13 +5,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Download, FileText, Table2 } from "lucide-react";
-import type { KPIResult, HourlyRow, ZoneBreakdownRow, ConversionHourRow, TIZKpiRow } from "@/lib/types";
+import type { KPIResult, HourlyRow, ZoneBreakdownRow, ChannelBreakdownRow, ConversionHourRow, TIZKpiRow } from "@/lib/types";
+import { exportPDF } from "@/lib/exportPDF";
 import * as XLSX from "xlsx";
 
 interface Props {
   kpis: KPIResult | null;
   hourly: HourlyRow[];
   zones: ZoneBreakdownRow[];
+  channels?: ChannelBreakdownRow[];
   conversion: ConversionHourRow[];
   tiz: TIZKpiRow[];
   startTs: string;
@@ -40,15 +42,47 @@ function exportExcel(data: Props, sections: string[]) {
   }
 
   if (sections.includes("enter_exit")) {
-    const enterExit = data.hourly
-      .filter((r) => ["enter", "exit"].includes(r.event_type))
-      .map((r) => ({ Hora: r.hour, Tipo: r.event_type, Cantidad: r.count }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(enterExit), "EE_Por_Hora");
+    // Hourly pivot: one row per hour with enters, exits, net
+    const hourMap = new Map<number, { enters: number; exits: number }>();
+    for (const r of data.hourly) {
+      if (!["enter", "exit"].includes(r.event_type)) continue;
+      const cur = hourMap.get(r.hour) ?? { enters: 0, exits: 0 };
+      if (r.event_type === "enter") cur.enters += r.count;
+      else cur.exits += r.count;
+      hourMap.set(r.hour, cur);
+    }
+    const hourly = Array.from(hourMap.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([h, d]) => ({ Hora: `${h}:00 h`, Entradas: d.enters, Salidas: d.exits, Neto: d.enters - d.exits }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hourly), "Por_Hora");
 
-    const byZone = data.zones
-      .filter((r) => ["enter", "exit"].includes(r.event_type))
-      .map((r) => ({ Zona: r.zone, Tipo: r.event_type, Cantidad: r.count }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(byZone), "EE_Por_Zona");
+    // Zone pivot
+    const zoneMap = new Map<string, { enters: number; exits: number }>();
+    for (const r of data.zones) {
+      if (!["enter", "exit"].includes(r.event_type)) continue;
+      const cur = zoneMap.get(r.zone) ?? { enters: 0, exits: 0 };
+      if (r.event_type === "enter") cur.enters += r.count;
+      else cur.exits += r.count;
+      zoneMap.set(r.zone, cur);
+    }
+    const byZone = Array.from(zoneMap.entries())
+      .map(([z, d]) => ({ Zona: z, Entradas: d.enters, Salidas: d.exits, Neto: d.enters - d.exits }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(byZone), "Por_Zona");
+
+    // Channel pivot
+    if (data.channels && data.channels.length > 0) {
+      const chMap = new Map<string, { enters: number; exits: number }>();
+      for (const r of data.channels) {
+        if (!["enter", "exit"].includes(r.event_type)) continue;
+        const cur = chMap.get(r.channel) ?? { enters: 0, exits: 0 };
+        if (r.event_type === "enter") cur.enters += r.count;
+        else cur.exits += r.count;
+        chMap.set(r.channel, cur);
+      }
+      const byCam = Array.from(chMap.entries())
+        .map(([c, d]) => ({ Camara: c, Entradas: d.enters, Salidas: d.exits, Neto: d.enters - d.exits }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(byCam), "Por_Camara");
+    }
   }
 
   if (sections.includes("conversion")) {
@@ -123,11 +157,9 @@ export function ExportDialog(props: Props) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger>
-        <Button variant="outline" size="sm" className="gap-1.5">
-          <Download size={14} />
-          Exportar reporte
-        </Button>
+      <DialogTrigger render={<Button variant="outline" size="sm" className="gap-1.5" />}>
+        <Download size={14} />
+        Exportar reporte
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
@@ -186,8 +218,19 @@ export function ExportDialog(props: Props) {
               <Button
                 variant="outline"
                 className="flex-1 gap-1.5"
-                disabled
-                title="PDF disponible próximamente"
+                onClick={() => {
+                  exportPDF({
+                    title: "Reporte de Tráfico",
+                    subtitle: "Análisis completo del período seleccionado",
+                    startTs: props.startTs,
+                    endTs: props.endTs,
+                    kpis: props.kpis,
+                    hourly: props.hourly,
+                    zones: props.zones,
+                    channels: props.channels,
+                  });
+                  setOpen(false);
+                }}
               >
                 <FileText size={14} />
                 Descargar PDF
