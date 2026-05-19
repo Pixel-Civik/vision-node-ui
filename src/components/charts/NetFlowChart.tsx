@@ -5,6 +5,7 @@ import {
   Tooltip, ReferenceLine, ResponsiveContainer, Cell,
 } from "recharts";
 import type { HourlyRow } from "@/lib/types";
+import { fmtHour } from "@/lib/fmt";
 
 function buildNet(rows: HourlyRow[]) {
   const map = new Map<number, { enters: number; exits: number }>();
@@ -32,7 +33,7 @@ export function NetFlowChart({ rows, loading }: { rows: HourlyRow[]; loading: bo
         <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
         <XAxis
           dataKey="hour"
-          tickFormatter={(h) => `${h}h`}
+          tickFormatter={(h) => fmtHour(Number(h))}
           tick={{ fontSize: 11, fill: "#94A3B8" }}
           axisLine={false}
           tickLine={false}
@@ -45,7 +46,7 @@ export function NetFlowChart({ rows, loading }: { rows: HourlyRow[]; loading: bo
             v,
             name === "net" ? "Flujo neto (Ent − Sal)" : name,
           ]}
-          labelFormatter={(h) => `${h}:00 h`}
+          labelFormatter={(h) => fmtHour(Number(h))}
         />
         <Bar dataKey="net" maxBarSize={22} radius={[4, 4, 0, 0]}>
           {data.map((d, i) => (

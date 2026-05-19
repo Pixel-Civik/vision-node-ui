@@ -17,10 +17,16 @@ import { ZonePanel } from "@/components/dashboard/ZonePanel";
 import { HeatmapChart } from "@/components/dashboard/HeatmapChart";
 import { TIZPanel } from "@/components/dashboard/TIZPanel";
 import { TrafficPeriodChart } from "@/components/dashboard/TrafficPeriodChart";
+import { CombinedTrafficChart } from "@/components/charts/CombinedTrafficChart";
+import { ConversionFunnelChart } from "@/components/charts/ConversionFunnelChart";
+import { DOWChart } from "@/components/charts/DOWChart";
+import { OpportunityChart } from "@/components/charts/OpportunityChart";
 import { ExportDialog } from "@/components/export/ExportDialog";
+import { ReporteExportDialog } from "@/components/export/ReporteExportDialog";
 import { EntradasView } from "@/components/dashboards/EntradasView";
 import { VisitantesView } from "@/components/dashboards/VisitantesView";
 import { TIZView } from "@/components/dashboards/TIZView";
+import { LazyChart } from "@/components/ui/LazyChart";
 import { useFilterOptions } from "@/hooks/useFilterOptions";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useAnalytics } from "@/hooks/useAnalytics";
@@ -75,6 +81,16 @@ export default function App() {
   const hasConversion = data.conversion.some((r) => r.pasantes > 0);
   const hasTIZ = data.tizKpis.length > 0;
 
+  const totals = useMemo(() => {
+    let visitors = 0, pasantes = 0;
+    for (const r of data.hourly) {
+      if (r.event_type === "visitor") visitors += r.count;
+      if (r.event_type === "pasante") pasantes += r.count;
+    }
+    const conv = pasantes > 0 ? Math.round((visitors / pasantes) * 1000) / 10 : null;
+    return { visitors, pasantes, conv };
+  }, [data.hourly]);
+
   function navigate(id: Section) {
     setSection(id);
     setSidebarOpen(false);
@@ -92,8 +108,7 @@ export default function App() {
               alt="Pixel Civik"
               width={160}
               height={56}
-              className="object-contain"
-              style={{ width: "100%", height: "auto" }}
+              className="object-contain w-full h-auto"
               priority
             />
           </div>
@@ -193,7 +208,7 @@ export default function App() {
           )}
         </div>
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto overscroll-contain">
           {data.error && (
             <div className="mx-6 mt-4 flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
               <AlertTriangle size={15} />
@@ -212,15 +227,79 @@ export default function App() {
                     <span className="font-medium text-slate-700">{fv.endDate}</span>
                   </p>
                 </div>
+                <ExportDialog
+                  kpis={data.kpis}
+                  hourly={data.hourly}
+                  zones={data.zoneBreakdown}
+                  channels={data.channelBreakdown}
+                  conversion={data.conversion}
+                  tiz={data.tizKpis}
+                  startTs={filters.startTs}
+                  endTs={filters.endTs}
+                />
               </div>
 
+              {/* Primary KPI cards */}
               <KPICards kpis={data.kpis} loading={data.loading} />
 
+              {/* Visitantes + Pasantes strip */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  {
+                    label: "Visitantes",
+                    value: data.loading ? null : totals.visitors,
+                    sub: "Personas con intención de compra",
+                    color: "#818CF8",
+                    bg: "bg-indigo-50",
+                    border: "border-l-indigo-400",
+                  },
+                  {
+                    label: "Pasantes",
+                    value: data.loading ? null : totals.pasantes,
+                    sub: "Personas que pasaron frente al local",
+                    color: "#94A3B8",
+                    bg: "bg-slate-50",
+                    border: "border-l-slate-400",
+                  },
+                  {
+                    label: "Conversión",
+                    value: data.loading ? null : totals.conv !== null ? `${totals.conv}%` : "—",
+                    sub: "Visitantes / Pasantes",
+                    color: "#2DD4BF",
+                    bg: "bg-teal-50",
+                    border: "border-l-[#2DD4BF]",
+                  },
+                  {
+                    label: "Tracks únicos",
+                    value: data.loading ? null : data.kpis?.unique_tracks ?? 0,
+                    sub: "Personas distintas detectadas",
+                    color: "#F59E0B",
+                    bg: "bg-amber-50",
+                    border: "border-l-amber-400",
+                  },
+                ].map(({ label, value, sub, bg, border }) => (
+                  <div key={label} className={`bg-white rounded-2xl border border-slate-100 shadow-sm p-4 border-l-4 ${border}`}>
+                    <p className="text-xs text-slate-500 font-medium">{label}</p>
+                    {value === null ? (
+                      <div className="h-7 w-20 bg-slate-100 rounded animate-pulse mt-2" />
+                    ) : (
+                      <p className="text-2xl font-bold text-slate-800 mt-1">
+                        {typeof value === "number" ? value.toLocaleString("es-PE") : value}
+                      </p>
+                    )}
+                    <p className="text-[11px] text-slate-400 mt-1">{sub}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Combined traffic chart + period distribution */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
-                  <h3 className="text-sm font-semibold text-slate-700 mb-1">Tráfico por hora</h3>
-                  <p className="text-xs text-slate-400 mb-4">Entradas y salidas hora a hora</p>
-                  <BehaviorChart rows={data.hourly} loading={data.loading} />
+                  <h3 className="text-sm font-semibold text-slate-700 mb-1">Tráfico combinado por hora</h3>
+                  <p className="text-xs text-slate-400 mb-4">
+                    Entradas · Salidas · Visitantes · Pasantes — hora a hora
+                  </p>
+                  <CombinedTrafficChart rows={data.hourly} loading={data.loading} />
                 </div>
 
                 <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
@@ -251,13 +330,12 @@ export default function App() {
                     Análisis detallado — ajusta los filtros y actualiza
                   </p>
                 </div>
-                <ExportDialog
+                <ReporteExportDialog
                   kpis={data.kpis}
                   hourly={data.hourly}
+                  heatmap={data.heatmap}
                   zones={data.zoneBreakdown}
                   channels={data.channelBreakdown}
-                  conversion={data.conversion}
-                  tiz={data.tizKpis}
                   startTs={filters.startTs}
                   endTs={filters.endTs}
                 />
@@ -275,48 +353,135 @@ export default function App() {
 
               <Separator className="my-1" />
 
+              {/* Visitantes + Pasantes mini strip */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { label: "Visitantes", value: totals.visitors, color: "border-l-indigo-400" },
+                  { label: "Pasantes",   value: totals.pasantes, color: "border-l-slate-400" },
+                  { label: "Conversión", value: totals.conv !== null ? `${totals.conv}%` : "—", color: "border-l-[#2DD4BF]" },
+                  { label: "Tracks únicos", value: data.kpis?.unique_tracks ?? 0, color: "border-l-amber-400" },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className={`bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3 border-l-4 ${color}`}>
+                    <p className="text-xs text-slate-500">{label}</p>
+                    {data.loading ? (
+                      <div className="h-6 w-16 bg-slate-100 rounded animate-pulse mt-1" />
+                    ) : (
+                      <p className="text-xl font-bold text-slate-800 mt-0.5">
+                        {typeof value === "number" ? value.toLocaleString("es-PE") : value}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <Separator className="my-1" />
+
               {/* Tabs */}
-              <Tabs defaultValue="resumen">
+              <Tabs defaultValue="combinado">
                 <TabsList className="bg-slate-100 p-1 rounded-xl">
+                  <TabsTrigger value="combinado" className="rounded-lg text-xs font-medium">
+                    Visión general
+                  </TabsTrigger>
                   <TabsTrigger value="resumen" className="rounded-lg text-xs font-medium">
-                    Resumen
+                    Entradas y Salidas
                   </TabsTrigger>
                   {(hasConversion || hasTIZ) && (
                     <TabsTrigger value="visitantes" className="rounded-lg text-xs font-medium">
                       Visitantes y Zonas
                     </TabsTrigger>
                   )}
-                  <TabsTrigger value="avanzado" className="rounded-lg text-xs font-medium">
-                    Avanzado
-                  </TabsTrigger>
                 </TabsList>
 
-                {/* ─ Resumen ─ */}
-                <TabsContent value="resumen" className="mt-5 space-y-5">
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                    <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
-                      <h3 className="text-sm font-semibold text-slate-700">Tráfico por hora</h3>
-                      <p className="text-xs text-slate-400 mt-0.5 mb-4">Barras = volumen · Línea = tendencia de entradas</p>
-                      <BehaviorChart rows={data.hourly} loading={data.loading} />
-                    </div>
+                {/* ─ Combinado ─ */}
+                <TabsContent value="combinado" className="mt-5 space-y-5">
+                  {/* Row 1: Combined traffic — full width */}
+                  <div id="export-chart-combined" className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+                    <h3 className="text-sm font-semibold text-slate-700">Tráfico combinado por hora</h3>
+                    <p className="text-xs text-slate-400 mt-0.5 mb-4">
+                      Barras: Entradas (verde) / Salidas (rojo) · Líneas: Visitantes (indigo) / Pasantes (gris)
+                    </p>
+                    <CombinedTrafficChart rows={data.hourly} loading={data.loading} />
+                  </div>
 
-                    <div className="space-y-5">
-                      <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
-                        <h3 className="text-sm font-semibold text-slate-700 mb-1">Franja horaria</h3>
-                        <p className="text-xs text-slate-400 mb-4">Distribución de entradas por período del día</p>
-                        <TrafficPeriodChart rows={data.hourly} loading={data.loading} />
-                      </div>
+                  {/* Row 2: Funnel + Conversion side by side */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    <div id="export-chart-funnel" className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+                      <h3 className="text-sm font-semibold text-slate-700 mb-1">Embudo de conversión</h3>
+                      <p className="text-xs text-slate-400 mb-4">Pasantes → Visitantes → Entradas</p>
+                      <LazyChart height={160}>
+                        <ConversionFunnelChart rows={data.hourly} loading={data.loading} />
+                      </LazyChart>
+                    </div>
+                    <div id="export-chart-conversion" className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+                      <h3 className="text-sm font-semibold text-slate-700">Conversión por hora</h3>
+                      <p className="text-xs text-slate-400 mt-0.5 mb-4">% de pasantes que ingresaron, hora a hora</p>
+                      <LazyChart height={280}>
+                        <ConversionChart rows={data.conversion} loading={data.loading} />
+                      </LazyChart>
                     </div>
                   </div>
 
+                  {/* Row 3: Franja horaria — full width */}
+                  <div id="export-chart-period" className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+                    <h3 className="text-sm font-semibold text-slate-700 mb-1">Franja horaria</h3>
+                    <p className="text-xs text-slate-400 mb-4">% de entradas por período del día (Mañana / Tarde / Noche)</p>
+                    <LazyChart height={160}>
+                      <TrafficPeriodChart rows={data.hourly} loading={data.loading} />
+                    </LazyChart>
+                  </div>
+
+                  {/* Row 4: Day-of-week + Heatmap side by side */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    <div id="export-chart-dow" className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+                      <h3 className="text-sm font-semibold text-slate-700">Tráfico por día de semana</h3>
+                      <p className="text-xs text-slate-400 mt-0.5 mb-4">
+                        ¿Qué día concentra más eventos? · El día destacado en teal es el de mayor volumen
+                      </p>
+                      <LazyChart height={220}>
+                        <DOWChart rows={data.heatmap} loading={data.loading} />
+                      </LazyChart>
+                    </div>
+                    <div id="export-chart-heatmap" className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+                      <h3 className="text-sm font-semibold text-slate-700">Mapa de calor hora × día</h3>
+                      <p className="text-xs text-slate-400 mt-0.5 mb-4">
+                        Concentración de tráfico — azul oscuro = mayor actividad
+                      </p>
+                      <LazyChart height={220}>
+                        <HeatmapChart rows={data.heatmap} loading={data.loading} />
+                      </LazyChart>
+                    </div>
+                  </div>
+
+                  {/* Row 5: Opportunity chart — full width */}
+                  <div id="export-chart-opportunity" className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+                    <h3 className="text-sm font-semibold text-slate-700">Zona de oportunidad de captación</h3>
+                    <p className="text-xs text-slate-400 mt-0.5 mb-4">
+                      Horas con alto tráfico de pasantes y baja conversión — mayor potencial de captación
+                    </p>
+                    <LazyChart height={260}>
+                      <OpportunityChart rows={data.conversion} loading={data.loading} />
+                    </LazyChart>
+                  </div>
+                </TabsContent>
+
+                {/* ─ Resumen (Entradas/Salidas) ─ */}
+                <TabsContent value="resumen" className="mt-5 space-y-5">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                    <div id="export-chart-behavior" className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+                      <h3 className="text-sm font-semibold text-slate-700">Entradas y salidas por hora</h3>
+                      <p className="text-xs text-slate-400 mt-0.5 mb-4">Barras = volumen · Línea = tendencia de entradas</p>
+                      <BehaviorChart rows={data.hourly} loading={data.loading} />
+                    </div>
+                    <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+                      <h3 className="text-sm font-semibold text-slate-700 mb-1">Franja horaria</h3>
+                      <p className="text-xs text-slate-400 mb-4">Distribución de entradas por período del día</p>
+                      <TrafficPeriodChart rows={data.hourly} loading={data.loading} />
+                    </div>
+                  </div>
                   <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
                     <h3 className="text-sm font-semibold text-slate-700 mb-1">Desglose por zona y cámara</h3>
                     <p className="text-xs text-slate-400 mb-4">Entradas y salidas por punto de seguimiento</p>
-                    <ZonePanel
-                      zones={data.zoneBreakdown}
-                      channels={data.channelBreakdown}
-                      loading={data.loading}
-                    />
+                    <ZonePanel zones={data.zoneBreakdown} channels={data.channelBreakdown} loading={data.loading} />
                   </div>
                 </TabsContent>
 
@@ -342,16 +507,6 @@ export default function App() {
                   )}
                 </TabsContent>
 
-                {/* ─ Avanzado ─ */}
-                <TabsContent value="avanzado" className="mt-5">
-                  <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
-                    <h3 className="text-sm font-semibold text-slate-700">Mapa de Calor</h3>
-                    <p className="text-xs text-slate-400 mt-0.5 mb-4">
-                      Concentración de tráfico por hora × día de semana
-                    </p>
-                    <HeatmapChart rows={data.heatmap} loading={data.loading} />
-                  </div>
-                </TabsContent>
               </Tabs>
             </div>
           </div>

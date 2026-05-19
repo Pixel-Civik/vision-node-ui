@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { DashboardFilters, KPIResult, HourlyRow, ZoneBreakdownRow, ChannelBreakdownRow, HeatmapRow, ConversionHourRow, TIZKpiRow } from "@/lib/types";
-import { fetchKPIs, fetchHourly, fetchZoneBreakdown, fetchChannelBreakdown, fetchHeatmap, fetchConversionByHour, fetchTIZKpis } from "@/lib/api";
+import { fetchKPIs, fetchHourly, fetchZoneBreakdown, fetchChannelBreakdown, fetchHeatmap, fetchTIZKpis, computeConversionFromHourly } from "@/lib/api";
 
 export interface DashboardData {
   kpis: KPIResult | null;
@@ -43,11 +43,11 @@ export function useDashboard(filters: DashboardFilters): DashboardData & { refre
       fetchZoneBreakdown(filters),
       fetchChannelBreakdown(filters),
       fetchHeatmap(filters),
-      fetchConversionByHour(filters),
       fetchTIZKpis(filters),
     ])
-      .then(([kpis, hourly, zoneBreakdown, channelBreakdown, heatmap, conversion, tizKpis]) => {
+      .then(([kpis, hourly, zoneBreakdown, channelBreakdown, heatmap, tizKpis]) => {
         if (cancelled) return;
+        const conversion = computeConversionFromHourly(hourly);
         setData({ kpis, hourly, zoneBreakdown, channelBreakdown, heatmap, conversion, tizKpis });
       })
       .catch((e) => {

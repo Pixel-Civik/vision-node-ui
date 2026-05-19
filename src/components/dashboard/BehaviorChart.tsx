@@ -5,6 +5,7 @@ import {
   Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 import type { HourlyRow } from "@/lib/types";
+import { fmtHour } from "@/lib/fmt";
 
 const FIXED_HEIGHTS = [42, 68, 55, 83, 60, 72, 85, 90, 65, 78, 88, 70, 52, 60, 45, 55];
 
@@ -47,7 +48,7 @@ export function BehaviorChart({ rows, loading }: { rows: HourlyRow[]; loading: b
         <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
         <XAxis
           dataKey="hour"
-          tickFormatter={(h) => `${h}h`}
+          tickFormatter={(h) => fmtHour(Number(h))}
           tick={{ fontSize: 11, fill: "#94A3B8" }}
           axisLine={false}
           tickLine={false}
@@ -60,7 +61,7 @@ export function BehaviorChart({ rows, loading }: { rows: HourlyRow[]; loading: b
         <Tooltip
           contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 12 }}
           formatter={(v, name) => [v, name === "enter" ? "Entradas" : "Salidas"]}
-          labelFormatter={(h) => `${h}:00 h`}
+          labelFormatter={(h) => fmtHour(Number(h))}
         />
         <Legend
           formatter={(v) => (v === "enter" ? "Entradas" : "Salidas")}

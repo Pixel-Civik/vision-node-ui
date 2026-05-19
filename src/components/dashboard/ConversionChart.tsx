@@ -5,6 +5,7 @@ import {
   Tooltip, Legend, ResponsiveContainer, ReferenceLine,
 } from "recharts";
 import type { ConversionHourRow } from "@/lib/types";
+import { fmtHour } from "@/lib/fmt";
 
 function SkeletonChart() {
   return <div className="h-72 bg-gray-100 rounded-lg animate-pulse" />;
@@ -30,7 +31,7 @@ export function ConversionChart({
       <ResponsiveContainer width="100%" height={280}>
         <ComposedChart data={rows} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-          <XAxis dataKey="hour" tickFormatter={(h) => `${h}h`} tick={{ fontSize: 11 }} />
+          <XAxis dataKey="hour" tickFormatter={(h) => fmtHour(Number(h))} tick={{ fontSize: 11 }} />
           <YAxis yAxisId="pasantes" orientation="left" tick={{ fontSize: 11 }} />
           <YAxis yAxisId="conv" orientation="right" domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 11 }} />
           <Tooltip
@@ -39,7 +40,7 @@ export function ConversionChart({
               if (name === "conv_enter_pct") return [`${v}%`, "Conversión"];
               return [v, name];
             }}
-            labelFormatter={(h) => `Hora ${h}:00`}
+            labelFormatter={(h) => fmtHour(Number(h))}
           />
           <Legend
             formatter={(v) =>

@@ -19,7 +19,8 @@
       "Bash(Select-Object FullName)",
       "Bash(node *)",
       "WebFetch(domain:pixelcivik.com)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(echo \"EXIT:$?\")"
     ]
   },
   "enabledMcpjsonServers": [

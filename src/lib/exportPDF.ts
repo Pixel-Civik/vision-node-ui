@@ -220,6 +220,7 @@ export function exportPDF(opts: {
   age?: AgeRow[];
   include?: PDFInclude;
   sections?: { title: string; rows: [string, string][] }[];
+  chartImages?: { label: string; dataUrl: string }[];
 }) {
   const inc: PDFInclude = {
     kpi: true,
@@ -493,6 +494,25 @@ export function exportPDF(opts: {
       opts.title,
       period,
     );
+  }
+
+  // ── Chart images (captured via html2canvas) ──
+  if (opts.chartImages && opts.chartImages.length > 0) {
+    newPage();
+    y = sectionTitle(doc, "Gráficos del período", y);
+    for (const { label, dataUrl } of opts.chartImages) {
+      const imgW = 182;
+      // Estimate height from aspect ratio — decode from base64 if needed; use safe default
+      const imgH = 80; // fixed height per chart in PDF
+      ensureSpace(imgH + 16);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...DARK);
+      doc.text(label, 14, y);
+      y += 5;
+      doc.addImage(dataUrl, "PNG", 14, y, imgW, imgH);
+      y += imgH + 10;
+    }
   }
 
   // ── Footer ──

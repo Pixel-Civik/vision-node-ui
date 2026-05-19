@@ -44,8 +44,7 @@ export async function fetchTIZKpis(f: DashboardFilters): Promise<TIZKpiRow[]> {
   return (data as TIZKpiRow[]) ?? [];
 }
 
-export async function fetchConversionByHour(f: DashboardFilters): Promise<ConversionHourRow[]> {
-  const rows = await fetchHourly(f);
+export function computeConversionFromHourly(rows: HourlyRow[]): ConversionHourRow[] {
   const map = new Map<number, { pasantes: number; visitors: number; enters: number }>();
   for (const r of rows) {
     if (!["pasante", "visitor", "enter"].includes(r.event_type)) continue;
@@ -65,6 +64,10 @@ export async function fetchConversionByHour(f: DashboardFilters): Promise<Conver
       conv_enter_pct: d.pasantes > 0 ? Math.round((d.enters / d.pasantes) * 1000) / 10 : 0,
       conv_visitor_pct: d.pasantes > 0 ? Math.round((d.visitors / d.pasantes) * 1000) / 10 : 0,
     }));
+}
+
+export async function fetchConversionByHour(f: DashboardFilters): Promise<ConversionHourRow[]> {
+  return computeConversionFromHourly(await fetchHourly(f));
 }
 
 export async function fetchGenderAge(

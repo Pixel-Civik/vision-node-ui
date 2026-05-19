@@ -10,8 +10,8 @@ import { HeatmapChart } from "@/components/dashboard/HeatmapChart";
 import { GenderAgePanel } from "@/components/charts/GenderAgePanel";
 import { NetFlowChart } from "@/components/charts/NetFlowChart";
 import { ExportDialog } from "@/components/export/ExportDialog";
-import { exportPDF } from "@/lib/exportPDF";
-import { FileText, TrendingUp } from "lucide-react";
+import { PDFExportDialog } from "@/components/export/PDFExportDialog";
+import { TrendingUp } from "lucide-react";
 
 interface Props {
   kpis: KPIResult | null;
@@ -82,33 +82,6 @@ export function EntradasView({
   heatmap, genderEnter, ageEnter, loading, analyticsLoading, filters,
 }: Props) {
   const peaks = peakHours(hourly);
-  const d = Math.max(1, kpis?.days ?? 1);
-
-  function handlePDF() {
-    exportPDF({
-      title: "Entradas y Salidas",
-      subtitle: "Análisis detallado de flujo de tráfico de personas",
-      startTs: filters.startTs,
-      endTs: filters.endTs,
-      kpis: kpis ?? undefined,
-      hourly,
-      zones: zoneBreakdown,
-      channels: channelBreakdown,
-      gender: genderEnter,
-      age: ageEnter,
-      sections: [
-        {
-          title: "Promedios diarios",
-          rows: [
-            ["Entradas / día", kpis ? (kpis.enters / d).toFixed(1) : "—"],
-            ["Salidas / día", kpis ? (kpis.exits / d).toFixed(1) : "—"],
-            ["Neto / día", kpis ? (kpis.net / d).toFixed(1) : "—"],
-            ["Hora pico (entradas)", peaks[0] ? `${peaks[0].hour}:00 h (${peaks[0].count})` : "—"],
-          ] as [string, string][],
-        },
-      ],
-    });
-  }
 
   return (
     <section className="px-4 md:px-6 py-5 space-y-5">
@@ -123,13 +96,16 @@ export function EntradasView({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={handlePDF}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
-          >
-            <FileText size={13} />
-            PDF detallado
-          </button>
+          <PDFExportDialog
+            kpis={kpis}
+            hourly={hourly}
+            heatmap={heatmap}
+            zones={zoneBreakdown}
+            channels={channelBreakdown}
+            gender={genderEnter}
+            age={ageEnter}
+            filters={filters}
+          />
           <ExportDialog
             kpis={kpis}
             hourly={hourly}
