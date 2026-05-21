@@ -1,9 +1,16 @@
+/**
+ * FilterPanel — date range, hour slider, day-of-week and dimension filters.
+ * SRP: manages filter UI state and preset chips; no data fetching.
+ * OCP: new filter dimensions (e.g. gender) can be added in the expandable section.
+ */
 "use client";
 
 import { useState } from "react";
 import { ChevronDown, ChevronUp, SlidersHorizontal } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
+import { MultiSelect } from "./MultiSelect";
+
 import type { FilterOptions } from "@/hooks/useFilterOptions";
 
 const DOWS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -49,41 +56,6 @@ function buildPresets() {
     { label: "30 días",      start: isoDate(ago30),              end: today },
     { label: "Mes anterior", start: isoDate(prevMonthStart),     end: isoDate(prevMonthEnd) },
   ];
-}
-
-function MultiSelect({
-  label, options, selected, onChange,
-}: {
-  label: string; options: string[]; selected: string[]; onChange: (v: string[]) => void;
-}) {
-  const allSelected = selected.length === options.length;
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</span>
-        <button
-          className="text-xs text-[#2DD4BF] hover:underline"
-          onClick={() => onChange(allSelected ? [] : [...options])}
-        >
-          {allSelected ? "Ninguno" : "Todos"}
-        </button>
-      </div>
-      <div className="flex flex-wrap gap-1">
-        {options.map((opt) => (
-          <Badge
-            key={opt}
-            variant={selected.includes(opt) ? "default" : "outline"}
-            className="cursor-pointer text-xs select-none"
-            onClick={() =>
-              onChange(selected.includes(opt) ? selected.filter((s) => s !== opt) : [...selected, opt])
-            }
-          >
-            {opt}
-          </Badge>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 interface Props {

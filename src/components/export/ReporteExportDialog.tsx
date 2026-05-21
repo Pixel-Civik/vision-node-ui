@@ -4,9 +4,10 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Download, BarChart2, Table2, Loader2 } from "lucide-react";
+import { Download, BarChart2, Table2, Loader2, FileSpreadsheet, FileText } from "lucide-react";
 import type { KPIResult, HourlyRow, HeatmapRow, ZoneBreakdownRow, ChannelBreakdownRow } from "@/lib/types";
 import { exportPDF } from "@/lib/exportPDF";
+import { exportExcelReporte } from "@/lib/exportExcel";
 
 // ── Chart definitions (must match the `id` on chart wrapper divs in the page) ──
 const CHART_OPTIONS = [
@@ -45,13 +46,8 @@ async function captureElement(id: string): Promise<string | null> {
   const el = document.getElementById(id);
   if (!el) return null;
   try {
-    const { default: html2canvas } = await import("html2canvas");
-    const canvas = await html2canvas(el, {
-      backgroundColor: "#ffffff",
-      logging: false,
-      useCORS: true,
-    } as Parameters<typeof html2canvas>[1]);
-    return canvas.toDataURL("image/png");
+    const { toPng } = await import("html-to-image");
+    return await toPng(el, { backgroundColor: "#ffffff", pixelRatio: 2 });
   } catch {
     return null;
   }
@@ -59,6 +55,7 @@ async function captureElement(id: string): Promise<string | null> {
 
 export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, startTs, endTs }: Props) {
   const [open, setOpen] = useState(false);
+  const [format, setFormat] = useState<"pdf" | "excel">("pdf");
   const [selCharts, setSelCharts] = useState<Set<string>>(
     new Set(["export-chart-combined", "export-chart-funnel", "export-chart-dow"]),
   );
@@ -66,6 +63,7 @@ export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, st
     new Set(["kpi", "hourly", "peak_hours"]),
   );
   const [generating, setGenerating] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
   const [tab, setTab] = useState<"graficos" | "tablas">("graficos");
 
   function toggleChart(id: string) {
@@ -77,16 +75,44 @@ export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, st
 
   async function handleGenerate() {
     setGenerating(true);
+    setProgress(null);
     try {
-      // Capture selected charts
-      const chartImages: { label: string; dataUrl: string }[] = [];
-      for (const chartId of CHART_OPTIONS.filter((c) => selCharts.has(c.id))) {
-        const dataUrl = await captureElement(chartId.id);
-        if (dataUrl) chartImages.push({ label: chartId.label, dataUrl });
+      const inc = Object.fromEntries(TABLE_OPTIONS.map((t) => [t.id, selTables.has(t.id)])) as Record<string, boolean>;
+
+      if (format === "excel") {
+        setProgress("Generando Excel...");
+        await exportExcelReporte({
+          kpis,
+          hourly,
+          heatmap,
+          zones,
+          channels,
+          startTs,
+          endTs,
+          include: {
+            kpi: inc.kpi,
+            hourly: inc.hourly,
+            peak_hours: inc.peak_hours,
+            dow: inc.dow,
+            bands: inc.bands,
+            zones: inc.zones,
+            channels: inc.channels,
+          },
+        });
+        setOpen(false);
+        return;
       }
 
-      // Build include flags for tables
-      const inc = Object.fromEntries(TABLE_OPTIONS.map((t) => [t.id, selTables.has(t.id)])) as Record<string, boolean>;
+      // PDF: capture selected charts with progress feedback
+      const selectedCharts = CHART_OPTIONS.filter((c) => selCharts.has(c.id));
+      const chartImages: { label: string; dataUrl: string }[] = [];
+      for (let i = 0; i < selectedCharts.length; i++) {
+        const chartDef = selectedCharts[i];
+        setProgress(`Capturando gráfico ${i + 1}/${selectedCharts.length}...`);
+        const dataUrl = await captureElement(chartDef.id);
+        if (dataUrl) chartImages.push({ label: chartDef.label, dataUrl });
+      }
+      setProgress("Generando PDF...");
 
       exportPDF({
         title: "Reporte de Tráfico",
@@ -113,10 +139,11 @@ export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, st
       setOpen(false);
     } finally {
       setGenerating(false);
+      setProgress(null);
     }
   }
 
-  const total = selCharts.size + selTables.size;
+  const total = format === "excel" ? selTables.size : selCharts.size + selTables.size;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -127,7 +154,7 @@ export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, st
 
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle className="text-base">Exportar reporte PDF</DialogTitle>
+          <DialogTitle className="text-base">Exportar reporte</DialogTitle>
         </DialogHeader>
         <p className="text-xs text-slate-500 -mt-1">
           Período: <span className="font-medium text-slate-700">{startTs.slice(0, 10)}</span>
@@ -135,25 +162,75 @@ export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, st
           <span className="font-medium text-slate-700">{endTs.slice(0, 10)}</span>
         </p>
 
-        {/* Tab switcher */}
-        <div className="flex gap-1 border-b border-slate-100 -mx-1">
-          {(["graficos", "tablas"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-                tab === t
-                  ? "border-[#2DD4BF] text-[#2DD4BF]"
-                  : "border-transparent text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              {t === "graficos" ? <><BarChart2 size={14} /> Gráficos ({selCharts.size})</> : <><Table2 size={14} /> Tablas ({selTables.size})</>}
-            </button>
-          ))}
+        {/* Format toggle */}
+        <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
+          <button
+            onClick={() => setFormat("pdf")}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              format === "pdf"
+                ? "bg-white shadow-sm text-slate-800"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <FileText size={14} />
+            PDF
+          </button>
+          <button
+            onClick={() => { setFormat("excel"); setTab("tablas"); }}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              format === "excel"
+                ? "bg-white shadow-sm text-slate-800"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <FileSpreadsheet size={14} />
+            Excel
+          </button>
         </div>
 
-        {/* Charts panel */}
-        {tab === "graficos" && (
+        {/* Excel note */}
+        {format === "excel" && (
+          <p className="text-[11px] text-slate-500 bg-slate-50 rounded-lg px-3 py-2 -mt-1">
+            Cada tabla seleccionada se exporta como una hoja separada en el archivo <strong>.xlsx</strong>.
+          </p>
+        )}
+
+        {/* Tab switcher — PDF only */}
+        {format === "pdf" && (
+          <div className="flex gap-1 border-b border-slate-100 -mx-1">
+            {(["graficos", "tablas"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+                  tab === t
+                    ? "border-[#2DD4BF] text-[#2DD4BF]"
+                    : "border-transparent text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {t === "graficos" ? <><BarChart2 size={14} /> Gráficos ({selCharts.size})</> : <><Table2 size={14} /> Tablas ({selTables.size})</>}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Excel: tables header */}
+        {format === "excel" && (
+          <div className="flex items-center justify-between -mb-1">
+            <p className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+              <Table2 size={14} />
+              Tablas a exportar ({selTables.size})
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setSelTables(new Set(TABLE_OPTIONS.map(t => t.id)))} className="text-xs text-[#2DD4BF] hover:underline font-medium">Todas</button>
+              <span className="text-slate-200">|</span>
+              <button onClick={() => setSelTables(new Set())} className="text-xs text-slate-400 hover:underline font-medium">Ninguna</button>
+            </div>
+          </div>
+        )}
+
+        {/* Charts panel — PDF only */}
+        {format === "pdf" && tab === "graficos" && (
           <div className="space-y-1.5 max-h-[52vh] overflow-y-auto pr-0.5">
             <p className="text-[10px] text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg">
               Los gráficos se capturan tal como aparecen en la pantalla. Asegúrate de que estén visibles.
@@ -183,14 +260,16 @@ export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, st
           </div>
         )}
 
-        {/* Tables panel */}
-        {tab === "tablas" && (
+        {/* Tables panel — PDF tab OR Excel mode */}
+        {(format === "excel" || tab === "tablas") && (
           <div className="space-y-1.5 max-h-[52vh] overflow-y-auto pr-0.5">
-            <div className="flex gap-2">
-              <button onClick={() => setSelTables(new Set(TABLE_OPTIONS.map(t => t.id)))} className="text-xs text-[#2DD4BF] hover:underline font-medium">Todos</button>
-              <span className="text-slate-200">|</span>
-              <button onClick={() => setSelTables(new Set())} className="text-xs text-slate-400 hover:underline font-medium">Ninguno</button>
-            </div>
+            {format === "pdf" && (
+              <div className="flex gap-2">
+                <button onClick={() => setSelTables(new Set(TABLE_OPTIONS.map(t => t.id)))} className="text-xs text-[#2DD4BF] hover:underline font-medium">Todos</button>
+                <span className="text-slate-200">|</span>
+                <button onClick={() => setSelTables(new Set())} className="text-xs text-slate-400 hover:underline font-medium">Ninguno</button>
+              </div>
+            )}
             {TABLE_OPTIONS.map(({ id, label, desc }) => {
               const checked = selTables.has(id);
               return (
@@ -220,12 +299,14 @@ export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, st
             <Button variant="outline" size="sm" onClick={() => setOpen(false)} disabled={generating}>Cancelar</Button>
             <Button
               size="sm"
-              className="gap-1.5 bg-[#2DD4BF] hover:bg-[#14B8A6] text-white border-0 min-w-[130px]"
+              className="gap-1.5 bg-[#2DD4BF] hover:bg-[#14B8A6] text-white border-0 min-w-[140px]"
               onClick={handleGenerate}
               disabled={total === 0 || generating}
             >
               {generating ? (
-                <><Loader2 size={13} className="animate-spin" /> Generando...</>
+                <><Loader2 size={13} className="animate-spin" /> {progress ?? "Generando..."}</>
+              ) : format === "excel" ? (
+                <><FileSpreadsheet size={13} /> Exportar Excel</>
               ) : (
                 <><Download size={13} /> Generar PDF</>
               )}
