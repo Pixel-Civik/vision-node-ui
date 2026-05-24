@@ -1,6 +1,49 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "react-day-picker/style.css";
+
+/* react-day-picker — teal theme */
+.rdp-root {
+  --rdp-accent-color: #2DD4BF;
+  --rdp-accent-background-color: rgba(45, 212, 191, 0.12);
+  --rdp-range_middle-background-color: rgba(45, 212, 191, 0.10);
+  --rdp-today-color: #0D9488;
+  --rdp-day-height: 38px;
+  --rdp-day-width: 38px;
+  --rdp-day_button-height: 34px;
+  --rdp-day_button-width: 34px;
+  --rdp-day_button-border-radius: 8px;
+  --rdp-months-gap: 1.5rem;
+  --rdp-outside-opacity: 0.3;
+  --rdp-disabled-opacity: 0.22;
+  font-size: 0.8125rem;
+}
+
+/* Dot below days that have recorded events */
+.rdp-day_button.rdp-has-data {
+  position: relative;
+}
+.rdp-day_button.rdp-has-data::after {
+  content: '';
+  display: block;
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #2DD4BF;
+  pointer-events: none;
+}
+/* Hide dot when the day is selected or inside a range */
+.rdp-day_button.rdp-has-data.rdp-selected::after,
+.rdp-day_button.rdp-has-data.rdp-range_start::after,
+.rdp-day_button.rdp-has-data.rdp-range_middle::after,
+.rdp-day_button.rdp-has-data.rdp-range_end::after {
+  display: none;
+}
 
 @custom-variant dark (&:is(.dark *));
 

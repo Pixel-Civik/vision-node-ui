@@ -11,10 +11,9 @@ type HourPoint = { hour: number; enter: number; exit: number; visitor: number; p
 
 function buildData(rows: HourlyRow[]): HourPoint[] {
   const map = new Map<number, HourPoint>();
-  for (let h = 7; h <= 22; h++)
-    map.set(h, { hour: h, enter: 0, exit: 0, visitor: 0, pasante: 0 });
   for (const r of rows) {
     if (!["enter", "exit", "visitor", "pasante"].includes(r.event_type)) continue;
+    if (!map.has(r.hour)) map.set(r.hour, { hour: r.hour, enter: 0, exit: 0, visitor: 0, pasante: 0 });
     const cur = map.get(r.hour)!;
     (cur as Record<string, number>)[r.event_type] += r.count;
   }

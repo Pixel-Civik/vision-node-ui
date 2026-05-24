@@ -13,7 +13,7 @@
  */
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { AlertTriangle } from "lucide-react";
 
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -30,9 +30,18 @@ import { useDashboard } from "@/hooks/useDashboard";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import type { DashboardFilters } from "@/lib/types";
 
-// Default date range: last 3 days (wider ranges risk Supabase timeouts)
-const today   = new Date().toISOString().slice(0, 10);
-const weekAgo = new Date(Date.now() - 3 * 86400_000).toISOString().slice(0, 10);
+const today     = new Date().toISOString().slice(0, 10);
+// "Yesterday" as default end — today's data is always incomplete (day in progress)
+const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+
+// Lima = UTC-5 (no DST). Convert a Lima local date+hour to a UTC ISO string.
+// This avoids relying on timezone-offset literals that Postgres may strip
+// when the RPC function parameter is `timestamp without time zone`.
+function limaToUtc(date: string, h: number, m: number, s: number): string {
+  const [y, mo, d] = date.split("-").map(Number);
+  // UTC = Lima + 5h; Date.UTC handles hour overflow automatically
+  return new Date(Date.UTC(y, mo - 1, d, h + 5, m, s)).toISOString();
+}
 
 export default function App() {
   const [section, setSection]       = useState<Section>("reporte");
@@ -40,12 +49,30 @@ export default function App() {
 
   const opts = useFilterOptions();
 
-  const [fv, setFv] = useState<FilterValues>({
+  // If session cache is available, opts.minDate is known immediately.
+  const [fv, setFv] = useState<FilterValues>(() => ({
     sites: [], channels: [], zones: [],
-    hourMin: 7, hourMax: 22,
+    hourMin: 0,
+    hourMax: 23,
     dows: [0, 1, 2, 3, 4, 5, 6],
-    startDate: weekAgo, endDate: today,
-  });
+    startDate: opts.minDate <= yesterday ? opts.minDate : yesterday,
+    endDate: yesterday,
+  }));
+
+  // After the fresh DB query completes, snap to complete-days range: minDate..yesterday.
+  // useRef ensures this runs exactly once so user selections aren't overwritten.
+  const didSnapRef = useRef(false);
+  useEffect(() => {
+    if (opts.loading || didSnapRef.current) return;
+    // Skip if opts.minDate is still the EMPTY placeholder (= today).
+    // The effect re-runs when opts.minDate updates, so the snap fires
+    // as soon as the DB query resolves with a real past date.
+    if (opts.minDate >= today) return;
+    didSnapRef.current = true;
+    const yd = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    setFv((prev) => ({ ...prev, startDate: opts.minDate, endDate: yd }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opts.loading, opts.minDate]);
 
   // Resolve "all selected" as null (no filter applied) for the RPC
   const resolvedSites    = fv.sites.length    > 0 ? fv.sites    : opts.sites;
@@ -53,8 +80,8 @@ export default function App() {
   const resolvedZones    = fv.zones.length    > 0 ? fv.zones    : opts.zones;
 
   const filters = useMemo<DashboardFilters>(() => ({
-    startTs:  `${fv.startDate}T${String(fv.hourMin).padStart(2, "0")}:00:00+00:00`,
-    endTs:    `${fv.endDate}T${String(fv.hourMax).padStart(2, "0")}:59:59+00:00`,
+    startTs:  limaToUtc(fv.startDate, fv.hourMin, 0, 0),
+    endTs:    limaToUtc(fv.endDate, fv.hourMax, 59, 59),
     sites:    resolvedSites.length    < opts.sites.length    ? resolvedSites    : null,
     channels: resolvedChannels.length < opts.channels.length ? resolvedChannels : null,
     zones:    resolvedZones.length    < opts.zones.length    ? resolvedZones    : null,

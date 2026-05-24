@@ -24,7 +24,8 @@
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:v for k,v in d.items\\(\\) if k != 'doors' and k != 'regions'}, indent=2\\)\\)\")",
       "Bash(python3 -c ' *)",
       "Bash(\".venv/Scripts/python.exe\" -c \"import py_compile; py_compile.compile\\('app/stream/direction_gate_engine.py', doraise=True\\); print\\('OK'\\)\")",
-      "Bash(.venv/Scripts/python.exe -c ' *)"
+      "Bash(.venv/Scripts/python.exe -c ' *)",
+      "Bash(Select-String \"lucide\")"
     ]
   },
   "enabledMcpjsonServers": [

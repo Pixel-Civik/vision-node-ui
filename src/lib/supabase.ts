@@ -10,9 +10,6 @@ export async function rpc<T = unknown>(
   params: Record<string, unknown>
 ): Promise<T[]> {
   const { data, error } = await supabase.rpc(fn, params);
-  if (error) {
-    console.error(`RPC ${fn} error:`, error.message);
-    return [];
-  }
+  if (error) throw new Error(`${fn}: ${error.message}`);
   return (data as T[]) ?? [];
 }
