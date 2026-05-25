@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Vision Node — Dashboard de Tráfico",
-  description: "Análisis de entradas, salidas y conversión en tiempo real",
+  title: "Lens — Pixel Civik",
+  description: "Lens by Pixel Civik — Sistema de analítica visual y conteo de personas en tiempo real",
 };
 
 export default function RootLayout({
