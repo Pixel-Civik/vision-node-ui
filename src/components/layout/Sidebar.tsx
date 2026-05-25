@@ -17,7 +17,13 @@ interface SidebarProps {
   dateRange: { start: string; end: string };
 }
 
-export function Sidebar({ section, onNavigate, loading, onRefresh, dateRange }: SidebarProps) {
+export function Sidebar({
+  section,
+  onNavigate,
+  loading,
+  onRefresh,
+  dateRange,
+}: SidebarProps) {
   return (
     <>
       {/* ── Logo & brand ──────────────────────────────────────────────── */}
@@ -26,11 +32,11 @@ export function Sidebar({ section, onNavigate, loading, onRefresh, dateRange }: 
           {/* fill + aspect-ratio avoids the Next.js width/height mismatch warning */}
           <div className="relative w-full" style={{ aspectRatio: "160 / 56" }}>
             <Image
-              src="/pixel_civik.png"
-              alt="Pixel Civik"
+              src="/freshmart.png"
+              alt="Freshmart"
               fill
               sizes="160px"
-              className="object-contain"
+              className="object-cover scale-110"
               priority
             />
           </div>
@@ -61,13 +67,27 @@ export function Sidebar({ section, onNavigate, loading, onRefresh, dateRange }: 
         <p className="text-[10px] text-slate-600 mt-3">
           {dateRange.start} → {dateRange.end}
         </p>
+        <div className="flex items-center gap-1.5 mt-3 opacity-30">
+          <div className="relative w-full h-8">
+            <Image
+              src="/pixel_civik.png"
+              alt="Pixel Civik"
+              fill
+              sizes="130px"
+              className="object-contain scale-125"
+            />
+          </div>
+        </div>
       </div>
     </>
   );
 }
 
 // ── NavList — renders items with group separators ──────────────────────────────
-function NavList({ section, onNavigate }: Pick<SidebarProps, "section" | "onNavigate">) {
+function NavList({
+  section,
+  onNavigate,
+}: Pick<SidebarProps, "section" | "onNavigate">) {
   let lastGroup = "";
 
   return (
