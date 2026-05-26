@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ChevronDown, ChevronUp, SlidersHorizontal } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,12 @@ export interface FilterValues {
 }
 
 function isoDate(d: Date) { return d.toISOString().slice(0, 10); }
+
+function fmtShort(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const M = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  return `${d} ${M[m - 1]} ${y}`;
+}
 
 interface Props {
   opts: FilterOptions;
@@ -77,6 +83,46 @@ export function FilterPanel({ opts, values, onChange }: Props) {
 
   // Always allow up to today so "Hoy" and partial-day data are reachable.
   const maxDate = today;
+
+  // ── Validación de fechas ────────────────────────────────────────────────────
+  type WarnType = "error" | "warning" | "info";
+  const dateWarning = useMemo<{ type: WarnType; msg: string } | null>(() => {
+    if (mode !== "personalizado") return null;
+    if (opts.loading) return null;
+
+    const s = values.startDate;
+    const e = values.endDate;
+    // realMin: null si el placeholder aún no se ha reemplazado por la BD
+    const realMin = opts.minDate < today ? opts.minDate : null;
+
+    if (s > e)
+      return { type: "error", msg: "La fecha de inicio es posterior a la fecha fin — se ajustará automáticamente" };
+
+    if (s > today)
+      return { type: "warning", msg: "El período está en el futuro — no hay datos disponibles" };
+
+    if (realMin && e < realMin)
+      return { type: "warning", msg: `Sin datos antes del ${fmtShort(realMin)} — ajusta el rango` };
+
+    if (realMin && s < realMin)
+      return { type: "info", msg: `Datos disponibles desde el ${fmtShort(realMin)}` };
+
+    // Verifica si hay al menos un día con datos dentro del rango seleccionado
+    if (opts.availableDates.size > 0) {
+      let found = false;
+      for (const d of opts.availableDates) {
+        if (d >= s && d <= e) { found = true; break; }
+      }
+      if (!found)
+        return { type: "warning", msg: "No hay datos registrados para el período seleccionado" };
+    }
+
+    if (e >= today)
+      return { type: "info", msg: "Los datos de hoy están incompletos (día en curso)" };
+
+    return null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, values.startDate, values.endDate, opts.loading, opts.minDate, opts.availableDates, today]);
 
   const MODES: { id: QuickMode; label: string }[] = [
     { id: "hoy",           label: "Hoy"          },
@@ -134,6 +180,7 @@ export function FilterPanel({ opts, values, onChange }: Props) {
                 }
               }}
               onChange={(start, end) => onChange({ startDate: start, endDate: end })}
+              filterWarning={dateWarning}
             />
 
             <div className="w-px h-8 bg-gray-200 self-center" />
@@ -189,6 +236,7 @@ export function FilterPanel({ opts, values, onChange }: Props) {
     </div>
   );
 }
+
 
 function HourSlider({
   hourMin, hourMax, onChange,

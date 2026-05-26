@@ -37,7 +37,7 @@ interface BucketPoint {
 function buildBuckets(rows: TIZRaw[]): BucketPoint[] {
   const counts = new Array(BUCKETS.length).fill(0) as number[];
   for (const r of rows) {
-    const d = r.duration_s;
+    const d = r.dwell_sec;
     for (let i = 0; i < BUCKETS.length; i++) {
       if (d >= BUCKETS[i].min && d < BUCKETS[i].max) {
         counts[i]++;

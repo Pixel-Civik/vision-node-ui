@@ -25,7 +25,10 @@
       "Bash(python3 -c ' *)",
       "Bash(\".venv/Scripts/python.exe\" -c \"import py_compile; py_compile.compile\\('app/stream/direction_gate_engine.py', doraise=True\\); print\\('OK'\\)\")",
       "Bash(.venv/Scripts/python.exe -c ' *)",
-      "Bash(Select-String \"lucide\")"
+      "Bash(Select-String \"lucide\")",
+      "Bash(npx shadcn@latest add calendar popover --yes)",
+      "Bash(npx shadcn@latest add tooltip --yes)",
+      "Bash(npx shadcn@latest add sonner --yes)"
     ]
   },
   "enabledMcpjsonServers": [

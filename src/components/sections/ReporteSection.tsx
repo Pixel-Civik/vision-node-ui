@@ -61,6 +61,7 @@ export function ReporteSection({
           channels={channelBreakdown}
           startTs={filters.startTs}
           endTs={filters.endTs}
+          filters={filters}
         />
       </div>
 

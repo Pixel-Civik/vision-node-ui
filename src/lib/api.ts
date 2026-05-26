@@ -1,4 +1,4 @@
-import type { DashboardFilters, KPIResult, HourlyRow, ZoneBreakdownRow, ChannelBreakdownRow, HeatmapRow, TIZKpiRow, ConversionHourRow, GenderRow, AgeRow, TIZRaw } from "./types";
+import type { DashboardFilters, KPIResult, HourlyRow, ZoneBreakdownRow, ChannelBreakdownRow, HeatmapRow, TIZKpiRow, ConversionHourRow, GenderRow, AgeRow, TIZRaw, DailyRow } from "./types";
 import { rpc, supabase } from "./supabase";
 
 function buildPayload(f: DashboardFilters) {
@@ -77,10 +77,10 @@ export async function fetchGenderAge(
 ): Promise<{ gender: GenderRow[]; age: AgeRow[] }> {
   const { data } = await supabase
     .from("tracking_logs_view")
-    .select("gender, age, event_type")
-    .gte("ts", startTs)
-    .lte("ts", endTs)
-    .in("event_type", eventTypes)
+    .select("gender, age, event")
+    .gte("time", startTs)
+    .lte("time", endTs)
+    .in("event", eventTypes)
     .not("gender", "is", null)
     .limit(5000);
 
@@ -88,7 +88,7 @@ export async function fetchGenderAge(
 
   const gMap = new Map<string, number>();
   const aMap = new Map<string, number>();
-  for (const r of data) {
+  for (const r of data as { gender: string | null; age: string | null }[]) {
     if (r.gender && r.gender !== "genero_no_detectado") gMap.set(r.gender, (gMap.get(r.gender) ?? 0) + 1);
     if (r.age && r.age !== "edad_no_detectada") aMap.set(r.age, (aMap.get(r.age) ?? 0) + 1);
   }
@@ -102,13 +102,39 @@ export async function fetchGenderAge(
 export async function fetchTIZDirect(startTs: string, endTs: string): Promise<TIZRaw[]> {
   const { data } = await supabase
     .from("tracking_logs_view")
-    .select("ts, duration_s, zone_name")
-    .eq("event_type", "visit")
-    .gte("ts", startTs)
-    .lte("ts", endTs)
-    .not("duration_s", "is", null)
+    .select("time, dwell_sec, zone")
+    .eq("event", "visit")
+    .gte("time", startTs)
+    .lte("time", endTs)
+    .not("dwell_sec", "is", null)
     .limit(5000);
   return (data as TIZRaw[]) ?? [];
+}
+
+export async function fetchDailyTotals(f: DashboardFilters): Promise<DailyRow[]> {
+  const { data } = await supabase
+    .from("tracking_logs_view")
+    .select("time, event")
+    .gte("time", f.startTs)
+    .lte("time", f.endTs)
+    .in("event", ["enter", "exit"])
+    .limit(100000);
+
+  if (!data) return [];
+
+  const map = new Map<string, { enters: number; exits: number }>();
+  for (const r of data as { time: string; event: string }[]) {
+    const limaDate = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima" })
+      .format(new Date(r.time));
+    const cur = map.get(limaDate) ?? { enters: 0, exits: 0 };
+    if (r.event === "enter") cur.enters++;
+    else if (r.event === "exit") cur.exits++;
+    map.set(limaDate, cur);
+  }
+
+  return Array.from(map.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, v]) => ({ date, enters: v.enters, exits: v.exits }));
 }
 
 export async function fetchFilterOptions(): Promise<{
@@ -121,31 +147,31 @@ export async function fetchFilterOptions(): Promise<{
   const { data } = await import("./supabase").then((m) =>
     m.supabase
       .from("tracking_logs_view")
-      .select("site,channel,zone_name,ts")
-      .order("ts", { ascending: true })
+      .select("site,channel,zone,time")
+      .order("time", { ascending: true })
       .limit(1)
   );
   const { data: last } = await import("./supabase").then((m) =>
     m.supabase
       .from("tracking_logs_view")
-      .select("ts")
-      .order("ts", { ascending: false })
+      .select("time")
+      .order("time", { ascending: false })
       .limit(1)
   );
 
   const { data: opts } = await import("./supabase").then((m) =>
-    m.supabase.from("tracking_logs_view").select("site,channel,zone_name")
+    m.supabase.from("tracking_logs_view").select("site,channel,zone")
   );
 
   const sites = [...new Set((opts ?? []).map((r: Record<string, string>) => r.site).filter(Boolean))].sort() as string[];
   const channels = [...new Set((opts ?? []).map((r: Record<string, string>) => r.channel).filter(Boolean))].sort() as string[];
-  const zones = [...new Set((opts ?? []).map((r: Record<string, string>) => r.zone_name).filter(Boolean))].sort() as string[];
+  const zones = [...new Set((opts ?? []).map((r: Record<string, string>) => r.zone).filter(Boolean))].sort() as string[];
 
   return {
     sites,
     channels,
     zones,
-    minDate: data?.[0]?.ts?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
-    maxDate: last?.[0]?.ts?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+    minDate: data?.[0]?.time?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+    maxDate: last?.[0]?.time?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
   };
 }

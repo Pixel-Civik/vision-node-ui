@@ -5,9 +5,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Download, BarChart2, Table2, Loader2, FileSpreadsheet, FileText } from "lucide-react";
-import type { KPIResult, HourlyRow, HeatmapRow, ZoneBreakdownRow, ChannelBreakdownRow } from "@/lib/types";
+import type { KPIResult, HourlyRow, HeatmapRow, ZoneBreakdownRow, ChannelBreakdownRow, DashboardFilters } from "@/lib/types";
 import { exportPDF } from "@/lib/exportPDF";
 import { exportExcelReporte } from "@/lib/exportExcel";
+import { fetchDailyTotals } from "@/lib/api";
 
 // ── Chart definitions (must match the `id` on chart wrapper divs in the page) ──
 const CHART_OPTIONS = [
@@ -24,6 +25,7 @@ const CHART_OPTIONS = [
 // ── Table definitions ──
 const TABLE_OPTIONS = [
   { id: "kpi",        label: "Resumen ejecutivo (KPIs)",           desc: "Entradas, salidas, neto, promedios, tasa de salida" },
+  { id: "daily",      label: "Detalle por día",                    desc: "Entradas, salidas, neto y % por cada día del período" },
   { id: "hourly",     label: "Tabla detallada por hora",           desc: "Entradas, salidas, neto y % por cada hora del día" },
   { id: "peak_hours", label: "Ranking horas pico",                 desc: "Top 8 horas con mayor volumen de entradas" },
   { id: "dow",        label: "Tabla día de semana",                desc: "Eventos totales por día con % sobre el período" },
@@ -40,6 +42,7 @@ interface Props {
   channels: ChannelBreakdownRow[];
   startTs: string;
   endTs: string;
+  filters: DashboardFilters;
 }
 
 async function captureElement(id: string): Promise<string | null> {
@@ -53,14 +56,14 @@ async function captureElement(id: string): Promise<string | null> {
   }
 }
 
-export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, startTs, endTs }: Props) {
+export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, startTs, endTs, filters }: Props) {
   const [open, setOpen] = useState(false);
   const [format, setFormat] = useState<"pdf" | "excel">("pdf");
   const [selCharts, setSelCharts] = useState<Set<string>>(
     new Set(["export-chart-combined", "export-chart-funnel", "export-chart-dow"]),
   );
   const [selTables, setSelTables] = useState<Set<string>>(
-    new Set(["kpi", "hourly", "peak_hours"]),
+    new Set(["kpi", "daily", "hourly", "peak_hours"]),
   );
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
@@ -81,8 +84,15 @@ export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, st
 
       if (format === "excel") {
         setProgress("Generando Excel...");
+        let daily;
+        if (inc.daily) {
+          setProgress("Cargando datos por día...");
+          daily = await fetchDailyTotals(filters);
+        }
+        setProgress("Generando Excel...");
         await exportExcelReporte({
           kpis,
+          daily,
           hourly,
           heatmap,
           zones,
@@ -91,6 +101,7 @@ export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, st
           endTs,
           include: {
             kpi: inc.kpi,
+            daily: inc.daily,
             hourly: inc.hourly,
             peak_hours: inc.peak_hours,
             dow: inc.dow,

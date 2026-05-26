@@ -1,4 +1,4 @@
-import type { KPIResult, HourlyRow, HeatmapRow, ZoneBreakdownRow, ChannelBreakdownRow } from "./types";
+import type { KPIResult, HourlyRow, HeatmapRow, ZoneBreakdownRow, ChannelBreakdownRow, DailyRow } from "./types";
 
 const DOWS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
@@ -12,6 +12,7 @@ const C_TEXT   = "FF334155";
 
 export interface ExcelReporteInclude {
   kpi?: boolean;
+  daily?: boolean;
   hourly?: boolean;
   peak_hours?: boolean;
   dow?: boolean;
@@ -108,6 +109,7 @@ function download(buffer: any, filename: string) {
 // ── Public export function ─────────────────────────────────────────────────────
 export async function exportExcelReporte(params: {
   kpis: KPIResult | null;
+  daily?: DailyRow[];
   hourly: HourlyRow[];
   heatmap: HeatmapRow[];
   zones: ZoneBreakdownRow[];
@@ -116,7 +118,7 @@ export async function exportExcelReporte(params: {
   endTs: string;
   include: ExcelReporteInclude;
 }) {
-  const { kpis, hourly, heatmap, zones, channels, startTs, endTs, include: inc } = params;
+  const { kpis, daily, hourly, heatmap, zones, channels, startTs, endTs, include: inc } = params;
   const sheets: Parameters<typeof buildWorkbook>[0] = [];
 
   // ── KPI summary ──────────────────────────────────────────────────────────────
@@ -140,6 +142,23 @@ export async function exportExcelReporte(params: {
         ["Tasa captura salidas",   exitRate],
         ["Tracks únicos",          kpis.unique_tracks ?? "—"],
       ],
+    });
+  }
+
+  // ── Daily breakdown ──────────────────────────────────────────────────────────
+  if (inc.daily && daily?.length) {
+    const totalE = daily.reduce((s, r) => s + r.enters, 0);
+    sheets.push({
+      name: "Por Día",
+      headers: ["Fecha", "Entradas", "Salidas", "Neto", "Entradas %"],
+      colWidths: [16, 14, 14, 14, 14],
+      rows: daily.map((r) => [
+        r.date,
+        r.enters,
+        r.exits,
+        r.enters - r.exits,
+        totalE > 0 ? ((r.enters / totalE) * 100).toFixed(1) + "%" : "0%",
+      ]),
     });
   }
 

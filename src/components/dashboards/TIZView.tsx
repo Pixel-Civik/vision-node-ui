@@ -78,7 +78,7 @@ function InlineKPI({ label, value, sub, borderColor, Icon, loading }: InlineKPIP
 }
 
 export function TIZView({ tizKpis, tizRaw, loading, analyticsLoading, filters }: Props) {
-  const durations = tizRaw.map((r) => r.duration_s);
+  const durations = tizRaw.map((r) => r.dwell_sec);
   const totalVisitas = tizRaw.length;
   const medianVal = median(durations);
   const avgVal = durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0;

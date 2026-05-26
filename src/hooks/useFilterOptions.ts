@@ -13,8 +13,8 @@ export interface FilterOptions {
   loading: boolean;
 }
 
-// v4 — bumped to force fresh Lima-aware date recalculation
-const SESSION_KEY = "pixel-civik-filter-opts-v4";
+// v5 — fixed column names: ts→time, zone_name→zone
+const SESSION_KEY = "pixel-civik-filter-opts-v5";
 
 type CachedOpts = Omit<FilterOptions, "loading" | "availableDates"> & { dates: string[] };
 
@@ -82,30 +82,30 @@ export function useFilterOptions(): FilterOptions {
       const [firstResult, lastResult, dimResult] = await Promise.all([
         supabase
           .from("tracking_logs_view")
-          .select("ts")
-          .order("ts", { ascending: true })
+          .select("time")
+          .order("time", { ascending: true })
           .limit(1),
         supabase
           .from("tracking_logs_view")
-          .select("ts")
-          .order("ts", { ascending: false })
+          .select("time")
+          .order("time", { ascending: false })
           .limit(1),
         supabase
           .from("tracking_logs_view")
-          .select("site,channel,zone_name"),
+          .select("site,channel,zone"),
       ]);
 
-      const firstTs = (firstResult.data?.[0]?.ts as string | undefined) ?? "";
-      const lastTs  = (lastResult.data?.[0]?.ts  as string | undefined) ?? "";
+      const firstTs = (firstResult.data?.[0]?.time as string | undefined) ?? "";
+      const lastTs  = (lastResult.data?.[0]?.time  as string | undefined) ?? "";
       const dimData = dimResult.data ?? [];
 
       // If everything failed, leave loading spinner and bail
       if (!firstTs && dimData.length === 0) { setLoading(false); return; }
 
       // Dimension values (distinct, sorted)
-      const sites    = [...new Set(dimData.map((r) => r.site      as string).filter(Boolean))].sort();
-      const channels = [...new Set(dimData.map((r) => r.channel   as string).filter(Boolean))].sort();
-      const zones    = [...new Set(dimData.map((r) => r.zone_name as string).filter(Boolean))].sort();
+      const sites    = [...new Set(dimData.map((r) => r.site    as string).filter(Boolean))].sort();
+      const channels = [...new Set(dimData.map((r) => r.channel as string).filter(Boolean))].sort();
+      const zones    = [...new Set(dimData.map((r) => r.zone    as string).filter(Boolean))].sort();
 
       // Date range in Lima local time
       const minDate = firstTs ? tolimaDate(firstTs) : TODAY;
