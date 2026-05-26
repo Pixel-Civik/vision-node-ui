@@ -110,7 +110,7 @@ export function DatePicker({
 
   // Mensaje de aviso de entrada (tipeo inválido/fuera de rango)
   const [inputWarn, setInputWarn] = useState<{ type: "error"|"warning"|"info"; msg: string } | null>(null)
-  const warnTimer = useRef<ReturnType<typeof setTimeout>>()
+  const warnTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   function showWarn(type: "error"|"warning"|"info", msg: string) {
     clearTimeout(warnTimer.current)
