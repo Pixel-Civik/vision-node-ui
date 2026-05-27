@@ -30,13 +30,13 @@ export function Sidebar({
       <div className="px-4 py-5 border-b border-white/10">
         <div className="bg-[#1C2B45] rounded-2xl px-4 py-4 flex items-center justify-center">
           {/* fill + aspect-ratio avoids the Next.js width/height mismatch warning */}
-          <div className="relative w-full" style={{ aspectRatio: "160 / 56" }}>
+          <div className="relative w-full" style={{ aspectRatio: "160 / 110" }}>
             <Image
-              src="/freshmart.png"
-              alt="Freshmart"
+              src="/pixel_civik.png"
+              alt="Pixel Civik"
               fill
               sizes="160px"
-              className="object-cover scale-110"
+              className="object-contain scale-125"
               priority
             />
           </div>
@@ -67,17 +67,6 @@ export function Sidebar({
         <p className="text-[10px] text-slate-600 mt-3">
           {dateRange.start} → {dateRange.end}
         </p>
-        <div className="flex items-center gap-1.5 mt-3 opacity-30">
-          <div className="relative w-full h-8">
-            <Image
-              src="/pixel_civik.png"
-              alt="Pixel Civik"
-              fill
-              sizes="130px"
-              className="object-contain scale-125"
-            />
-          </div>
-        </div>
       </div>
     </>
   );

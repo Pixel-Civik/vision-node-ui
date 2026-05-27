@@ -66,6 +66,7 @@ export function InicioSection({
         pasantes={totals.pasantes}
         conv={totals.conv}
         uniqueTracks={kpis?.unique_tracks ?? 0}
+        days={kpis?.days ?? 1}
         loading={loading}
       />
 
