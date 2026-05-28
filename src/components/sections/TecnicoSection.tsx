@@ -7,6 +7,8 @@ import {
   ResponsiveContainer, Cell, ReferenceLine,
 } from "recharts";
 import { useUptime } from "@/hooks/useUptime";
+import { useAvailability } from "@/hooks/useAvailability";
+import { useCameraLastEvents } from "@/hooks/useCameraLastEvents";
 import { supabase } from "@/lib/supabase";
 import { fetchHourly } from "@/lib/api";
 import { KPICards } from "@/components/dashboard/KPICards";
@@ -76,6 +78,30 @@ function fmtDuration(minutes: number): string {
   return m > 0 ? `${h}h ${m}min` : `${h}h`;
 }
 
+function fmtAbsDate(iso: string): string {
+  return new Intl.DateTimeFormat("es-PE", {
+    timeZone: "America/Lima",
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  }).format(new Date(iso));
+}
+
+const EVENT_TYPE_LABELS: Record<string, { label: string; cls: string }> = {
+  enter:   { label: "Entrada",   cls: "bg-emerald-100 text-emerald-700" },
+  exit:    { label: "Salida",    cls: "bg-red-100    text-red-700"     },
+  pasante: { label: "Pasante",   cls: "bg-blue-100   text-blue-700"    },
+  visitor: { label: "Visitante", cls: "bg-indigo-100 text-indigo-700"  },
+};
+
+function TypeBadge({ type }: { type: string }) {
+  const info = EVENT_TYPE_LABELS[type] ?? { label: type, cls: "bg-slate-100 text-slate-600" };
+  return (
+    <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full ${info.cls}`}>
+      {info.label}
+    </span>
+  );
+}
+
 function PctBadge({ pct }: { pct: number }) {
   const color =
     pct >= 90 ? "bg-emerald-100 text-emerald-700" :
@@ -107,6 +133,9 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
       .limit(1)
       .then(({ data }) => { setLiveTs(data?.[0]?.time ?? null); setLiveLoading(false); });
   }, []);
+
+  // ── Último evento por cámara (sin filtro de período, siempre al día) ─────
+  const lastEvents = useCameraLastEvents();
 
   const liveMinutesAgo = useMemo(() => {
     if (!liveTs) return null;
@@ -154,10 +183,7 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
     end:   limaDayBounds(todayStr).end,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), []);
-  const weekUptime = useUptime(weekRange.start, weekRange.end);
-  const weekAvgPct = weekUptime.dailyPct.length > 0
-    ? Math.round(weekUptime.dailyPct.reduce((s, d) => s + d.pct, 0) / weekUptime.dailyPct.length)
-    : 0;
+  const weekAvail = useAvailability(weekRange.start, weekRange.end);
 
   // ── Período filtrado (desde FilterPanel global) ───────────────────────────
   const filterTs = useMemo(() => ({
@@ -165,10 +191,10 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
     end:   limaDayBounds(filterValues.endDate).end,
   }), [filterValues.startDate, filterValues.endDate]);
 
+  // useAvailability: availability % charts (no row-limit issues, uses RPC)
+  // useUptime: gap detection table + camera stats (needs raw event timestamps)
+  const avail  = useAvailability(filterTs.start, filterTs.end);
   const uptime = useUptime(filterTs.start, filterTs.end);
-  const avgPct = uptime.dailyPct.length > 0
-    ? Math.round(uptime.dailyPct.reduce((s, d) => s + d.pct, 0) / uptime.dailyPct.length)
-    : 0;
 
   return (
     <div className="px-4 md:px-6 py-5 space-y-5">
@@ -262,6 +288,107 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
         )}
       </div>
 
+      {/* ── Última señal por cámara ── */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+            <Camera size={14} className="text-[#2DD4BF]" />
+            Última señal por cámara
+          </h3>
+          <span className="text-[10px] text-slate-400">Actualiza cada 2 min</span>
+        </div>
+        <p className="text-xs text-slate-400 mb-4">
+          Evento más reciente registrado por cada cámara — independiente del filtro de período
+        </p>
+
+        {lastEvents.loading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => <div key={i} className="h-9 bg-slate-50 animate-pulse rounded-lg" />)}
+          </div>
+        ) : lastEvents.error ? (
+          <div className="flex items-center gap-2 text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">
+            <AlertTriangle size={12} />
+            {lastEvents.error}
+          </div>
+        ) : lastEvents.cameras.length === 0 ? (
+          <div className="text-sm text-slate-400">Sin registros</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-slate-100">
+                  <th className="text-left  pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Cámara</th>
+                  <th className="text-left  pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Último evento</th>
+                  <th className="text-left  pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Penúltimo evento</th>
+                  <th className="text-right pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lastEvents.cameras.map((cam) => {
+                  const mins      = cam.minutesSince ?? 0;
+                  const isOnline  = mins < 30;
+                  const isWarning = !isOnline && mins < 120;
+                  const rowCls    = isOnline ? "" : isWarning ? "bg-amber-50/40" : "bg-red-50/40";
+                  return (
+                    <tr key={cam.channel} className={`border-b border-slate-50 transition-colors ${rowCls}`}>
+                      {/* Cámara */}
+                      <td className="py-2.5 font-medium text-slate-700">
+                        <div className="flex items-center gap-1.5">
+                          <Camera size={11} className="text-slate-400 shrink-0" />
+                          {cam.cameraName}
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-normal ml-4">ch {cam.channel}</span>
+                      </td>
+
+                      {/* Último evento */}
+                      <td className="py-2.5">
+                        <div className="flex items-center gap-1.5">
+                          <TypeBadge type={cam.last.type} />
+                          <span className="font-mono text-slate-600">{fmtAbsDate(cam.last.time)}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 ml-0.5">{fmtRelative(cam.last.time)}</span>
+                      </td>
+
+                      {/* Penúltimo evento */}
+                      <td className="py-2.5">
+                        {cam.prev ? (
+                          <>
+                            <div className="flex items-center gap-1.5">
+                              <TypeBadge type={cam.prev.type} />
+                              <span className="font-mono text-slate-500">{fmtAbsDate(cam.prev.time)}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 ml-0.5">{fmtRelative(cam.prev.time)}</span>
+                          </>
+                        ) : (
+                          <span className="text-slate-300 italic">—</span>
+                        )}
+                      </td>
+
+                      {/* Estado */}
+                      <td className="py-2.5 text-right align-top pt-3">
+                        {isOnline ? (
+                          <span className="inline-flex items-center gap-1 text-emerald-600 font-medium">
+                            <Wifi size={10} /> Online
+                          </span>
+                        ) : isWarning ? (
+                          <span className="inline-flex items-center gap-1 text-amber-600 font-medium">
+                            <AlertTriangle size={10} /> Alerta
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-red-500 font-medium">
+                            <WifiOff size={10} /> Inactiva
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* ── Actividad de hoy ── */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
         <div className="flex items-center justify-between mb-1">
@@ -327,34 +454,34 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
         <div className="flex items-start justify-between mb-0.5">
           <h3 className="text-sm font-semibold text-slate-700">Disponibilidad — últimos 7 días</h3>
-          {!weekUptime.loading && weekUptime.dailyPct.length > 0 && (
+          {!weekAvail.loading && weekAvail.daily.length > 0 && (
             <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-              weekAvgPct >= 90 ? "bg-emerald-100 text-emerald-700" :
-              weekAvgPct >= 70 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
+              weekAvail.avgPct >= 90 ? "bg-emerald-100 text-emerald-700" :
+              weekAvail.avgPct >= 70 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
             }`}>
-              Prom {weekAvgPct}%
+              Prom {weekAvail.avgPct}%
             </span>
           )}
         </div>
         <p className="text-xs text-slate-400 mb-4">% de horas 07–23 con eventos por día</p>
 
-        {weekUptime.loading ? (
+        {weekAvail.loading ? (
           <div className="h-44 bg-slate-50 animate-pulse rounded-xl" />
-        ) : weekUptime.dailyPct.length === 0 ? (
+        ) : weekAvail.daily.length === 0 ? (
           <div className="h-44 flex items-center justify-center text-sm text-slate-400">Sin datos</div>
         ) : (
           <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={weekUptime.dailyPct} barSize={36} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+            <BarChart data={weekAvail.daily} barSize={36} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
               <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={fmtShortDate} axisLine={false} tickLine={false} />
               <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
               <Tooltip formatter={(v) => [`${v}%`, "Disponibilidad"]} labelFormatter={(l) => fmtShortDate(String(l))} contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12 }} />
-              {weekUptime.dailyPct.length > 1 && (
-                <ReferenceLine y={weekAvgPct} stroke="#94a3b8" strokeDasharray="4 2"
-                  label={{ value: `Prom ${weekAvgPct}%`, fill: "#64748b", fontSize: 10, position: "insideTopRight" }} />
+              {weekAvail.daily.length > 1 && (
+                <ReferenceLine y={weekAvail.avgPct} stroke="#94a3b8" strokeDasharray="4 2"
+                  label={{ value: `Prom ${weekAvail.avgPct}%`, fill: "#64748b", fontSize: 10, position: "insideTopRight" }} />
               )}
               <Bar dataKey="pct" radius={[4, 4, 0, 0]}>
-                {weekUptime.dailyPct.map((d, i) => (
+                {weekAvail.daily.map((d, i) => (
                   <Cell key={i} fill={d.pct >= 90 ? "#34d399" : d.pct >= 70 ? "#fbbf24" : "#f87171"} />
                 ))}
               </Bar>
@@ -429,35 +556,35 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
       </div>
 
       {/* ── Disponibilidad diaria (período filtrado) ── */}
-      {(uptime.loading || uptime.dailyPct.length > 0) && (
+      {(avail.loading || avail.daily.length > 0) && (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
           <div className="flex items-start justify-between mb-0.5">
             <h3 className="text-sm font-semibold text-slate-700">Disponibilidad diaria</h3>
-            {!uptime.loading && uptime.dailyPct.length > 0 && (
+            {!avail.loading && avail.daily.length > 0 && (
               <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-                avgPct >= 90 ? "bg-emerald-100 text-emerald-700" :
-                avgPct >= 70 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
+                avail.avgPct >= 90 ? "bg-emerald-100 text-emerald-700" :
+                avail.avgPct >= 70 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
               }`}>
-                Prom {avgPct}%
+                Prom {avail.avgPct}%
               </span>
             )}
           </div>
           <p className="text-xs text-slate-400 mt-0.5 mb-4">% de horas 07–23 con eventos por día</p>
-          {uptime.loading ? (
+          {avail.loading ? (
             <div className="h-44 bg-slate-50 animate-pulse rounded-xl" />
           ) : (
             <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={uptime.dailyPct} barSize={28} margin={{ top: 10, right: 8, left: -20, bottom: 0 }}>
+              <BarChart data={avail.daily} barSize={28} margin={{ top: 10, right: 8, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={fmtShortDate} axisLine={false} tickLine={false} />
                 <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
                 <Tooltip formatter={(v) => [`${v}%`, "Disponibilidad"]} labelFormatter={(l) => fmtShortDate(String(l))} contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12 }} />
-                {uptime.dailyPct.length > 1 && (
-                  <ReferenceLine y={avgPct} stroke="#94a3b8" strokeDasharray="4 2"
-                    label={{ value: `Prom ${avgPct}%`, fill: "#64748b", fontSize: 10, position: "insideTopRight" }} />
+                {avail.daily.length > 1 && (
+                  <ReferenceLine y={avail.avgPct} stroke="#94a3b8" strokeDasharray="4 2"
+                    label={{ value: `Prom ${avail.avgPct}%`, fill: "#64748b", fontSize: 10, position: "insideTopRight" }} />
                 )}
                 <Bar dataKey="pct" radius={[4, 4, 0, 0]}>
-                  {uptime.dailyPct.map((d, i) => (
+                  {avail.daily.map((d, i) => (
                     <Cell key={i} fill={d.pct >= 90 ? "#34d399" : d.pct >= 70 ? "#fbbf24" : "#f87171"} />
                   ))}
                 </Bar>
@@ -483,7 +610,8 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
                   <tr className="border-b border-slate-100">
                     <th className="text-left  pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Cámara</th>
                     <th className="text-right pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Última señal</th>
-                    <th className="text-right pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Eventos</th>
+                    <th className="text-right pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Pasantes</th>
+                    <th className="text-right pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Entradas</th>
                     <th className="text-right pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Disponibilidad</th>
                     <th className="text-right pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Estado</th>
                   </tr>
@@ -491,14 +619,31 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
                 <tbody>
                   {uptime.cameras.map((cam) => {
                     const isRecent = Date.now() - new Date(cam.lastSeen).getTime() < 2 * 3_600_000;
+                    const pasantes = cam.pasanteEvents ?? 0;
+                    const enters   = cam.enterEvents   ?? 0;
+                    const missingType = pasantes === 0 || enters === 0;
                     return (
                       <tr key={cam.channel} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                        <td className="py-2.5 font-medium text-slate-700 flex items-center gap-1.5">
-                          <Camera size={11} className="text-slate-400 shrink-0" /> Cam {cam.channel}
+                        <td className="py-2.5 font-medium text-slate-700">
+                          <div className="flex items-center gap-1.5">
+                            <Camera size={11} className="text-slate-400 shrink-0" />
+                            <span>{cam.cameraName ?? cam.channel}</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-normal ml-4">ch {cam.channel}</span>
                         </td>
                         <td className="py-2.5 text-right text-slate-500">{fmtRelative(cam.lastSeen)}</td>
-                        <td className="py-2.5 text-right text-slate-500">{cam.totalEvents.toLocaleString("es-PE")}</td>
-                        <td className="py-2.5 text-right"><PctBadge pct={cam.pct} /></td>
+                        <td className={`py-2.5 text-right font-mono text-xs ${pasantes === 0 ? "text-red-400" : "text-slate-600"}`}>
+                          {pasantes.toLocaleString("es-PE")}
+                        </td>
+                        <td className={`py-2.5 text-right font-mono text-xs ${enters === 0 ? "text-red-400" : "text-slate-600"}`}>
+                          {enters.toLocaleString("es-PE")}
+                        </td>
+                        <td className="py-2.5 text-right">
+                          <div className="inline-flex items-center gap-1.5">
+                            <PctBadge pct={cam.pct} />
+                            {missingType && <AlertTriangle size={10} className="text-amber-500" />}
+                          </div>
+                        </td>
                         <td className="py-2.5 text-right">
                           {isRecent
                             ? <span className="inline-flex items-center gap-1 text-emerald-600 font-medium"><Wifi size={10} />Online</span>

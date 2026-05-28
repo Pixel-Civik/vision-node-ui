@@ -30,7 +30,8 @@
       "Bash(npx shadcn@latest add tooltip --yes)",
       "Bash(npx shadcn@latest add sonner --yes)",
       "Bash(npx vercel *)",
-      "Bash(npx next *)"
+      "Bash(npx next *)",
+      "Bash(npx supabase *)"
     ]
   },
   "enabledMcpjsonServers": [

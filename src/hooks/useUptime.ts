@@ -19,10 +19,13 @@ export interface GapInterval {
 }
 
 export interface CameraStatus {
-  channel:     string;
-  lastSeen:    string;
-  totalEvents: number;
-  pct:         number;
+  channel:       string;
+  cameraName:    string;
+  lastSeen:      string;
+  totalEvents:   number;
+  enterEvents:   number;
+  pasanteEvents: number;
+  pct:           number;
 }
 
 export interface DayAvailability {
@@ -97,44 +100,45 @@ export function useUptime(startTs: string, endTs: string): UptimeData {
     async function load() {
       const { data: rows, error } = await supabase
         .from("tracking_logs_view")
-        .select("time, channel")
+        .select("time, channel, camera_name, event")
         .gte("time", startTs)
         .lte("time", endTs)
-        .order("time", { ascending: true })
-        .limit(500000);
+        .order("time", { ascending: false })
+        .limit(1_000_000);
 
       if (error || !rows) {
         setData((prev) => ({ ...prev, loading: false, error: error?.message ?? "Error" }));
         return;
       }
 
-      const typed = rows as { time: string; channel: string }[];
+      // Fetched newest-first (so recent days are never cut off by the row limit).
+      // Reverse to restore chronological order for gap detection.
+      const typed = (rows as { time: string; channel: string; camera_name: string; event: string }[]).reverse();
 
       // ── Per-day: event timestamps in window, hour sets, camera stats ──────
-      const dayEvents  = new Map<string, string[]>();       // date → sorted timestamps (in-window only)
-      const dayHourSet = new Map<string, Set<number>>();    // date → set of hours with ≥1 event
-      const cameraMap  = new Map<string, { events: number; lastSeen: string; hours: Set<string> }>();
+      const dayEvents  = new Map<string, string[]>();
+      const dayHourSet = new Map<string, Set<number>>();
+      type CamAcc = { events: number; enterEvents: number; pasanteEvents: number; cameraName: string; lastSeen: string; hours: Set<string> };
+      const cameraMap  = new Map<string, CamAcc>();
 
       for (const r of typed) {
         const date = eventDate(r.time);
         const hour = eventHour(r.time);
 
-        // Skip events outside the operating window
         if (hour < WIN_START || hour > WIN_END) continue;
 
-        // Day event stream (for gap detection)
         if (!dayEvents.has(date))  dayEvents.set(date, []);
         dayEvents.get(date)!.push(r.time);
 
-        // Hour availability
         if (!dayHourSet.has(date)) dayHourSet.set(date, new Set());
         dayHourSet.get(date)!.add(hour);
 
-        // Camera tracking
-        const cam = cameraMap.get(r.channel) ?? { events: 0, lastSeen: r.time, hours: new Set<string>() };
+        const cam: CamAcc = cameraMap.get(r.channel) ?? { events: 0, enterEvents: 0, pasanteEvents: 0, cameraName: r.camera_name ?? r.channel, lastSeen: r.time, hours: new Set<string>() };
         cam.events++;
+        if (r.event === "enter")   cam.enterEvents++;
+        if (r.event === "pasante") cam.pasanteEvents++;
         if (r.time > cam.lastSeen) cam.lastSeen = r.time;
-        cam.hours.add(`${date}T${String(hour).padStart(2,"0")}`);
+        cam.hours.add(`${date}T${String(hour).padStart(2, "0")}`);
         cameraMap.set(r.channel, cam);
       }
 
@@ -191,19 +195,30 @@ export function useUptime(startTs: string, endTs: string): UptimeData {
         }
       }
 
+      // ── System-wide online hours (union across all cameras) ──────────────
+      // An hour is "expected" only if at least one camera had events in it.
+      // This anchors the denominator to hours the system was actually running,
+      // which avoids penalising cameras for future hours (partial day) or
+      // for periods before a camera was installed.
+      let systemOnlineHours = 0;
+      for (const hourSet of dayHourSet.values()) systemOnlineHours += hourSet.size;
+
       // ── Camera table ──────────────────────────────────────────────────────
-      const totalExpected = allDays.length * EXPECTED;
       const cameras: CameraStatus[] = [...cameraMap.entries()]
-        .map(([channel, { events, lastSeen, hours }]) => ({
+        .map(([channel, { events, enterEvents, pasanteEvents, cameraName, lastSeen, hours }]) => ({
           channel,
+          cameraName,
           lastSeen,
-          totalEvents: events,
-          pct: totalExpected > 0 ? Math.round((hours.size / totalExpected) * 100) : 0,
+          totalEvents:   events,
+          enterEvents,
+          pasanteEvents,
+          pct: systemOnlineHours > 0 ? Math.round((hours.size / systemOnlineHours) * 100) : 0,
         }))
         .sort((a, b) => b.pct - a.pct);
 
       // ── Overall ───────────────────────────────────────────────────────────
       const totalOnline  = dailyPct.reduce((s, d) => s + d.onlineHours, 0);
+      const totalExpected = allDays.length * EXPECTED;
       const overallPct   = totalExpected > 0 ? Math.round((totalOnline / totalExpected) * 100) : 100;
       const totalGapMin  = gaps.reduce((s, g) => s + g.durationMin, 0);
 
