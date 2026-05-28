@@ -1,18 +1,14 @@
-/**
- * InicioSection — landing overview for the dashboard.
- * SRP: composes high-level KPIs + combined traffic snapshot.
- * DIP: receives typed data via props; no direct API calls.
- */
 "use client";
 
 import { ArrowRight } from "lucide-react";
-import { KPICards } from "@/components/dashboard/KPICards";
+import { TrafficFunnel } from "@/components/charts/TrafficFunnel";
 import { TrafficPeriodChart } from "@/components/dashboard/TrafficPeriodChart";
 import { CombinedTrafficChart } from "@/components/charts/CombinedTrafficChart";
 import { ExportDialog } from "@/components/export/ExportDialog";
-import { KPIStrip } from "./KPIStrip";
-import type { KPIResult, HourlyRow, ZoneBreakdownRow, ChannelBreakdownRow, ConversionHourRow, TIZKpiRow } from "@/lib/types";
-import type { DashboardFilters } from "@/lib/types";
+import type {
+  KPIResult, HourlyRow, ZoneBreakdownRow, ChannelBreakdownRow,
+  ConversionHourRow, TIZKpiRow, DashboardFilters,
+} from "@/lib/types";
 
 interface InicioSectionProps {
   kpis: KPIResult | null;
@@ -30,7 +26,7 @@ interface InicioSectionProps {
 
 export function InicioSection({
   kpis, hourly, zoneBreakdown, channelBreakdown, conversion, tizKpis,
-  totals, filters, loading, dateRange, onNavigateToReporte,
+  filters, loading, dateRange, onNavigateToReporte,
 }: InicioSectionProps) {
   return (
     <div className="px-6 md:px-8 py-7 space-y-6 max-w-6xl mx-auto">
@@ -57,20 +53,16 @@ export function InicioSection({
         />
       </div>
 
-      {/* ── Primary KPIs ── */}
-      <KPICards kpis={kpis} loading={loading} />
+      {/* ── Embudo de conversión (reemplaza KPIs) ── */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <h2 className="text-sm font-semibold text-slate-700 mb-0.5">Embudo de conversión</h2>
+        <p className="text-xs text-slate-400 mb-5">
+          Pasantes → Visitantes → Entradas · período seleccionado
+        </p>
+        <TrafficFunnel rows={hourly} loading={loading} />
+      </div>
 
-      {/* ── Visitor / pasante strip ── */}
-      <KPIStrip
-        visitors={totals.visitors}
-        pasantes={totals.pasantes}
-        conv={totals.conv}
-        uniqueTracks={kpis?.unique_tracks ?? 0}
-        days={kpis?.days ?? 1}
-        loading={loading}
-      />
-
-      {/* ── Traffic charts: combined (2/3) + period distribution (1/3) ── */}
+      {/* ── Gráficas de tráfico ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
           <h3 className="text-sm font-semibold text-slate-700 mb-1">Tráfico combinado por hora</h3>
@@ -84,7 +76,7 @@ export function InicioSection({
         </div>
       </div>
 
-      {/* ── CTA to full report ── */}
+      {/* ── CTA ── */}
       <button
         onClick={onNavigateToReporte}
         className="flex items-center gap-2 text-sm text-[#2DD4BF] hover:text-[#14B8A6] font-semibold transition-colors"

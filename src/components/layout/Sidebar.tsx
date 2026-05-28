@@ -64,7 +64,7 @@ export function Sidebar({
           <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
           {loading ? "Actualizando..." : "Actualizar datos"}
         </button>
-        <p className="text-[10px] text-slate-600 mt-3">
+        <p className="text-[10px] text-slate-600 mt-3" suppressHydrationWarning>
           {dateRange.start} → {dateRange.end}
         </p>
       </div>

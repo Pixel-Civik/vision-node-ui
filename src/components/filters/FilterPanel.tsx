@@ -107,6 +107,11 @@ export function FilterPanel({ opts, values, onChange }: Props) {
     if (realMin && s < realMin)
       return { type: "info", msg: `Datos disponibles desde el ${fmtShort(realMin)}` };
 
+    // Today is always reachable (data in progress) — show info before the
+    // availableDates check, which only covers complete past days.
+    if (e >= today)
+      return { type: "info", msg: "Los datos de hoy están incompletos (día en curso)" };
+
     // Verifica si hay al menos un día con datos dentro del rango seleccionado
     if (opts.availableDates.size > 0) {
       let found = false;
@@ -116,9 +121,6 @@ export function FilterPanel({ opts, values, onChange }: Props) {
       if (!found)
         return { type: "warning", msg: "No hay datos registrados para el período seleccionado" };
     }
-
-    if (e >= today)
-      return { type: "info", msg: "Los datos de hoy están incompletos (día en curso)" };
 
     return null;
   // eslint-disable-next-line react-hooks/exhaustive-deps

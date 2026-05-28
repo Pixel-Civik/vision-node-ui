@@ -50,38 +50,37 @@ export function VisionGeneralTab({ hourly, heatmap, conversion, loading }: Visio
         <CombinedTrafficChart rows={hourly} loading={loading} />
       </ChartCard>
 
-      {/* Row 2: Heatmap + Funnel — lazy to reduce initial render burst */}
+      {/* Row 2: Heatmap — fila completa */}
+      <ChartCard id="export-chart-heatmap" title="Mapa de calor hora × día" subtitle="Concentración de tráfico — azul oscuro = mayor actividad">
+        <LazyChart height={220}><HeatmapChart rows={heatmap} loading={loading} /></LazyChart>
+      </ChartCard>
+
+      {/* Últimas 4 gráficas — cuadrícula 2×2 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <ChartCard id="export-chart-heatmap" title="Mapa de calor hora × día" subtitle="Concentración de tráfico — azul oscuro = mayor actividad">
-          <LazyChart height={220}><HeatmapChart rows={heatmap} loading={loading} /></LazyChart>
-        </ChartCard>
         <ChartCard id="export-chart-funnel" title="Embudo de conversión" subtitle="Pasantes → Visitantes → Entradas">
-          <LazyChart height={160}><ConversionFunnelChart rows={hourly} loading={loading} /></LazyChart>
+          <LazyChart height={200}><ConversionFunnelChart rows={hourly} loading={loading} /></LazyChart>
+        </ChartCard>
+
+        <ChartCard id="export-chart-conversion" title="Conversión por hora" subtitle="% de pasantes que ingresaron al local, hora a hora">
+          <LazyChart height={200}><ConversionChart rows={conversion} loading={loading} /></LazyChart>
+        </ChartCard>
+
+        <ChartCard
+          id="export-chart-dow"
+          title="Tráfico por día de semana"
+          subtitle="¿Qué día concentra más eventos? · El día destacado en teal es el de mayor volumen"
+        >
+          <LazyChart height={200}><DOWChart rows={heatmap} loading={loading} /></LazyChart>
+        </ChartCard>
+
+        <ChartCard
+          id="export-chart-opportunity"
+          title="Zona de oportunidad de captación"
+          subtitle="Horas con alto tráfico de pasantes y baja conversión — mayor potencial de captación"
+        >
+          <LazyChart height={200}><OpportunityChart rows={conversion} loading={loading} /></LazyChart>
         </ChartCard>
       </div>
-
-      {/* Row 3: Conversion by hour — full width */}
-      <ChartCard id="export-chart-conversion" title="Conversión por hora" subtitle="% de pasantes que ingresaron al local, hora a hora">
-        <LazyChart height={280}><ConversionChart rows={conversion} loading={loading} /></LazyChart>
-      </ChartCard>
-
-      {/* Row 4: Day of week — full width */}
-      <ChartCard
-        id="export-chart-dow"
-        title="Tráfico por día de semana"
-        subtitle="¿Qué día concentra más eventos? · El día destacado en teal es el de mayor volumen"
-      >
-        <LazyChart height={220}><DOWChart rows={heatmap} loading={loading} /></LazyChart>
-      </ChartCard>
-
-      {/* Row 5: Opportunity — full width */}
-      <ChartCard
-        id="export-chart-opportunity"
-        title="Zona de oportunidad de captación"
-        subtitle="Horas con alto tráfico de pasantes y baja conversión — mayor potencial de captación"
-      >
-        <LazyChart height={260}><OpportunityChart rows={conversion} loading={loading} /></LazyChart>
-      </ChartCard>
     </div>
   );
 }

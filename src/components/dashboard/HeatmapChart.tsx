@@ -3,7 +3,7 @@
 import type { HeatmapRow } from "@/lib/types";
 
 const DOWS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-const HOURS = Array.from({ length: 16 }, (_, i) => i + 7);
+const HOURS = Array.from({ length: 17 }, (_, i) => i + 7); // 07–23
 
 function cellColor(val: number, max: number): string {
   if (max === 0 || val === 0) return "#F8FAFC";
@@ -39,57 +39,54 @@ export function HeatmapChart({ rows, loading }: { rows: HeatmapRow[]; loading: b
       <p className="text-xs text-slate-500">
         Intensidad de tráfico por hora y día. Azul oscuro = mayor concentración de eventos.
       </p>
-      <div className="overflow-x-auto">
-        <div className="min-w-max">
-          {/* Hour headers */}
-          <div className="flex gap-px ml-10 mb-1">
-            {HOURS.map((h) => (
-              <div key={h} className="w-9 text-center text-[10px] text-slate-400 font-medium">
-                {h}h
-              </div>
-            ))}
-          </div>
 
-          {/* Grid */}
-          <div className="flex flex-col gap-px">
-            {DOWS.map((dow, di) => (
-              <div key={dow} className="flex items-center gap-px">
-                <div className="w-10 text-[10px] text-slate-500 font-medium pr-1 text-right">
-                  {dow}
-                </div>
-                {HOURS.map((h) => {
-                  const val = map.get(`${di}-${h}`) ?? 0;
-                  return (
-                    <div
-                      key={h}
-                      title={`${dow} ${h}h: ${val} eventos`}
-                      className="w-9 h-7 rounded flex items-center justify-center cursor-default transition-opacity hover:opacity-75"
-                      style={{ backgroundColor: cellColor(val, maxVal) }}
+      {/* Hour headers */}
+      <div className="flex gap-px" style={{ paddingLeft: "2.75rem" }}>
+        {HOURS.map((h) => (
+          <div key={h} className="flex-1 text-center text-[10px] text-slate-400 font-medium">
+            {h}h
+          </div>
+        ))}
+      </div>
+
+      {/* Grid — full width, no horizontal scroll */}
+      <div className="flex flex-col gap-px">
+        {DOWS.map((dow, di) => (
+          <div key={dow} className="flex items-center gap-px">
+            <div className="w-11 shrink-0 text-[10px] text-slate-500 font-medium pr-1 text-right">
+              {dow}
+            </div>
+            {HOURS.map((h) => {
+              const val = map.get(`${di}-${h}`) ?? 0;
+              return (
+                <div
+                  key={h}
+                  title={`${dow} ${h}h: ${val} eventos`}
+                  className="flex-1 h-9 rounded flex items-center justify-center cursor-default transition-opacity hover:opacity-75"
+                  style={{ backgroundColor: cellColor(val, maxVal) }}
+                >
+                  {val > 0 && (
+                    <span
+                      className="text-[10px] font-semibold leading-none"
+                      style={{ color: cellTextColor(val, maxVal) }}
                     >
-                      {val > 0 && (
-                        <span
-                          className="text-[9px] font-semibold leading-none"
-                          style={{ color: cellTextColor(val, maxVal) }}
-                        >
-                          {val > 999 ? `${(val / 1000).toFixed(1)}k` : val}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
+                      {val > 999 ? `${(val / 1000).toFixed(1)}k` : val}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
+        ))}
+      </div>
 
-          {/* Legend */}
-          <div className="flex items-center gap-1.5 mt-3 ml-10">
-            <span className="text-[10px] text-slate-400">Menor</span>
-            {["#DBEAFE", "#93C5FD", "#60A5FA", "#3B82F6", "#1D4ED8"].map((c) => (
-              <div key={c} className="w-6 h-3 rounded-sm" style={{ backgroundColor: c }} />
-            ))}
-            <span className="text-[10px] text-slate-400">Mayor</span>
-          </div>
-        </div>
+      {/* Legend */}
+      <div className="flex items-center gap-1.5" style={{ paddingLeft: "2.75rem" }}>
+        <span className="text-[10px] text-slate-400">Menor</span>
+        {["#DBEAFE", "#93C5FD", "#60A5FA", "#3B82F6", "#1D4ED8"].map((c) => (
+          <div key={c} className="w-6 h-3 rounded-sm" style={{ backgroundColor: c }} />
+        ))}
+        <span className="text-[10px] text-slate-400">Mayor</span>
       </div>
     </div>
   );

@@ -111,10 +111,8 @@ export function useFilterOptions(): FilterOptions {
       const minDate = firstTs ? tolimaDate(firstTs) : TODAY;
       const maxDate = lastTs  ? tolimaDate(lastTs)  : TODAY;
 
-      // Build the set of "complete" days: minDate through yesterday.
-      // Dots appear only on full days (today's data is still in progress).
-      // Assumes continuous operation — gaps (system-down days) would show a
-      // dot but return 0 data when selected, which is acceptable vs. a 500K scan.
+      // Build the set of days with data: minDate through yesterday (complete days)
+      // plus today if there is already at least one event recorded today.
       const yd = isoStr(new Date(Date.now() - 86_400_000));
       const availableDates = new Set<string>();
       if (firstTs && minDate <= yd) {
@@ -125,6 +123,10 @@ export function useFilterOptions(): FilterOptions {
         ) {
           availableDates.add(isoStr(d));
         }
+      }
+      // Include today if the most recent event is from today (data in progress)
+      if (lastTs && tolimaDate(lastTs) >= TODAY) {
+        availableDates.add(TODAY);
       }
 
       const fresh = { sites, channels, zones, minDate, maxDate, availableDates };

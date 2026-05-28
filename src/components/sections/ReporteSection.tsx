@@ -8,7 +8,7 @@
 import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { KPICards } from "@/components/dashboard/KPICards";
+import { TrafficFunnel } from "@/components/charts/TrafficFunnel";
 import { BehaviorChart } from "@/components/dashboard/BehaviorChart";
 import { TrafficPeriodChart } from "@/components/dashboard/TrafficPeriodChart";
 import { TIZPanel } from "@/components/dashboard/TIZPanel";
@@ -19,7 +19,6 @@ import {
   type FilterValues,
 } from "@/components/filters/FilterPanel";
 import { ReporteExportDialog } from "@/components/export/ReporteExportDialog";
-import { KPIStrip } from "./KPIStrip";
 import { VisionGeneralTab } from "./VisionGeneralTab";
 import type { FilterOptions } from "@/hooks/useFilterOptions";
 import type {
@@ -114,20 +113,12 @@ export function ReporteSection({
         onChange={onFilterChange}
       />
 
-      <KPICards kpis={kpis} loading={loading} />
-
-      <Separator className="my-1" />
-
-      {/* Compact 4-card strip: visitor/pasante/conversion/tracks */}
-      <KPIStrip
-        visitors={totals.visitors}
-        pasantes={totals.pasantes}
-        conv={totals.conv}
-        uniqueTracks={kpis?.unique_tracks ?? 0}
-        days={kpis?.days ?? 1}
-        loading={loading}
-        compact
-      />
+      {/* Embudo de conversión reemplaza los KPI cards */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+        <h3 className="text-sm font-semibold text-slate-700 mb-0.5">Embudo de conversión</h3>
+        <p className="text-xs text-slate-400 mb-4">Pasantes → Visitantes → Entradas · período filtrado</p>
+        <TrafficFunnel rows={hourly} loading={loading} />
+      </div>
 
       <Separator className="my-1" />
 

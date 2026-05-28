@@ -36,12 +36,37 @@ export async function fetchHeatmap(f: DashboardFilters): Promise<HeatmapRow[]> {
 }
 
 export async function fetchTIZKpis(f: DashboardFilters): Promise<TIZKpiRow[]> {
-  const { data } = await supabase.rpc("dashboard_tiz_zone_stats", {
-    p_start_ts: f.startTs,
-    p_end_ts: f.endTs,
-    p_zones: f.zones,
-  });
-  return (data as TIZKpiRow[]) ?? [];
+  // dashboard_tiz_zone_stats RPC references wrong column — query view directly
+  const { data } = await supabase
+    .from("tracking_logs_view")
+    .select("zone, dwell_sec")
+    .eq("event", "visit")
+    .gte("time", f.startTs)
+    .lte("time", f.endTs)
+    .not("dwell_sec", "is", null)
+    .limit(50000);
+
+  if (!data || data.length === 0) return [];
+
+  // Group by zone and compute stats client-side
+  const groups = new Map<string, number[]>();
+  for (const r of data as { zone: string | null; dwell_sec: number }[]) {
+    const z = r.zone ?? "sin zona";
+    if (!groups.has(z)) groups.set(z, []);
+    groups.get(z)!.push(r.dwell_sec);
+  }
+
+  return [...groups.entries()].map(([zone, vals]) => {
+    const sorted = vals.slice().sort((a, b) => a - b);
+    const avg    = vals.reduce((s, v) => s + v, 0) / vals.length;
+    const mid    = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 === 0
+      ? (sorted[mid - 1] + sorted[mid]) / 2
+      : sorted[mid];
+    const p90idx = Math.ceil(0.9 * sorted.length) - 1;
+    const p90    = sorted[Math.max(0, p90idx)];
+    return { zone, count: vals.length, avg_s: avg, median_s: median, p90_s: p90 };
+  }).sort((a, b) => b.count - a.count);
 }
 
 export function computeConversionFromHourly(rows: HourlyRow[]): ConversionHourRow[] {

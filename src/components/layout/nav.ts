@@ -2,10 +2,10 @@
  * nav.ts — Navigation configuration (single source of truth).
  * OCP: add new sections here without touching any component.
  */
-import { LayoutDashboard, FileBarChart2, LogIn, Users, Clock } from "lucide-react";
+import { LayoutDashboard, FileBarChart2, LogIn, Users, Clock, ShieldCheck } from "lucide-react";
 import type { ElementType } from "react";
 
-export type Section = "inicio" | "reporte" | "entradas" | "visitantes" | "tiz";
+export type Section = "inicio" | "reporte" | "entradas" | "visitantes" | "tiz" | "tecnico";
 
 export interface NavItem {
   id: Section;
@@ -20,5 +20,6 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "reporte",    label: "Reporte General",    Icon: FileBarChart2 },
   { id: "entradas",   label: "Entradas y Salidas", Icon: LogIn,  group: "Análisis" },
   { id: "visitantes", label: "Visitantes",         Icon: Users,  group: "Análisis" },
-  { id: "tiz",        label: "Tiempo en Zona",     Icon: Clock,  group: "Análisis" },
+  { id: "tiz",        label: "Tiempo en Zona",     Icon: Clock,        group: "Análisis" },
+  { id: "tecnico",    label: "Panel Técnico",      Icon: ShieldCheck,  group: "Sistema"  },
 ];

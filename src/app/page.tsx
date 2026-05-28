@@ -24,6 +24,7 @@ import { ReporteSection } from "@/components/sections/ReporteSection";
 import { EntradasView } from "@/components/dashboards/EntradasView";
 import { VisitantesView } from "@/components/dashboards/VisitantesView";
 import { TIZView } from "@/components/dashboards/TIZView";
+import { TecnicoSection } from "@/components/sections/TecnicoSection";
 import { type FilterValues } from "@/components/filters/FilterPanel";
 import { useFilterOptions } from "@/hooks/useFilterOptions";
 import { useDashboard } from "@/hooks/useDashboard";
@@ -49,15 +50,16 @@ export default function App() {
 
   const opts = useFilterOptions();
 
-  // If session cache is available, opts.minDate is known immediately.
-  const [fv, setFv] = useState<FilterValues>(() => ({
+  // Always initialise with `yesterday` so SSR and client render the same markup.
+  // The useEffect below (didSnapRef) snaps to opts.minDate once data is ready.
+  const [fv, setFv] = useState<FilterValues>({
     sites: [], channels: [], zones: [],
     hourMin: 0,
     hourMax: 23,
     dows: [0, 1, 2, 3, 4, 5, 6],
-    startDate: opts.minDate <= yesterday ? opts.minDate : yesterday,
+    startDate: yesterday,
     endDate: yesterday,
-  }));
+  });
 
   // After the fresh DB query completes, snap to complete-days range: minDate..yesterday.
   // useRef ensures this runs exactly once so user selections aren't overwritten.
@@ -191,6 +193,18 @@ export default function App() {
             <TIZView
               tizKpis={data.tizKpis} tizRaw={analytics.tizRaw}
               loading={data.loading} analyticsLoading={analytics.analyticsLoading} filters={filters}
+            />
+          </div>
+
+          <div className={section !== "tecnico" ? "hidden" : undefined}>
+            <TecnicoSection
+              hourly={data.hourly}
+              loading={data.loading}
+              kpis={data.kpis}
+              totals={totals}
+              filterValues={fv}
+              opts={opts}
+              onFilterChange={(patch) => setFv((prev) => ({ ...prev, ...patch }))}
             />
           </div>
         </main>

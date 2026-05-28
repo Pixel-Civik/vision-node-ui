@@ -34,10 +34,27 @@ export function CombinedTrafficChart({ rows, loading }: { rows: HourlyRow[]; loa
 
   return (
     <ResponsiveContainer width="100%" height={270}>
-      <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+      <ComposedChart data={data} margin={{ top: 8, right: 48, bottom: 0, left: -16 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
         <XAxis dataKey="hour" tickFormatter={(h) => fmtHour(Number(h))} tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+
+        {/* Eje izquierdo — escala de barras (entradas / salidas) */}
+        <YAxis
+          yAxisId="bars"
+          orientation="left"
+          tick={{ fontSize: 11, fill: "#94A3B8" }}
+          axisLine={false} tickLine={false}
+        />
+
+        {/* Eje derecho — escala de líneas (visitantes / pasantes) */}
+        <YAxis
+          yAxisId="lines"
+          orientation="right"
+          tick={{ fontSize: 11, fill: "#94A3B8" }}
+          axisLine={false} tickLine={false}
+          width={40}
+        />
+
         <Tooltip
           contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 12 }}
           labelFormatter={(h) => fmtHour(Number(h))}
@@ -45,13 +62,13 @@ export function CombinedTrafficChart({ rows, loading }: { rows: HourlyRow[]; loa
         />
         <Legend formatter={(v) => LABELS[v] ?? v} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
 
-        {/* Bars: primary volume metrics */}
-        <Bar dataKey="enter"   fill="#34D399" radius={[4, 4, 0, 0]} maxBarSize={18} />
-        <Bar dataKey="exit"    fill="#F87171" radius={[4, 4, 0, 0]} maxBarSize={18} />
+        {/* Barras — eje izquierdo */}
+        <Bar yAxisId="bars" dataKey="enter" fill="#34D399" radius={[4, 4, 0, 0]} maxBarSize={18} />
+        <Bar yAxisId="bars" dataKey="exit"  fill="#F87171" radius={[4, 4, 0, 0]} maxBarSize={18} />
 
-        {/* Lines: contextual / secondary */}
-        <Line type="monotone" dataKey="visitor" stroke="#818CF8" strokeWidth={2.5} dot={false} activeDot={{ r: 4, fill: "#818CF8" }} strokeDasharray="0" />
-        <Line type="monotone" dataKey="pasante" stroke="#94A3B8" strokeWidth={2}   dot={false} activeDot={{ r: 4, fill: "#94A3B8" }} strokeDasharray="5 3" />
+        {/* Líneas — eje derecho (escala propia para no aplastar las barras) */}
+        <Line yAxisId="lines" type="monotone" dataKey="visitor" stroke="#818CF8" strokeWidth={2.5} dot={false} activeDot={{ r: 4, fill: "#818CF8" }} />
+        <Line yAxisId="lines" type="monotone" dataKey="pasante" stroke="#94A3B8" strokeWidth={2}   dot={false} activeDot={{ r: 4, fill: "#94A3B8" }} strokeDasharray="5 3" />
       </ComposedChart>
     </ResponsiveContainer>
   );

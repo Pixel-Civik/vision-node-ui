@@ -1,7 +1,7 @@
 "use client";
 
 import type { KPIResult } from "@/lib/types";
-import { LogIn, LogOut, Activity } from "lucide-react";
+import { LogIn, LogOut, Users } from "lucide-react";
 
 interface CardProps {
   label: string;
@@ -53,30 +53,32 @@ export function KPICards({ kpis, loading }: { kpis: KPIResult | null; loading: b
     );
   }
 
-  const d = Math.max(1, kpis.days);
+  // enters_per_day / exits_per_day come pre-computed from the DB function —
+  // no frontend division needed.
+  const ingresantes_per_day = (kpis.enters_per_day + kpis.exits_per_day) / 2;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       <KPICard
         label="Entradas / día"
-        value={(kpis.enters / d).toFixed(1)}
+        value={Math.round(kpis.enters_per_day).toLocaleString()}
         total={`${kpis.enters.toLocaleString()} total · ${kpis.days} día(s)`}
         accent="#059669"
         Icon={LogIn}
       />
       <KPICard
         label="Salidas / día"
-        value={(kpis.exits / d).toFixed(1)}
+        value={Math.round(kpis.exits_per_day).toLocaleString()}
         total={`${kpis.exits.toLocaleString()} total`}
         accent="#DC2626"
         Icon={LogOut}
       />
       <KPICard
-        label="Neto / día"
-        value={(kpis.net / d).toFixed(1)}
-        total={`${kpis.net > 0 ? "+" : ""}${kpis.net.toLocaleString()} total`}
-        accent="#2563EB"
-        Icon={Activity}
+        label="Ingresantes / día"
+        value={Math.round(ingresantes_per_day).toLocaleString()}
+        total={`${kpis.unique_tracks.toLocaleString()} trazas únicas · prom. (ent+sal)÷2`}
+        accent="#7C3AED"
+        Icon={Users}
       />
     </div>
   );
