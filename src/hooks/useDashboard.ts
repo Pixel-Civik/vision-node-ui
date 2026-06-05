@@ -37,24 +37,36 @@ export function useDashboard(filters: DashboardFilters): DashboardData & { refre
     setLoading(true);
     setError(null);
 
-    Promise.all([
+    // Critical fetches — failure blocks the dashboard
+    const criticalFetch = Promise.all([
       fetchKPIs(filters),
       fetchHourly(filters),
-      fetchZoneBreakdown(filters),
-      fetchChannelBreakdown(filters),
-      fetchHeatmap(filters),
-      fetchTIZKpis(filters),
-    ])
-      .then(([kpis, hourly, zoneBreakdown, channelBreakdown, heatmap, tizKpis]) => {
+    ]);
+
+    // Heavy aggregation RPCs — timeout-prone; fail gracefully with empty arrays
+    const safeFetch = Promise.all([
+      fetchHeatmap(filters).catch(()          => [] as HeatmapRow[]),
+      fetchZoneBreakdown(filters).catch(()    => [] as ZoneBreakdownRow[]),
+      fetchChannelBreakdown(filters).catch(() => [] as ChannelBreakdownRow[]),
+      fetchTIZKpis(filters).catch(()          => [] as TIZKpiRow[]),
+    ]);
+
+    criticalFetch
+      .then(([kpis, hourly]) => {
         if (cancelled) return;
         const conversion = computeConversionFromHourly(hourly);
-        setData({ kpis, hourly, zoneBreakdown, channelBreakdown, heatmap, conversion, tizKpis });
+        // Render KPIs + hourly charts immediately
+        setData((prev) => ({ ...prev, kpis, hourly, conversion }));
+        setLoading(false);
+
+        // Heavy data fills in when ready (may be slow or fail silently)
+        safeFetch.then(([heatmap, zoneBreakdown, channelBreakdown, tizKpis]) => {
+          if (!cancelled)
+            setData((prev) => ({ ...prev, heatmap, zoneBreakdown, channelBreakdown, tizKpis }));
+        });
       })
       .catch((e) => {
-        if (!cancelled) setError(String(e));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) { setError(String(e)); setLoading(false); }
       });
 
     return () => { cancelled = true; };

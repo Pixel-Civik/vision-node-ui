@@ -31,7 +31,12 @@
       "Bash(npx shadcn@latest add sonner --yes)",
       "Bash(npx vercel *)",
       "Bash(npx next *)",
-      "Bash(npx supabase *)"
+      "Bash(npx supabase *)",
+      "Bash(supabase --version)",
+      "Bash(supabase status *)",
+      "Bash(supabase db *)",
+      "Bash(supabase link *)",
+      "Bash(supabase login *)"
     ]
   },
   "enabledMcpjsonServers": [

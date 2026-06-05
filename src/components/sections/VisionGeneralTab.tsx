@@ -8,7 +8,6 @@
 
 import { LazyChart } from "@/components/ui/LazyChart";
 import { CombinedTrafficChart } from "@/components/charts/CombinedTrafficChart";
-import { ConversionFunnelChart } from "@/components/charts/ConversionFunnelChart";
 import { OpportunityChart } from "@/components/charts/OpportunityChart";
 import { DOWChart } from "@/components/charts/DOWChart";
 import { HeatmapChart } from "@/components/dashboard/HeatmapChart";
@@ -45,7 +44,7 @@ export function VisionGeneralTab({ hourly, heatmap, conversion, loading }: Visio
       <ChartCard
         id="export-chart-combined"
         title="Tráfico combinado por hora"
-        subtitle="Barras: Entradas (verde) / Salidas (rojo) · Líneas: Visitantes (indigo) / Pasantes (gris)"
+        subtitle="Barras: Entradas (verde) · Líneas: Visitantes (indigo) / Pasantes (gris)"
       >
         <CombinedTrafficChart rows={hourly} loading={loading} />
       </ChartCard>
@@ -55,12 +54,8 @@ export function VisionGeneralTab({ hourly, heatmap, conversion, loading }: Visio
         <LazyChart height={220}><HeatmapChart rows={heatmap} loading={loading} /></LazyChart>
       </ChartCard>
 
-      {/* Últimas 4 gráficas — cuadrícula 2×2 */}
+      {/* Últimas 3 gráficas — cuadrícula 2×2 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <ChartCard id="export-chart-funnel" title="Embudo de conversión" subtitle="Pasantes → Visitantes → Entradas">
-          <LazyChart height={200}><ConversionFunnelChart rows={hourly} loading={loading} /></LazyChart>
-        </ChartCard>
-
         <ChartCard id="export-chart-conversion" title="Conversión por hora" subtitle="% de pasantes que ingresaron al local, hora a hora">
           <LazyChart height={200}><ConversionChart rows={conversion} loading={loading} /></LazyChart>
         </ChartCard>

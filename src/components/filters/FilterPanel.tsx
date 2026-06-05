@@ -112,16 +112,6 @@ export function FilterPanel({ opts, values, onChange }: Props) {
     if (e >= today)
       return { type: "info", msg: "Los datos de hoy están incompletos (día en curso)" };
 
-    // Verifica si hay al menos un día con datos dentro del rango seleccionado
-    if (opts.availableDates.size > 0) {
-      let found = false;
-      for (const d of opts.availableDates) {
-        if (d >= s && d <= e) { found = true; break; }
-      }
-      if (!found)
-        return { type: "warning", msg: "No hay datos registrados para el período seleccionado" };
-    }
-
     return null;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, values.startDate, values.endDate, opts.loading, opts.minDate, opts.availableDates, today]);

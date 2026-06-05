@@ -31,9 +31,7 @@ import { useDashboard } from "@/hooks/useDashboard";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import type { DashboardFilters } from "@/lib/types";
 
-const today     = new Date().toISOString().slice(0, 10);
-// "Yesterday" as default end — today's data is always incomplete (day in progress)
-const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+const today = new Date().toISOString().slice(0, 10);
 
 // Lima = UTC-5 (no DST). Convert a Lima local date+hour to a UTC ISO string.
 // This avoids relying on timezone-offset literals that Postgres may strip
@@ -50,29 +48,24 @@ export default function App() {
 
   const opts = useFilterOptions();
 
-  // Always initialise with `yesterday` so SSR and client render the same markup.
-  // The useEffect below (didSnapRef) snaps to opts.minDate once data is ready.
+  // Initialise with today. The useEffect below snaps to minDate..today once
+  // the DB query resolves so the global filter covers all available history.
   const [fv, setFv] = useState<FilterValues>({
     sites: [], channels: [], zones: [],
     hourMin: 0,
     hourMax: 23,
     dows: [0, 1, 2, 3, 4, 5, 6],
-    startDate: yesterday,
-    endDate: yesterday,
+    startDate: today,
+    endDate: today,
   });
 
-  // After the fresh DB query completes, snap to complete-days range: minDate..yesterday.
-  // useRef ensures this runs exactly once so user selections aren't overwritten.
+  // After opts.minDate resolves, snap to minDate..today (all history to today).
   const didSnapRef = useRef(false);
   useEffect(() => {
     if (opts.loading || didSnapRef.current) return;
-    // Skip if opts.minDate is still the EMPTY placeholder (= today).
-    // The effect re-runs when opts.minDate updates, so the snap fires
-    // as soon as the DB query resolves with a real past date.
     if (opts.minDate >= today) return;
     didSnapRef.current = true;
-    const yd = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-    setFv((prev) => ({ ...prev, startDate: opts.minDate, endDate: yd }));
+    setFv((prev) => ({ ...prev, startDate: opts.minDate, endDate: today }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opts.loading, opts.minDate]);
 

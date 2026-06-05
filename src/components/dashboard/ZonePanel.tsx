@@ -49,11 +49,11 @@ export function ZonePanel({
   }
 
   const zoneData = zones
-    .filter((r) => ["enter", "exit"].includes(r.event_type))
+    .filter((r) => r.event_type === "enter")
     .map((r) => ({ name: r.zone, value: r.count, type: r.event_type }));
 
   const channelData = channels
-    .filter((r) => ["enter", "exit"].includes(r.event_type))
+    .filter((r) => r.event_type === "enter")
     .map((r) => ({ name: r.channel, value: r.count, type: r.event_type }));
 
   return (

@@ -20,6 +20,8 @@ import {
 } from "@/components/filters/FilterPanel";
 import { ReporteExportDialog } from "@/components/export/ReporteExportDialog";
 import { VisionGeneralTab } from "./VisionGeneralTab";
+import { TendenciasTab } from "./TendenciasTab";
+import { ComparisonPanel } from "@/components/dashboard/ComparisonPanel";
 import type { FilterOptions } from "@/hooks/useFilterOptions";
 import type {
   KPIResult,
@@ -120,6 +122,17 @@ export function ReporteSection({
         <TrafficFunnel rows={hourly} loading={loading} />
       </div>
 
+      {/* ── Contexto comparativo (REQ 1 + REQ 2) ── */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+        <ComparisonPanel
+          filters={filters}
+          kpis={kpis}
+          hourly={hourly}
+          allSites={opts.sites}
+          loading={loading}
+        />
+      </div>
+
       <Separator className="my-1" />
 
       {/* ── Tabs ── */}
@@ -135,7 +148,7 @@ export function ReporteSection({
             value="resumen"
             className="rounded-lg text-xs font-medium"
           >
-            Entradas y Salidas
+            Entradas
           </TabsTrigger>
           {(hasConversion || hasTIZ) && (
             <TabsTrigger
@@ -145,6 +158,12 @@ export function ReporteSection({
               Visitantes y Zonas
             </TabsTrigger>
           )}
+          <TabsTrigger
+            value="tendencias"
+            className="rounded-lg text-xs font-medium"
+          >
+            Tendencias históricas
+          </TabsTrigger>
         </TabsList>
 
         {/* Tab 1: full overview */}
@@ -165,7 +184,7 @@ export function ReporteSection({
               className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-5 shadow-sm"
             >
               <h3 className="text-sm font-semibold text-slate-700">
-                Entradas y salidas por hora
+                Entradas por hora
               </h3>
               <p className="text-xs text-slate-400 mt-0.5 mb-4">
                 Barras = volumen · Línea = tendencia de entradas
@@ -187,7 +206,7 @@ export function ReporteSection({
               Desglose por zona y cámara
             </h3>
             <p className="text-xs text-slate-400 mb-4">
-              Entradas y salidas por punto de seguimiento
+              Entradas por punto de seguimiento
             </p>
             <ZonePanel
               zones={zoneBreakdown}
@@ -221,6 +240,17 @@ export function ReporteSection({
               <TIZPanel rows={tizKpis} loading={loading} />
             </div>
           )}
+        </TabsContent>
+        {/* Tab 4: historical trends */}
+        <TabsContent value="tendencias" className="mt-5">
+          <TendenciasTab
+            filters={filters}
+            allSites={opts.sites}
+            minDate={opts.minDate}
+            maxDate={opts.maxDate}
+            availableDates={opts.availableDates}
+            loading={loading}
+          />
         </TabsContent>
       </Tabs>
     </div>

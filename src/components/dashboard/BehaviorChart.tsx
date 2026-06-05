@@ -20,12 +20,12 @@ function SkeletonChart() {
 }
 
 function buildHourly(rows: HourlyRow[]) {
-  const map = new Map<number, { hour: number; enter: number; exit: number }>();
-  for (let h = 7; h <= 22; h++) map.set(h, { hour: h, enter: 0, exit: 0 });
+  const map = new Map<number, { hour: number; enter: number }>();
+  for (let h = 7; h <= 22; h++) map.set(h, { hour: h, enter: 0 });
   for (const r of rows) {
-    if (r.event_type !== "enter" && r.event_type !== "exit") continue;
-    const cur = map.get(r.hour) ?? { hour: r.hour, enter: 0, exit: 0 };
-    cur[r.event_type] += r.count;
+    if (r.event_type !== "enter") continue;
+    const cur = map.get(r.hour) ?? { hour: r.hour, enter: 0 };
+    cur.enter += r.count;
     map.set(r.hour, cur);
   }
   return Array.from(map.values()).sort((a, b) => a.hour - b.hour);
@@ -60,14 +60,13 @@ export function BehaviorChart({ rows, loading }: { rows: HourlyRow[]; loading: b
         />
         <Tooltip
           contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 12 }}
-          formatter={(v, name) => [v, name === "enter" ? "Entradas" : "Salidas"]}
+          formatter={(v) => [v, "Entradas"]}
           labelFormatter={(h) => fmtHour(Number(h))}
         />
         <Legend
-          formatter={(v) => (v === "enter" ? "Entradas" : "Salidas")}
+          formatter={() => "Entradas"}
           wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
         />
-        <Bar dataKey="exit" fill="#FCA5A5" radius={[4, 4, 0, 0]} maxBarSize={22} />
         <Bar dataKey="enter" fill="#6EE7B7" radius={[4, 4, 0, 0]} maxBarSize={22} />
         <Area
           type="monotone"

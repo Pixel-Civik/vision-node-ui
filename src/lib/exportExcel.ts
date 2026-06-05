@@ -135,11 +135,6 @@ export async function exportExcelReporte(params: {
         ["Días analizados",        kpis.days],
         ["Entradas (total)",       kpis.enters],
         ["Entradas / día",         Number((kpis.enters / d).toFixed(1))],
-        ["Salidas (total)",        kpis.exits],
-        ["Salidas / día",          Number((kpis.exits / d).toFixed(1))],
-        ["Neto (total)",           kpis.net],
-        ["Neto / día",             Number((kpis.net / d).toFixed(1))],
-        ["Tasa captura salidas",   exitRate],
         ["Tracks únicos",          kpis.unique_tracks ?? "—"],
       ],
     });
@@ -150,13 +145,11 @@ export async function exportExcelReporte(params: {
     const totalE = daily.reduce((s, r) => s + r.enters, 0);
     sheets.push({
       name: "Por Día",
-      headers: ["Fecha", "Entradas", "Salidas", "Neto", "Entradas %"],
-      colWidths: [16, 14, 14, 14, 14],
+      headers: ["Fecha", "Entradas", "Entradas %"],
+      colWidths: [16, 14, 14],
       rows: daily.map((r) => [
         r.date,
         r.enters,
-        r.exits,
-        r.enters - r.exits,
         totalE > 0 ? ((r.enters / totalE) * 100).toFixed(1) + "%" : "0%",
       ]),
     });
@@ -164,27 +157,23 @@ export async function exportExcelReporte(params: {
 
   // ── Hourly enter / exit ──────────────────────────────────────────────────────
   if (inc.hourly) {
-    const map = new Map<number, { enters: number; exits: number }>();
-    for (let h = 7; h <= 22; h++) map.set(h, { enters: 0, exits: 0 });
+    const map = new Map<number, number>();
+    for (let h = 7; h <= 22; h++) map.set(h, 0);
     for (const r of hourly) {
-      if (r.event_type !== "enter" && r.event_type !== "exit") continue;
-      const cur = map.get(r.hour) ?? { enters: 0, exits: 0 };
-      if (r.event_type === "enter") cur.enters += r.count; else cur.exits += r.count;
-      map.set(r.hour, cur);
+      if (r.event_type !== "enter") continue;
+      map.set(r.hour, (map.get(r.hour) ?? 0) + r.count);
     }
-    const totalE = Array.from(map.values()).reduce((s, v) => s + v.enters, 0);
+    const totalE = Array.from(map.values()).reduce((s, v) => s + v, 0);
     sheets.push({
       name: "Por Hora",
-      headers: ["Hora", "Entradas", "Salidas", "Neto", "Entradas %"],
-      colWidths: [12, 14, 14, 14, 14],
+      headers: ["Hora", "Entradas", "Entradas %"],
+      colWidths: [12, 14, 14],
       rows: Array.from(map.entries())
         .sort((a, b) => a[0] - b[0])
-        .map(([h, v]) => [
+        .map(([h, enters]) => [
           `${h}:00`,
-          v.enters,
-          v.exits,
-          v.enters - v.exits,
-          totalE > 0 ? ((v.enters / totalE) * 100).toFixed(1) + "%" : "0%",
+          enters,
+          totalE > 0 ? ((enters / totalE) * 100).toFixed(1) + "%" : "0%",
         ]),
     });
   }
@@ -254,52 +243,44 @@ export async function exportExcelReporte(params: {
 
   // ── Zone breakdown ───────────────────────────────────────────────────────────
   if (inc.zones && zones.length) {
-    const map = new Map<string, { enters: number; exits: number }>();
+    const map = new Map<string, number>();
     for (const r of zones) {
-      if (r.event_type !== "enter" && r.event_type !== "exit") continue;
-      const cur = map.get(r.zone) ?? { enters: 0, exits: 0 };
-      if (r.event_type === "enter") cur.enters += r.count; else cur.exits += r.count;
-      map.set(r.zone, cur);
+      if (r.event_type !== "enter") continue;
+      map.set(r.zone, (map.get(r.zone) ?? 0) + r.count);
     }
-    const totalE = Array.from(map.values()).reduce((s, v) => s + v.enters, 0);
+    const totalE = Array.from(map.values()).reduce((s, v) => s + v, 0);
     sheets.push({
       name: "Por Zona",
-      headers: ["Zona", "Entradas", "Salidas", "Neto", "Entradas %"],
-      colWidths: [28, 14, 14, 14, 14],
+      headers: ["Zona", "Entradas", "Entradas %"],
+      colWidths: [28, 14, 14],
       rows: Array.from(map.entries())
-        .sort((a, b) => b[1].enters - a[1].enters)
-        .map(([zone, v]) => [
+        .sort((a, b) => b[1] - a[1])
+        .map(([zone, enters]) => [
           zone,
-          v.enters,
-          v.exits,
-          v.enters - v.exits,
-          totalE > 0 ? ((v.enters / totalE) * 100).toFixed(1) + "%" : "0%",
+          enters,
+          totalE > 0 ? ((enters / totalE) * 100).toFixed(1) + "%" : "0%",
         ]),
     });
   }
 
   // ── Channel breakdown ────────────────────────────────────────────────────────
   if (inc.channels && channels.length) {
-    const map = new Map<string, { enters: number; exits: number }>();
+    const map = new Map<string, number>();
     for (const r of channels) {
-      if (r.event_type !== "enter" && r.event_type !== "exit") continue;
-      const cur = map.get(r.channel) ?? { enters: 0, exits: 0 };
-      if (r.event_type === "enter") cur.enters += r.count; else cur.exits += r.count;
-      map.set(r.channel, cur);
+      if (r.event_type !== "enter") continue;
+      map.set(r.channel, (map.get(r.channel) ?? 0) + r.count);
     }
-    const totalE = Array.from(map.values()).reduce((s, v) => s + v.enters, 0);
+    const totalE = Array.from(map.values()).reduce((s, v) => s + v, 0);
     sheets.push({
       name: "Por Cámara",
-      headers: ["Cámara", "Entradas", "Salidas", "Neto", "Entradas %"],
-      colWidths: [28, 14, 14, 14, 14],
+      headers: ["Cámara", "Entradas", "Entradas %"],
+      colWidths: [28, 14, 14],
       rows: Array.from(map.entries())
-        .sort((a, b) => b[1].enters - a[1].enters)
-        .map(([ch, v]) => [
+        .sort((a, b) => b[1] - a[1])
+        .map(([ch, enters]) => [
           ch,
-          v.enters,
-          v.exits,
-          v.enters - v.exits,
-          totalE > 0 ? ((v.enters / totalE) * 100).toFixed(1) + "%" : "0%",
+          enters,
+          totalE > 0 ? ((enters / totalE) * 100).toFixed(1) + "%" : "0%",
         ]),
     });
   }

@@ -126,19 +126,16 @@ function kpiBox(doc: jsPDF, label: string, value: string, x: number, y: number, 
 // ─── Data builders ─────────────────────────────────────────────────────────────
 
 function buildHourlyRows(hourly: HourlyRow[]) {
-  const map = new Map<number, { enters: number; exits: number }>();
-  for (let h = 7; h <= 22; h++) map.set(h, { enters: 0, exits: 0 });
+  const map = new Map<number, number>();
+  for (let h = 7; h <= 22; h++) map.set(h, 0);
   for (const r of hourly) {
-    if (r.event_type !== "enter" && r.event_type !== "exit") continue;
-    const cur = map.get(r.hour) ?? { enters: 0, exits: 0 };
-    if (r.event_type === "enter") cur.enters += r.count;
-    else cur.exits += r.count;
-    map.set(r.hour, cur);
+    if (r.event_type !== "enter") continue;
+    map.set(r.hour, (map.get(r.hour) ?? 0) + r.count);
   }
   const rows = Array.from(map.entries())
     .sort((a, b) => a[0] - b[0])
-    .map(([hour, d]) => ({ hour, enters: d.enters, exits: d.exits, net: d.enters - d.exits }))
-    .filter((d) => d.enters > 0 || d.exits > 0);
+    .map(([hour, enters]) => ({ hour, enters }))
+    .filter((d) => d.enters > 0);
   const totalEnters = rows.reduce((s, r) => s + r.enters, 0);
   return { rows, totalEnters };
 }
@@ -269,14 +266,10 @@ export function exportPDF(opts: {
   if (inc.kpi && opts.kpis) {
     const k = opts.kpis;
     const d = Math.max(1, k.days);
-    const exitRate = k.enters > 0 ? `${((k.exits / k.enters) * 100).toFixed(1)}%` : "—";
     const boxes: [string, string][] = [
       ["Entradas totales", k.enters.toLocaleString("es-PE")],
-      ["Salidas totales", k.exits.toLocaleString("es-PE")],
-      ["Flujo neto", `${k.net >= 0 ? "+" : ""}${k.net.toLocaleString("es-PE")}`],
       ["Ent/día (prom.)", (k.enters / d).toFixed(1)],
       ["Días analizados", k.days.toString()],
-      ["Tasa de salida", exitRate],
     ];
     const bw = (210 - 28 - 10) / 3;
     boxes.forEach(([label, val], i) => {
@@ -284,7 +277,7 @@ export function exportPDF(opts: {
       const row = Math.floor(i / 3);
       kpiBox(doc, label, val, 14 + col * (bw + 5), y + row * 22, bw);
     });
-    y += 2 * 22 + 10;
+    y += 1 * 22 + 10;
   }
 
   // ── Hourly breakdown ──
@@ -306,17 +299,15 @@ export function exportPDF(opts: {
       doc.setTextColor(0, 0, 0);
       y = pdfTable(
         doc,
-        ["Hora", "Entradas", "Salidas", "Neto", "% Entradas"],
+        ["Hora", "Entradas", "% Entradas"],
         hRows.map((r) => [
           `${r.hour}:00 h`,
           r.enters.toLocaleString("es-PE"),
-          r.exits.toLocaleString("es-PE"),
-          r.net >= 0 ? `+${r.net}` : r.net,
           totalEnters > 0 ? `${((r.enters / totalEnters) * 100).toFixed(1)}%` : "0%",
         ]),
         y,
-        [30, 38, 38, 36, 40],
-        [false, true, true, true, true],
+        [50, 60, 72],
+        [false, true, true],
         opts.title,
         period,
       );
@@ -418,30 +409,25 @@ export function exportPDF(opts: {
   if (inc.zones && opts.zones && opts.zones.length > 0) {
     ensureSpace(60);
     y = sectionTitle(doc, "Desglose por zona", y);
-    const zMap = new Map<string, { enters: number; exits: number }>();
+    const zMap = new Map<string, number>();
     for (const r of opts.zones) {
-      if (!["enter", "exit"].includes(r.event_type)) continue;
-      const cur = zMap.get(r.zone) ?? { enters: 0, exits: 0 };
-      if (r.event_type === "enter") cur.enters += r.count;
-      else cur.exits += r.count;
-      zMap.set(r.zone, cur);
+      if (r.event_type !== "enter") continue;
+      zMap.set(r.zone, (zMap.get(r.zone) ?? 0) + r.count);
     }
-    const zTotal = Array.from(zMap.values()).reduce((s, d) => s + d.enters, 0);
+    const zTotal = Array.from(zMap.values()).reduce((s, v) => s + v, 0);
     y = pdfTable(
       doc,
-      ["Zona", "Entradas", "Salidas", "Neto", "% Ent."],
+      ["Zona", "Entradas", "% Ent."],
       Array.from(zMap.entries())
-        .sort((a, b) => b[1].enters - a[1].enters)
-        .map(([zone, d]) => [
+        .sort((a, b) => b[1] - a[1])
+        .map(([zone, enters]) => [
           zone,
-          d.enters.toLocaleString("es-PE"),
-          d.exits.toLocaleString("es-PE"),
-          d.enters - d.exits,
-          zTotal > 0 ? `${((d.enters / zTotal) * 100).toFixed(1)}%` : "0%",
+          enters.toLocaleString("es-PE"),
+          zTotal > 0 ? `${((enters / zTotal) * 100).toFixed(1)}%` : "0%",
         ]),
       y,
-      [62, 34, 34, 28, 24],
-      [false, true, true, true, true],
+      [100, 50, 32],
+      [false, true, true],
       opts.title,
       period,
     );
@@ -451,30 +437,25 @@ export function exportPDF(opts: {
   if (inc.channels && opts.channels && opts.channels.length > 0) {
     ensureSpace(60);
     y = sectionTitle(doc, "Desglose por cámara", y);
-    const cMap = new Map<string, { enters: number; exits: number }>();
+    const cMap = new Map<string, number>();
     for (const r of opts.channels) {
-      if (!["enter", "exit"].includes(r.event_type)) continue;
-      const cur = cMap.get(r.channel) ?? { enters: 0, exits: 0 };
-      if (r.event_type === "enter") cur.enters += r.count;
-      else cur.exits += r.count;
-      cMap.set(r.channel, cur);
+      if (r.event_type !== "enter") continue;
+      cMap.set(r.channel, (cMap.get(r.channel) ?? 0) + r.count);
     }
-    const cTotal = Array.from(cMap.values()).reduce((s, d) => s + d.enters, 0);
+    const cTotal = Array.from(cMap.values()).reduce((s, v) => s + v, 0);
     y = pdfTable(
       doc,
-      ["Cámara", "Entradas", "Salidas", "Neto", "% Ent."],
+      ["Cámara", "Entradas", "% Ent."],
       Array.from(cMap.entries())
-        .sort((a, b) => b[1].enters - a[1].enters)
-        .map(([ch, d]) => [
+        .sort((a, b) => b[1] - a[1])
+        .map(([ch, enters]) => [
           ch,
-          d.enters.toLocaleString("es-PE"),
-          d.exits.toLocaleString("es-PE"),
-          d.enters - d.exits,
-          cTotal > 0 ? `${((d.enters / cTotal) * 100).toFixed(1)}%` : "0%",
+          enters.toLocaleString("es-PE"),
+          cTotal > 0 ? `${((enters / cTotal) * 100).toFixed(1)}%` : "0%",
         ]),
       y,
-      [62, 34, 34, 28, 24],
-      [false, true, true, true, true],
+      [100, 50, 32],
+      [false, true, true],
       opts.title,
       period,
     );

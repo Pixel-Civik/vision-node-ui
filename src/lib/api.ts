@@ -162,6 +162,17 @@ export async function fetchDailyTotals(f: DashboardFilters): Promise<DailyRow[]>
     .map(([date, v]) => ({ date, enters: v.enters, exits: v.exits }));
 }
 
+export interface DailyTrendRow {
+  date:     string;
+  enters:   number;
+  pasantes: number;
+  conv:     number;
+}
+
+export async function fetchDailyTrends(f: DashboardFilters): Promise<DailyTrendRow[]> {
+  return rpc<DailyTrendRow>("dashboard_daily_trend", buildPayload(f));
+}
+
 export async function fetchFilterOptions(): Promise<{
   sites: string[];
   channels: string[];
