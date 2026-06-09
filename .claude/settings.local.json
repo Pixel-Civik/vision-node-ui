@@ -47,7 +47,12 @@
       "Bash(echo \"=== daily_totals ===\")",
       "Bash(echo \"=== daily_totals \\(rango real\\) ===\")",
       "Bash(echo 'HTTP __TRACKED_VAR__')",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(where playwright *)",
+      "Bash(npx playwright *)",
+      "Bash(npm list *)",
+      "Bash(rm verify_freshness.mjs verify_freshness.png)",
+      "Bash(npm uninstall *)"
     ]
   },
   "enabledMcpjsonServers": [

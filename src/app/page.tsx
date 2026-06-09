@@ -16,6 +16,8 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { AlertTriangle } from "lucide-react";
 
+import { Toaster } from "@/components/ui/sonner";
+import { useDataFreshnessAlert } from "@/hooks/useDataFreshnessAlert";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { type Section } from "@/components/layout/nav";
@@ -89,6 +91,8 @@ export default function App() {
   const data      = useDashboard(filters);
   const analytics = useAnalytics(filters);
 
+  useDataFreshnessAlert();
+
   const hasConversion = data.conversion.some((r) => r.pasantes > 0);
   const hasTIZ        = data.tizKpis.length > 0;
 
@@ -109,6 +113,8 @@ export default function App() {
   }
 
   return (
+    <>
+    <Toaster position="top-right" />
     <div className="flex h-screen bg-slate-50">
       {/* ── Mobile overlay ───────────────────────────────────────────────── */}
       {sidebarOpen && (
@@ -203,5 +209,6 @@ export default function App() {
         </main>
       </div>
     </div>
+    </>
   );
 }
