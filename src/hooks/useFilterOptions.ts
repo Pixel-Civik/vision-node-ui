@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { fetchFilterOptions } from "@/lib/api";
 
 export interface FilterOptions {
   sites: string[];
@@ -13,8 +13,8 @@ export interface FilterOptions {
   loading: boolean;
 }
 
-// v5 — fixed column names: ts→time, zone_name→zone
-const SESSION_KEY = "pixel-civik-filter-opts-v5";
+// v6 — uses dashboard_filter_options RPC (server-side aggregation)
+const SESSION_KEY = "pixel-civik-filter-opts-v6";
 
 type CachedOpts = Omit<FilterOptions, "loading" | "availableDates"> & { dates: string[] };
 
@@ -38,16 +38,6 @@ function writeCache(o: Omit<FilterOptions, "loading">) {
     };
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(payload));
   } catch {}
-}
-
-// Convert a UTC ISO timestamp (or Lima-offset ISO) to Lima local date YYYY-MM-DD.
-// Works regardless of whether Supabase returns UTC (+00:00) or Lima (-05:00) offset.
-function tolimaDate(ts: string): string {
-  try {
-    return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima" }).format(new Date(ts));
-  } catch {
-    return ts.slice(0, 10);
-  }
 }
 
 // Build a local Date from an ISO date string (avoids UTC midnight shift)
@@ -75,47 +65,16 @@ export function useFilterOptions(): FilterOptions {
 
   useEffect(() => {
     async function load() {
-      // Three lightweight queries — no full table scan:
-      // 1. First row (ascending ts) → minDate
-      // 2. Last row  (descending ts) → maxDate
-      // 3. Dimension columns         → filter dropdowns
-      const [firstResult, lastResult, dimResult] = await Promise.all([
-        supabase
-          .from("tracking_logs_view")
-          .select("time")
-          .order("time", { ascending: true })
-          .limit(1),
-        supabase
-          .from("tracking_logs_view")
-          .select("time")
-          .order("time", { ascending: false })
-          .limit(1),
-        supabase
-          .from("tracking_logs_view")
-          .select("site,channel,zone"),
-      ]);
+      const result = await fetchFilterOptions().catch(() => null);
+      if (!result) { setLoading(false); return; }
 
-      const firstTs = (firstResult.data?.[0]?.time as string | undefined) ?? "";
-      const lastTs  = (lastResult.data?.[0]?.time  as string | undefined) ?? "";
-      const dimData = dimResult.data ?? [];
-
-      // If everything failed, leave loading spinner and bail
-      if (!firstTs && dimData.length === 0) { setLoading(false); return; }
-
-      // Dimension values (distinct, sorted)
-      const sites    = [...new Set(dimData.map((r) => r.site    as string).filter(Boolean))].sort();
-      const channels = [...new Set(dimData.map((r) => r.channel as string).filter(Boolean))].sort();
-      const zones    = [...new Set(dimData.map((r) => r.zone    as string).filter(Boolean))].sort();
-
-      // Date range in Lima local time
-      const minDate = firstTs ? tolimaDate(firstTs) : TODAY;
-      const maxDate = lastTs  ? tolimaDate(lastTs)  : TODAY;
+      const { sites, channels, zones, minDate, maxDate } = result;
 
       // Build the set of days with data: minDate through yesterday (complete days)
-      // plus today if there is already at least one event recorded today.
+      // plus today if the most recent event is from today (data in progress).
       const yd = isoStr(new Date(Date.now() - 86_400_000));
       const availableDates = new Set<string>();
-      if (firstTs && minDate <= yd) {
+      if (minDate <= yd) {
         for (
           let d = localDate(minDate);
           isoStr(d) <= yd;
@@ -124,10 +83,7 @@ export function useFilterOptions(): FilterOptions {
           availableDates.add(isoStr(d));
         }
       }
-      // Include today if the most recent event is from today (data in progress)
-      if (lastTs && tolimaDate(lastTs) >= TODAY) {
-        availableDates.add(TODAY);
-      }
+      if (maxDate >= TODAY) availableDates.add(TODAY);
 
       const fresh = { sites, channels, zones, minDate, maxDate, availableDates };
       setOpts(fresh);

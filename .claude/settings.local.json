@@ -36,7 +36,18 @@
       "Bash(supabase status *)",
       "Bash(supabase db *)",
       "Bash(supabase link *)",
-      "Bash(supabase login *)"
+      "Bash(supabase login *)",
+      "Bash(git show *)",
+      "Bash(echo \"\")",
+      "Bash(echo \"--- sites ---\")",
+      "Bash(echo \"--- cameras ---\")",
+      "Bash(echo \"=== tiz_zone_stats \\(300\\) ===\")",
+      "Bash(echo \"=== gender_age \\(404\\) ===\")",
+      "Bash(echo \"=== filter_options ===\")",
+      "Bash(echo \"=== daily_totals ===\")",
+      "Bash(echo \"=== daily_totals \\(rango real\\) ===\")",
+      "Bash(echo 'HTTP __TRACKED_VAR__')",
+      "Read(//tmp/**)"
     ]
   },
   "enabledMcpjsonServers": [

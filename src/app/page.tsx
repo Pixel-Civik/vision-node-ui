@@ -189,7 +189,7 @@ export default function App() {
             />
           </div>
 
-          <div className={section !== "tecnico" ? "hidden" : undefined}>
+          {section === "tecnico" && (
             <TecnicoSection
               hourly={data.hourly}
               loading={data.loading}
@@ -199,7 +199,7 @@ export default function App() {
               opts={opts}
               onFilterChange={(patch) => setFv((prev) => ({ ...prev, ...patch }))}
             />
-          </div>
+          )}
         </main>
       </div>
     </div>

@@ -1,10 +1,6 @@
-/**
- * ReporteSection — full analytics report with filters and tabbed charts.
- * SRP: orchestrates filters + KPIs + chart tabs; no data fetching.
- * Tabs are kept mounted via CSS hidden (fast switching, no remount).
- */
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -69,6 +65,8 @@ export function ReporteSection({
   hasTIZ,
   onFilterChange,
 }: ReporteSectionProps) {
+  const [activeTab, setActiveTab] = useState("combinado");
+
   return (
     <div className="px-4 md:px-6 py-5 space-y-5">
       {/* ── Header ── */}
@@ -136,7 +134,7 @@ export function ReporteSection({
       <Separator className="my-1" />
 
       {/* ── Tabs ── */}
-      <Tabs defaultValue="combinado">
+      <Tabs defaultValue="combinado" onValueChange={setActiveTab}>
         <TabsList className="bg-slate-100 p-1 rounded-xl">
           <TabsTrigger
             value="combinado"
@@ -241,16 +239,18 @@ export function ReporteSection({
             </div>
           )}
         </TabsContent>
-        {/* Tab 4: historical trends */}
+        {/* Tab 4: historical trends — lazy mount to avoid parallel query burst on load */}
         <TabsContent value="tendencias" className="mt-5">
-          <TendenciasTab
-            filters={filters}
-            allSites={opts.sites}
-            minDate={opts.minDate}
-            maxDate={opts.maxDate}
-            availableDates={opts.availableDates}
-            loading={loading}
-          />
+          {activeTab === "tendencias" && (
+            <TendenciasTab
+              filters={filters}
+              allSites={opts.sites}
+              minDate={opts.minDate}
+              maxDate={opts.maxDate}
+              availableDates={opts.availableDates}
+              loading={loading}
+            />
+          )}
         </TabsContent>
       </Tabs>
     </div>

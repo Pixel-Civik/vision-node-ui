@@ -81,7 +81,7 @@ export function useAvailability(startTs: string, endTs: string) {
           sites: null, channels: null, zones: null,
           hourMin: 0, hourMax: 23, dows: null,
         };
-        const rows = await fetchHourly(f);
+        const rows = await fetchHourly(f).catch(() => []);
         const hourSet = new Set<number>();
         for (const r of rows) {
           if (r.count > 0 && r.hour >= WIN_START && r.hour <= WIN_END) {

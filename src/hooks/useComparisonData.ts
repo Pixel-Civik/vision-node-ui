@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { fetchKPIs, fetchHourly } from "@/lib/api";
-import { supabase } from "@/lib/supabase";
 import type { DashboardFilters, KPIResult, HourlyRow } from "@/lib/types";
 
 export type CompareMode = "prev-day" | "same-dow" | "prev-period";
@@ -74,37 +73,14 @@ export function useComparisonData(
     let cancelled = false;
 
     async function load() {
-      const [rk, rh] = await Promise.all([
-        fetchKPIs(refFilters),
-        fetchHourly(refFilters),
-      ]);
+      const rk = await fetchKPIs(refFilters).catch(() => null);
       if (cancelled) return;
       setRefKpis(rk);
+
+      const rh = await fetchHourly(refFilters).catch(() => [] as HourlyRow[]);
+      if (cancelled) return;
       setRefHourly(rh);
-
-      // Ranking — only meaningful with multiple sites in the project
-      if (allSites.length > 1) {
-        const { data } = await supabase
-          .from("tracking_logs_view")
-          .select("site")
-          .eq("event", "enter")
-          .gte("time", filters.startTs)
-          .lte("time", filters.endTs)
-          .limit(200_000);
-
-        if (!cancelled) {
-          const counts = new Map<string, number>();
-          for (const r of (data ?? []) as { site: string }[]) {
-            if (r.site) counts.set(r.site, (counts.get(r.site) ?? 0) + 1);
-          }
-          const sorted  = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-          const current = filters.sites?.[0] ?? sorted[0]?.[0] ?? "";
-          const idx     = sorted.findIndex(([s]) => s === current);
-          setSiteRank(idx >= 0 ? { site: current, rank: idx + 1, total: sorted.length } : null);
-        }
-      } else {
-        setSiteRank(null);
-      }
+      setSiteRank(null);
 
       if (!cancelled) setLoading(false);
     }

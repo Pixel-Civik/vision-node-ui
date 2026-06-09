@@ -36,37 +36,7 @@ export async function fetchHeatmap(f: DashboardFilters): Promise<HeatmapRow[]> {
 }
 
 export async function fetchTIZKpis(f: DashboardFilters): Promise<TIZKpiRow[]> {
-  // dashboard_tiz_zone_stats RPC references wrong column — query view directly
-  const { data } = await supabase
-    .from("tracking_logs_view")
-    .select("zone, dwell_sec")
-    .eq("event", "visit")
-    .gte("time", f.startTs)
-    .lte("time", f.endTs)
-    .not("dwell_sec", "is", null)
-    .limit(50000);
-
-  if (!data || data.length === 0) return [];
-
-  // Group by zone and compute stats client-side
-  const groups = new Map<string, number[]>();
-  for (const r of data as { zone: string | null; dwell_sec: number }[]) {
-    const z = r.zone ?? "sin zona";
-    if (!groups.has(z)) groups.set(z, []);
-    groups.get(z)!.push(r.dwell_sec);
-  }
-
-  return [...groups.entries()].map(([zone, vals]) => {
-    const sorted = vals.slice().sort((a, b) => a - b);
-    const avg    = vals.reduce((s, v) => s + v, 0) / vals.length;
-    const mid    = Math.floor(sorted.length / 2);
-    const median = sorted.length % 2 === 0
-      ? (sorted[mid - 1] + sorted[mid]) / 2
-      : sorted[mid];
-    const p90idx = Math.ceil(0.9 * sorted.length) - 1;
-    const p90    = sorted[Math.max(0, p90idx)];
-    return { zone, count: vals.length, avg_s: avg, median_s: median, p90_s: p90 };
-  }).sort((a, b) => b.count - a.count);
+  return rpc<TIZKpiRow>("dashboard_tiz_zone_stats", buildPayload(f));
 }
 
 export function computeConversionFromHourly(rows: HourlyRow[]): ConversionHourRow[] {
@@ -100,27 +70,13 @@ export async function fetchGenderAge(
   endTs: string,
   eventTypes: string[]
 ): Promise<{ gender: GenderRow[]; age: AgeRow[] }> {
-  const { data } = await supabase
-    .from("tracking_logs_view")
-    .select("gender, age, event")
-    .gte("time", startTs)
-    .lte("time", endTs)
-    .in("event", eventTypes)
-    .not("gender", "is", null)
-    .limit(5000);
-
-  if (!data) return { gender: [], age: [] };
-
-  const gMap = new Map<string, number>();
-  const aMap = new Map<string, number>();
-  for (const r of data as { gender: string | null; age: string | null }[]) {
-    if (r.gender && r.gender !== "genero_no_detectado") gMap.set(r.gender, (gMap.get(r.gender) ?? 0) + 1);
-    if (r.age && r.age !== "edad_no_detectada") aMap.set(r.age, (aMap.get(r.age) ?? 0) + 1);
-  }
-
+  const rows = await rpc<{ dimension: string; value: string; count: number }>(
+    "dashboard_gender_age",
+    { p_start_ts: startTs, p_end_ts: endTs, p_event_types: eventTypes }
+  );
   return {
-    gender: Array.from(gMap.entries()).map(([gender, count]) => ({ gender, count })).sort((a, b) => b.count - a.count),
-    age: Array.from(aMap.entries()).map(([age, count]) => ({ age, count })).sort((a, b) => b.count - a.count),
+    gender: rows.filter((r) => r.dimension === "gender").map(({ value: gender, count }) => ({ gender, count })),
+    age:    rows.filter((r) => r.dimension === "age").map(({ value: age, count }) => ({ age, count })),
   };
 }
 
@@ -137,29 +93,7 @@ export async function fetchTIZDirect(startTs: string, endTs: string): Promise<TI
 }
 
 export async function fetchDailyTotals(f: DashboardFilters): Promise<DailyRow[]> {
-  const { data } = await supabase
-    .from("tracking_logs_view")
-    .select("time, event")
-    .gte("time", f.startTs)
-    .lte("time", f.endTs)
-    .in("event", ["enter", "exit"])
-    .limit(100000);
-
-  if (!data) return [];
-
-  const map = new Map<string, { enters: number; exits: number }>();
-  for (const r of data as { time: string; event: string }[]) {
-    const limaDate = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima" })
-      .format(new Date(r.time));
-    const cur = map.get(limaDate) ?? { enters: 0, exits: 0 };
-    if (r.event === "enter") cur.enters++;
-    else if (r.event === "exit") cur.exits++;
-    map.set(limaDate, cur);
-  }
-
-  return Array.from(map.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, v]) => ({ date, enters: v.enters, exits: v.exits }));
+  return rpc<DailyRow>("dashboard_daily_totals", buildPayload(f));
 }
 
 export interface DailyTrendRow {
@@ -180,34 +114,16 @@ export async function fetchFilterOptions(): Promise<{
   minDate: string;
   maxDate: string;
 }> {
-  const { data } = await import("./supabase").then((m) =>
-    m.supabase
-      .from("tracking_logs_view")
-      .select("site,channel,zone,time")
-      .order("time", { ascending: true })
-      .limit(1)
+  const rows = await rpc<{ sites: string[]; channels: string[]; zones: string[]; min_date: string; max_date: string }>(
+    "dashboard_filter_options", {}
   );
-  const { data: last } = await import("./supabase").then((m) =>
-    m.supabase
-      .from("tracking_logs_view")
-      .select("time")
-      .order("time", { ascending: false })
-      .limit(1)
-  );
-
-  const { data: opts } = await import("./supabase").then((m) =>
-    m.supabase.from("tracking_logs_view").select("site,channel,zone")
-  );
-
-  const sites = [...new Set((opts ?? []).map((r: Record<string, string>) => r.site).filter(Boolean))].sort() as string[];
-  const channels = [...new Set((opts ?? []).map((r: Record<string, string>) => r.channel).filter(Boolean))].sort() as string[];
-  const zones = [...new Set((opts ?? []).map((r: Record<string, string>) => r.zone).filter(Boolean))].sort() as string[];
-
+  const row = rows[0];
+  const today = new Date().toISOString().slice(0, 10);
   return {
-    sites,
-    channels,
-    zones,
-    minDate: data?.[0]?.time?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
-    maxDate: last?.[0]?.time?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+    sites:    row?.sites    ?? [],
+    channels: row?.channels ?? [],
+    zones:    row?.zones    ?? [],
+    minDate:  row?.min_date ?? today,
+    maxDate:  row?.max_date ?? today,
   };
 }

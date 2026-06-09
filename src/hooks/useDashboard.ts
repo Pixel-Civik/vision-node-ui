@@ -37,37 +37,37 @@ export function useDashboard(filters: DashboardFilters): DashboardData & { refre
     setLoading(true);
     setError(null);
 
-    // Critical fetches — failure blocks the dashboard
-    const criticalFetch = Promise.all([
-      fetchKPIs(filters),
-      fetchHourly(filters),
-    ]);
+    async function load() {
+      // 1. KPIs — unblock the UI first
+      const kpis = await fetchKPIs(filters).catch(() => null);
+      if (cancelled) return;
+      if (kpis === null) { setError("Error al cargar KPIs"); setLoading(false); return; }
+      setData((prev) => ({ ...prev, kpis }));
+      setLoading(false);
 
-    // Heavy aggregation RPCs — timeout-prone; fail gracefully with empty arrays
-    const safeFetch = Promise.all([
-      fetchHeatmap(filters).catch(()          => [] as HeatmapRow[]),
-      fetchZoneBreakdown(filters).catch(()    => [] as ZoneBreakdownRow[]),
-      fetchChannelBreakdown(filters).catch(() => [] as ChannelBreakdownRow[]),
-      fetchTIZKpis(filters).catch(()          => [] as TIZKpiRow[]),
-    ]);
+      // 2–6. Heavy queries run one at a time to avoid DB statement timeout.
+      // Each fills in its chart as it arrives — the UI updates progressively.
+      const hourly = await fetchHourly(filters).catch(() => [] as HourlyRow[]);
+      if (cancelled) return;
+      setData((prev) => ({ ...prev, hourly, conversion: computeConversionFromHourly(hourly) }));
 
-    criticalFetch
-      .then(([kpis, hourly]) => {
-        if (cancelled) return;
-        const conversion = computeConversionFromHourly(hourly);
-        // Render KPIs + hourly charts immediately
-        setData((prev) => ({ ...prev, kpis, hourly, conversion }));
-        setLoading(false);
+      const zoneBreakdown = await fetchZoneBreakdown(filters).catch(() => [] as ZoneBreakdownRow[]);
+      if (cancelled) return;
+      setData((prev) => ({ ...prev, zoneBreakdown }));
 
-        // Heavy data fills in when ready (may be slow or fail silently)
-        safeFetch.then(([heatmap, zoneBreakdown, channelBreakdown, tizKpis]) => {
-          if (!cancelled)
-            setData((prev) => ({ ...prev, heatmap, zoneBreakdown, channelBreakdown, tizKpis }));
-        });
-      })
-      .catch((e) => {
-        if (!cancelled) { setError(String(e)); setLoading(false); }
-      });
+      const channelBreakdown = await fetchChannelBreakdown(filters).catch(() => [] as ChannelBreakdownRow[]);
+      if (cancelled) return;
+      setData((prev) => ({ ...prev, channelBreakdown }));
+
+      const heatmap = await fetchHeatmap(filters).catch(() => [] as HeatmapRow[]);
+      if (cancelled) return;
+      setData((prev) => ({ ...prev, heatmap }));
+
+      const tizKpis = await fetchTIZKpis(filters).catch(() => [] as TIZKpiRow[]);
+      if (!cancelled) setData((prev) => ({ ...prev, tizKpis }));
+    }
+
+    load();
 
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
