@@ -38,8 +38,13 @@ export function useDashboard(filters: DashboardFilters): DashboardData & { refre
     setError(null);
 
     async function load() {
-      // 1. KPIs — unblock the UI first
-      const kpis = await fetchKPIs(filters).catch(() => null);
+      // 1. KPIs — retry up to 2 times on timeout before showing error
+      let kpis: KPIResult | null = null;
+      for (let attempt = 0; attempt < 3 && kpis === null; attempt++) {
+        if (attempt > 0) await new Promise<void>((r) => setTimeout(r, 1500 * attempt));
+        if (cancelled) return;
+        kpis = await fetchKPIs(filters).catch(() => null);
+      }
       if (cancelled) return;
       if (kpis === null) { setError("Error al cargar KPIs"); setLoading(false); return; }
       setData((prev) => ({ ...prev, kpis }));

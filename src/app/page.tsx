@@ -15,8 +15,12 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import { AlertTriangle } from "lucide-react";
+import dynamic from "next/dynamic";
 
-import { Toaster } from "@/components/ui/sonner";
+const Toaster = dynamic(
+  () => import("@/components/ui/sonner").then((m) => ({ default: m.Toaster })),
+  { ssr: false }
+);
 import { useDataFreshnessAlert } from "@/hooks/useDataFreshnessAlert";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";

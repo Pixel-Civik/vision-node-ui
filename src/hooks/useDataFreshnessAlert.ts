@@ -4,16 +4,34 @@ import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 
-const CHECK_MS   = 60 * 1000;      // evaluación local cada 1 min (sin DB)
-const STALE_MS   = 20 * 60 * 1000; // 20 min sin eventos → alerta
-const HOUR_START = 7;               // 7 AM Lima
-const HOUR_END   = 23;              // 11 PM Lima
-const TOAST_ID   = "data-freshness";
+const CHECK_MS = 60 * 1000;      // evaluar cada 1 min
+const STALE_MS = 20 * 60 * 1000; // 20 min sin eventos → alerta
+const TOAST_ID = "data-freshness";
 
-function limaHour(): number {
+// Lima = UTC-5, sin DST.
+// Usar UTC aritmético directo para evitar dependencia del timezone del cliente.
+const LIMA_OFFSET_MS = 5 * 60 * 60 * 1000;
+
+function limaHM(): { h: number; m: number } {
+  const d = new Date(Date.now() - LIMA_OFFSET_MS);
+  return { h: d.getUTCHours(), m: d.getUTCMinutes() };
+}
+
+function isWithinOperatingHours(): boolean {
+  const { h, m } = limaHM();
+  if (h < 7) return false;
+  if (h === 23 && m > 30) return false; // después de 23:30
+  if (h >= 24) return false;
+  return true;
+}
+
+// Retorna el timestamp UTC correspondiente a las 7:00 AM Lima del día de hoy.
+function todayOpenUTC(): Date {
+  const limaNow = new Date(Date.now() - LIMA_OFFSET_MS);
+  // Midnight Lima en UTC + 7h = 7 AM Lima en UTC = 7+5 = 12:00 UTC
   return new Date(
-    new Date().toLocaleString("en-US", { timeZone: "America/Lima" })
-  ).getHours();
+    Date.UTC(limaNow.getUTCFullYear(), limaNow.getUTCMonth(), limaNow.getUTCDate(), 12, 0, 0)
+  );
 }
 
 async function fetchLastEventTime(): Promise<Date | null> {
@@ -35,25 +53,28 @@ export function useDataFreshnessAlert() {
 
   useEffect(() => {
     function evaluate() {
-      const hour = limaHour();
-
-      // Fuera del horario operativo → limpiar alerta y no hacer nada
-      if (hour < HOUR_START || hour >= HOUR_END) {
+      if (!isWithinOperatingHours()) {
         toast.dismiss(TOAST_ID);
         return;
       }
 
-      const ageMs = lastSeen.current
-        ? Date.now() - lastSeen.current.getTime()
-        : Infinity;
+      // Referencia = max(último evento conocido, apertura de hoy a las 7 AM).
+      // Esto evita alertar al inicio del día solo porque el último evento fue anoche.
+      const open = todayOpenUTC();
+      const ref  = lastSeen.current && lastSeen.current > open
+        ? lastSeen.current
+        : open;
+
+      const ageMs = Date.now() - ref.getTime();
 
       if (ageMs > STALE_MS) {
-        const mins = Number.isFinite(ageMs) ? Math.round(ageMs / 60_000) : null;
-        toast.warning("Sin ingreso de datos recientes", {
+        const mins      = Math.round(ageMs / 60_000);
+        const sinceOpen = !lastSeen.current || lastSeen.current <= open;
+        toast.error("Sin ingreso de datos recientes", {
           id: TOAST_ID,
-          description: mins
-            ? `Último evento hace ${mins} min. Verificar cámaras o conexión.`
-            : "No se detectan eventos hoy. Verificar el sistema de captura.",
+          description: sinceOpen
+            ? `Sin eventos desde apertura (${mins} min). Verificar el sistema.`
+            : `Último evento hace ${mins} min. Verificar cámaras o conexión.`,
           duration: Infinity,
           dismissible: false,
         });
@@ -62,14 +83,13 @@ export function useDataFreshnessAlert() {
       }
     }
 
-    // 1. Bootstrap: obtener el último timestamp desde DB y evaluar de inmediato
+    // Bootstrap: obtener último evento desde DB
     fetchLastEventTime().then((t) => {
       if (t) lastSeen.current = t;
       evaluate();
     });
 
-    // 2. Realtime: cada INSERT en events resetea el timer al instante
-    //    (requiere Realtime habilitado en la tabla events desde el dashboard de Supabase)
+    // Realtime: cada INSERT resetea el timer al instante
     const channel = supabase
       .channel("data-freshness-watch")
       .on(
@@ -82,7 +102,7 @@ export function useDataFreshnessAlert() {
       )
       .subscribe();
 
-    // 3. Chequeo local cada 1 min — sin tocar la DB
+    // Chequeo local cada 1 min
     const timer = setInterval(evaluate, CHECK_MS);
 
     return () => {

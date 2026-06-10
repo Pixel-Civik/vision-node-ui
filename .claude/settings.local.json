@@ -52,7 +52,8 @@
       "Bash(npx playwright *)",
       "Bash(npm list *)",
       "Bash(rm verify_freshness.mjs verify_freshness.png)",
-      "Bash(npm uninstall *)"
+      "Bash(npm uninstall *)",
+      "Bash(grep NEXT_PUBLIC_SUPABASE_ANON_KEY \"C:\\\\Users\\\\USER\\\\Desktop\\\\ACCESORIO\\\\Pixel-Civik\\\\vision-node\\\\frontend\\\\.env.local\")"
     ]
   },
   "enabledMcpjsonServers": [
