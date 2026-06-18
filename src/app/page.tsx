@@ -92,7 +92,13 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [fv, opts.sites.length, opts.channels.length, opts.zones.length]);
 
-  const data      = useDashboard(filters);
+  // Block useDashboard only while the initial snap is still pending.
+  // Using didSnapRef avoids blocking manual filter changes (e.g. "Hoy") which
+  // also have startDate !== opts.minDate but should load immediately.
+  const snapPending = !opts.loading && !didSnapRef.current && opts.minDate < today;
+  const dashboardReady = !opts.loading && !snapPending;
+
+  const data      = useDashboard(filters, { enabled: dashboardReady });
   const analytics = useAnalytics(filters);
 
   useDataFreshnessAlert();
@@ -156,9 +162,10 @@ export default function App() {
           {/* Sections — all mounted; visibility toggled via CSS `hidden` */}
           <div className={section !== "inicio"     ? "hidden" : undefined}>
             <InicioSection
-              kpis={data.kpis} hourly={data.hourly} zoneBreakdown={data.zoneBreakdown}
-              channelBreakdown={data.channelBreakdown} conversion={data.conversion}
-              tizKpis={data.tizKpis} totals={totals} filters={filters} loading={data.loading}
+              kpis={data.kpis} hourly={data.hourly} hourlyAvg={data.hourlyAvg}
+              zoneBreakdown={data.zoneBreakdown} channelBreakdown={data.channelBreakdown}
+              conversion={data.conversion} tizKpis={data.tizKpis} totals={totals}
+              filters={filters} loading={data.loading}
               dateRange={{ start: fv.startDate, end: fv.endDate }}
               onNavigateToReporte={() => navigate("reporte")}
             />
@@ -166,7 +173,7 @@ export default function App() {
 
           <div className={section !== "reporte"    ? "hidden" : undefined}>
             <ReporteSection
-              kpis={data.kpis} hourly={data.hourly} heatmap={data.heatmap}
+              kpis={data.kpis} hourly={data.hourly} hourlyAvg={data.hourlyAvg} heatmap={data.heatmap}
               zoneBreakdown={data.zoneBreakdown} channelBreakdown={data.channelBreakdown}
               conversion={data.conversion} tizKpis={data.tizKpis}
               totals={totals} filters={filters} filterValues={fv} opts={opts}

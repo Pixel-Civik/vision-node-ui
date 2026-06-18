@@ -10,16 +10,22 @@ export function buildRefFilters(f: DashboardFilters, mode: CompareMode): Dashboa
   const startMs  = new Date(f.startTs).getTime();
   const endMs    = new Date(f.endTs).getTime();
   const duration = endMs - startMs;
+  const now      = Date.now();
 
   const shift =
     mode === "prev-day"  ? 86_400_000 :
     mode === "same-dow"  ? 7 * 86_400_000 :
     /* prev-period */      duration + 86_400_000;
 
+  // When the period includes today (endTs is in the future), cap the reference
+  // end to the same elapsed moment so comparison is apples-to-apples:
+  // e.g. today 7am–10am  vs  yesterday 7am–10am  (not yesterday's full day).
+  const refEndMs = endMs > now ? now - shift : endMs - shift;
+
   return {
     ...f,
-    startTs: new Date(startMs - shift).toISOString(),
-    endTs:   new Date(endMs   - shift).toISOString(),
+    startTs: new Date(startMs  - shift).toISOString(),
+    endTs:   new Date(refEndMs).toISOString(),
   };
 }
 

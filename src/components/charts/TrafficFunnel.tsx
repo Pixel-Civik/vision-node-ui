@@ -1,11 +1,12 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import type { HourlyRow } from "@/lib/types";
+import type { HourlyRow, KPIResult } from "@/lib/types";
 
 function sum(rows: HourlyRow[], type: string) {
   return rows.filter((r) => r.event_type === type).reduce((s, r) => s + r.count, 0);
 }
+
 
 function fmtPct(n: number, d: number): string | null {
   if (!d || !n) return null;
@@ -18,7 +19,15 @@ function widthOf(count: number, base: number, minPct: number): number {
   return Math.max(minPct, Math.round(Math.sqrt(count / base) * 100));
 }
 
-export function TrafficFunnel({ rows, loading }: { rows: HourlyRow[]; loading: boolean }) {
+export function TrafficFunnel({
+  rows,
+  loading,
+  kpis,
+}: {
+  rows: HourlyRow[];
+  loading: boolean;
+  kpis?: KPIResult | null;
+}) {
   if (loading) {
     return (
       <div className="space-y-2 py-2">
@@ -29,15 +38,20 @@ export function TrafficFunnel({ rows, loading }: { rows: HourlyRow[]; loading: b
     );
   }
 
-  const pasantes  = sum(rows, "pasante");
-  const visitors  = sum(rows, "visitor"); // "se acercan" — showed interest
-  const enters    = sum(rows, "enter");   // ingresaron al local
+  // rows already contains server-computed averages (dashboard_hourly_avg)
+  const pasantes = sum(rows, "pasante");
+  const visitors = sum(rows, "visitor");
+  const enters   = sum(rows, "enter");
+
+  // Label: show "prom/día" only for multi-day periods
+  const isMultiDay = (kpis?.days ?? 1) > 1;
+  const avgUnit = isMultiDay ? "/día" : "";
 
   const w2 = widthOf(visitors, pasantes, 38);
   const w3 = widthOf(enters,   pasantes, 25);
 
-  const conv1 = fmtPct(visitors, pasantes); // pasantes → visitantes
-  const conv2 = fmtPct(enters, visitors);   // visitantes → entradas
+  const conv1 = fmtPct(visitors, pasantes);
+  const conv2 = fmtPct(enters, visitors);
 
   const stages = [
     {
@@ -110,10 +124,13 @@ export function TrafficFunnel({ rows, loading }: { rows: HourlyRow[]; loading: b
                       </p>
                     </div>
                   </div>
-                  {/* Right: count + % */}
+                  {/* Right: avg count + unit + % */}
                   <div className="text-right shrink-0">
                     <p className="text-2xl font-bold leading-none" style={{ color: s.fg }}>
                       {s.count.toLocaleString("es-PE")}
+                      <span className="text-sm font-medium ml-1" style={{ color: s.muted }}>
+                        {avgUnit}
+                      </span>
                     </p>
                     {s.pctBase && (
                       <p className="text-[11px] mt-0.5 font-medium" style={{ color: s.muted }}>

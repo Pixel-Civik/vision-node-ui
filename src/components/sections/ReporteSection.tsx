@@ -33,6 +33,7 @@ import type {
 interface ReporteSectionProps {
   kpis: KPIResult | null;
   hourly: HourlyRow[];
+  hourlyAvg: HourlyRow[];
   heatmap: HeatmapRow[];
   zoneBreakdown: ZoneBreakdownRow[];
   channelBreakdown: ChannelBreakdownRow[];
@@ -51,6 +52,7 @@ interface ReporteSectionProps {
 export function ReporteSection({
   kpis,
   hourly,
+  hourlyAvg,
   heatmap,
   zoneBreakdown,
   channelBreakdown,
@@ -66,6 +68,13 @@ export function ReporteSection({
   onFilterChange,
 }: ReporteSectionProps) {
   const [activeTab, setActiveTab] = useState("combinado");
+
+  const today = new Date().toISOString().slice(0, 10);
+  const isPromedioMode =
+    !opts.loading &&
+    opts.minDate < today &&
+    filterValues.startDate === opts.minDate &&
+    filterValues.endDate === today;
 
   return (
     <div className="px-4 md:px-6 py-5 space-y-5">
@@ -117,19 +126,21 @@ export function ReporteSection({
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
         <h3 className="text-sm font-semibold text-slate-700 mb-0.5">Embudo de conversión</h3>
         <p className="text-xs text-slate-400 mb-4">Pasantes → Visitantes → Entradas · período filtrado</p>
-        <TrafficFunnel rows={hourly} loading={loading} />
+        <TrafficFunnel rows={hourlyAvg.length > 0 ? hourlyAvg : hourly} loading={loading} kpis={kpis} />
       </div>
 
-      {/* ── Contexto comparativo (REQ 1 + REQ 2) ── */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-        <ComparisonPanel
-          filters={filters}
-          kpis={kpis}
-          hourly={hourly}
-          allSites={opts.sites}
-          loading={loading}
-        />
-      </div>
+      {/* Contexto comparativo — oculto en modo Promedio */}
+      {!isPromedioMode && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+          <ComparisonPanel
+            filters={filters}
+            kpis={kpis}
+            hourly={hourly}
+            allSites={opts.sites}
+            loading={loading}
+          />
+        </div>
+      )}
 
       <Separator className="my-1" />
 
@@ -168,9 +179,11 @@ export function ReporteSection({
         <TabsContent value="combinado" className="mt-5">
           <VisionGeneralTab
             hourly={hourly}
+            hourlyAvg={hourlyAvg}
             heatmap={heatmap}
             conversion={conversion}
             loading={loading}
+            kpis={kpis}
           />
         </TabsContent>
 

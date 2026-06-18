@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { DashboardFilters, KPIResult, HourlyRow, ZoneBreakdownRow, ChannelBreakdownRow, HeatmapRow, ConversionHourRow, TIZKpiRow } from "@/lib/types";
-import { fetchKPIs, fetchHourly, fetchZoneBreakdown, fetchChannelBreakdown, fetchHeatmap, fetchTIZKpis, computeConversionFromHourly } from "@/lib/api";
+import { fetchKPIs, fetchHourly, fetchHourlyAvg, fetchZoneBreakdown, fetchChannelBreakdown, fetchHeatmap, fetchTIZKpis, computeConversionFromHourly } from "@/lib/api";
 
 export interface DashboardData {
   kpis: KPIResult | null;
   hourly: HourlyRow[];
+  hourlyAvg: HourlyRow[];
   zoneBreakdown: ZoneBreakdownRow[];
   channelBreakdown: ChannelBreakdownRow[];
   heatmap: HeatmapRow[];
@@ -16,10 +17,14 @@ export interface DashboardData {
   error: string | null;
 }
 
-export function useDashboard(filters: DashboardFilters): DashboardData & { refresh: () => void } {
+export function useDashboard(
+  filters: DashboardFilters,
+  { enabled = true }: { enabled?: boolean } = {}
+): DashboardData & { refresh: () => void } {
   const [data, setData] = useState<Omit<DashboardData, "loading" | "error">>({
     kpis: null,
     hourly: [],
+    hourlyAvg: [],
     zoneBreakdown: [],
     channelBreakdown: [],
     heatmap: [],
@@ -33,6 +38,10 @@ export function useDashboard(filters: DashboardFilters): DashboardData & { refre
   const refresh = useCallback(() => setTick((t) => t + 1), []);
 
   useEffect(() => {
+    // Wait until the filter has settled (opts loaded + snap applied).
+    // This prevents a double-load: first with today's dates, then with minDate.
+    if (!enabled) return;
+
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -52,9 +61,23 @@ export function useDashboard(filters: DashboardFilters): DashboardData & { refre
 
       // 2–6. Heavy queries run one at a time to avoid DB statement timeout.
       // Each fills in its chart as it arrives — the UI updates progressively.
-      const hourly = await fetchHourly(filters).catch(() => [] as HourlyRow[]);
+      const [hourly, rawHourlyAvg] = await Promise.all([
+        fetchHourly(filters).catch(() => [] as HourlyRow[]),
+        fetchHourlyAvg(filters).catch(() => [] as HourlyRow[]),
+      ]);
       if (cancelled) return;
-      setData((prev) => ({ ...prev, hourly, conversion: computeConversionFromHourly(hourly) }));
+
+      // If the server-side avg RPC failed, compute per-day avg in the data
+      // layer so charts always receive averaged values, never raw totals.
+      const days = Math.max(1, kpis.days ?? 1);
+      const hourlyAvg: HourlyRow[] =
+        rawHourlyAvg.length > 0
+          ? rawHourlyAvg
+          : days > 1
+            ? hourly.map((r) => ({ ...r, count: Math.round(r.count / days) }))
+            : hourly;
+
+      setData((prev) => ({ ...prev, hourly, hourlyAvg, conversion: computeConversionFromHourly(hourlyAvg) }));
 
       const zoneBreakdown = await fetchZoneBreakdown(filters).catch(() => [] as ZoneBreakdownRow[]);
       if (cancelled) return;
@@ -76,7 +99,7 @@ export function useDashboard(filters: DashboardFilters): DashboardData & { refre
 
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.startTs, filters.endTs, JSON.stringify(filters.sites), JSON.stringify(filters.channels), JSON.stringify(filters.zones), filters.hourMin, filters.hourMax, JSON.stringify(filters.dows), tick]);
+  }, [enabled, filters.startTs, filters.endTs, JSON.stringify(filters.sites), JSON.stringify(filters.channels), JSON.stringify(filters.zones), filters.hourMin, filters.hourMax, JSON.stringify(filters.dows), tick]);
 
   return { ...data, loading, error, refresh };
 }

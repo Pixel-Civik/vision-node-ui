@@ -13,6 +13,7 @@ import type {
 interface InicioSectionProps {
   kpis: KPIResult | null;
   hourly: HourlyRow[];
+  hourlyAvg: HourlyRow[];
   zoneBreakdown: ZoneBreakdownRow[];
   channelBreakdown: ChannelBreakdownRow[];
   conversion: ConversionHourRow[];
@@ -25,7 +26,7 @@ interface InicioSectionProps {
 }
 
 export function InicioSection({
-  kpis, hourly, zoneBreakdown, channelBreakdown, conversion, tizKpis,
+  kpis, hourly, hourlyAvg, zoneBreakdown, channelBreakdown, conversion, tizKpis,
   filters, loading, dateRange, onNavigateToReporte,
 }: InicioSectionProps) {
   return (
@@ -59,7 +60,7 @@ export function InicioSection({
         <p className="text-xs text-slate-400 mb-5">
           Pasantes → Visitantes → Entradas · período seleccionado
         </p>
-        <TrafficFunnel rows={hourly} loading={loading} />
+        <TrafficFunnel rows={hourlyAvg.length > 0 ? hourlyAvg : hourly} loading={loading} kpis={kpis} />
       </div>
 
       {/* ── Gráficas de tráfico ── */}
@@ -67,7 +68,7 @@ export function InicioSection({
         <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
           <h3 className="text-sm font-semibold text-slate-700 mb-1">Tráfico combinado por hora</h3>
           <p className="text-xs text-slate-400 mb-4">Entradas · Salidas · Visitantes · Pasantes</p>
-          <CombinedTrafficChart rows={hourly} loading={loading} />
+          <CombinedTrafficChart rows={hourlyAvg.length > 0 ? hourlyAvg : hourly} loading={loading} />
         </div>
         <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
           <h3 className="text-sm font-semibold text-slate-700 mb-1">Distribución del día</h3>

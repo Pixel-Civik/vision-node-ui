@@ -9,10 +9,14 @@ import { fmtHour } from "@/lib/fmt";
 
 type HourPoint = { hour: number; enter: number; visitor: number; pasante: number };
 
+const HOUR_MIN = 7;
+const HOUR_MAX = 23;
+
 function buildData(rows: HourlyRow[]): HourPoint[] {
   const map = new Map<number, HourPoint>();
   for (const r of rows) {
     if (!["enter", "visitor", "pasante"].includes(r.event_type)) continue;
+    if (r.hour < HOUR_MIN || r.hour > HOUR_MAX) continue;
     if (!map.has(r.hour)) map.set(r.hour, { hour: r.hour, enter: 0, visitor: 0, pasante: 0 });
     const cur = map.get(r.hour)!;
     (cur as Record<string, number>)[r.event_type] += r.count;

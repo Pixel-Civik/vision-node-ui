@@ -18,10 +18,9 @@ function limaHM(): { h: number; m: number } {
 }
 
 function isWithinOperatingHours(): boolean {
-  const { h, m } = limaHM();
-  if (h < 7) return false;
-  if (h === 23 && m > 30) return false; // después de 23:30
-  if (h >= 24) return false;
+  const { h } = limaHM();
+  if (h < 7)   return false; // antes de 7 AM
+  if (h >= 21) return false; // desde las 9 PM en adelante
   return true;
 }
 

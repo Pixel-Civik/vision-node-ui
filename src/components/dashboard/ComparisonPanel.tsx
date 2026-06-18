@@ -44,20 +44,24 @@ function DeltaPill({ value, suffix = "%" }: { value: number | null; suffix?: str
   );
 }
 
-function buildChartData(curHourly: HourlyRow[], refHourly: HourlyRow[]) {
+const LIMA_OFFSET_MS = 5 * 60 * 60 * 1000;
+
+function currentLimaHour(): number {
+  return new Date(Date.now() - LIMA_OFFSET_MS).getUTCHours();
+}
+
+function buildChartData(curHourly: HourlyRow[], refHourly: HourlyRow[], maxHour: number) {
   const map = new Map<number, { hour: number; actual: number; referencia: number }>();
-  for (let h = 7; h <= 22; h++) map.set(h, { hour: h, actual: 0, referencia: 0 });
+  for (let h = 7; h <= maxHour; h++) map.set(h, { hour: h, actual: 0, referencia: 0 });
   for (const r of curHourly) {
     if (r.event_type !== "enter") continue;
-    const e = map.get(r.hour) ?? { hour: r.hour, actual: 0, referencia: 0 };
-    e.actual += r.count;
-    map.set(r.hour, e);
+    if (!map.has(r.hour)) continue;
+    map.get(r.hour)!.actual += r.count;
   }
   for (const r of refHourly) {
     if (r.event_type !== "enter") continue;
-    const e = map.get(r.hour) ?? { hour: r.hour, actual: 0, referencia: 0 };
-    e.referencia += r.count;
-    map.set(r.hour, e);
+    if (!map.has(r.hour)) continue;
+    map.get(r.hour)!.referencia += r.count;
   }
   return Array.from(map.values()).sort((a, b) => a.hour - b.hour);
 }
@@ -171,9 +175,15 @@ export function ComparisonPanel({
 
   const curEnters = kpis?.enters ?? 0;
 
+  // When the filter period end is still in the future (today is selected),
+  // only show hours up to now so future empty bars don't distort the comparison.
+  const periodIncludesToday = new Date(filters.endTs) > new Date();
+  const chartMaxHour = periodIncludesToday ? currentLimaHour() : 22;
+
   const chartData = useMemo(
-    () => buildChartData(hourly, refHourly),
-    [hourly, refHourly],
+    () => buildChartData(hourly, refHourly, chartMaxHour),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hourly, refHourly, chartMaxHour],
   );
 
   const vsLabel = VS_LABELS[mode];
@@ -240,6 +250,10 @@ export function ComparisonPanel({
 
         {loading ? (
           <div className="h-52 bg-slate-50 animate-pulse rounded-xl" />
+        ) : chartData.every((d) => d.actual === 0 && d.referencia === 0) ? (
+          <div className="h-52 bg-slate-50 rounded-xl flex items-center justify-center">
+            <p className="text-xs text-slate-400">Sin datos de entradas por hora para este período</p>
+          </div>
         ) : (
           <ResponsiveContainer width="100%" height={210}>
             <BarChart data={chartData} barSize={12} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>

@@ -23,6 +23,10 @@ export async function fetchHourly(f: DashboardFilters): Promise<HourlyRow[]> {
   return rpc<HourlyRow>("dashboard_hourly_totals", buildPayload(f));
 }
 
+export async function fetchHourlyAvg(f: DashboardFilters): Promise<HourlyRow[]> {
+  return rpc<HourlyRow>("dashboard_hourly_avg", buildPayload(f));
+}
+
 export async function fetchZoneBreakdown(f: DashboardFilters): Promise<ZoneBreakdownRow[]> {
   return rpc<ZoneBreakdownRow>("dashboard_breakdown_zone", buildPayload(f));
 }

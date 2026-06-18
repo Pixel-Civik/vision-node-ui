@@ -59,14 +59,22 @@ const EMPTY: Omit<FilterOptions, "loading"> = {
 };
 
 export function useFilterOptions(): FilterOptions {
-  const cached = readCache();
-  const [opts, setOpts] = useState<Omit<FilterOptions, "loading">>(cached ?? EMPTY);
-  const [loading, setLoading] = useState(!cached);
+  // Always start with EMPTY so SSR and client initial render match.
+  // Cache is applied in useEffect (client-only, after hydration) to avoid #418.
+  const [opts, setOpts] = useState<Omit<FilterOptions, "loading">>(EMPTY);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Apply sessionStorage cache immediately so charts appear without a network round-trip.
+    const cached = readCache();
+    if (cached) {
+      setOpts(cached);
+      setLoading(false);
+    }
+
     async function load() {
       const result = await fetchFilterOptions().catch(() => null);
-      if (!result) { setLoading(false); return; }
+      if (!result) { if (!cached) setLoading(false); return; }
 
       const { sites, channels, zones, minDate, maxDate } = result;
 

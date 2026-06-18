@@ -12,13 +12,15 @@ import { OpportunityChart } from "@/components/charts/OpportunityChart";
 import { DOWChart } from "@/components/charts/DOWChart";
 import { HeatmapChart } from "@/components/dashboard/HeatmapChart";
 import { ConversionChart } from "@/components/dashboard/ConversionChart";
-import type { HourlyRow, HeatmapRow, ConversionHourRow } from "@/lib/types";
+import type { HourlyRow, HeatmapRow, ConversionHourRow, KPIResult } from "@/lib/types";
 
 interface VisionGeneralTabProps {
   hourly: HourlyRow[];
+  hourlyAvg: HourlyRow[];
   heatmap: HeatmapRow[];
   conversion: ConversionHourRow[];
   loading: boolean;
+  kpis?: KPIResult | null;
 }
 
 /** Reusable card wrapper for chart sections */
@@ -37,16 +39,21 @@ function ChartCard({ id, title, subtitle, children }: {
   );
 }
 
-export function VisionGeneralTab({ hourly, heatmap, conversion, loading }: VisionGeneralTabProps) {
+export function VisionGeneralTab({ hourly, hourlyAvg, heatmap, conversion, loading, kpis }: VisionGeneralTabProps) {
+  const isMultiDay = (kpis?.days ?? 1) > 1;
+  const trafficSubtitle = isMultiDay
+    ? `Promedio por día · Barras: Entradas (verde) · Líneas: Visitantes (indigo) / Pasantes (gris)`
+    : "Barras: Entradas (verde) · Líneas: Visitantes (indigo) / Pasantes (gris)";
+
   return (
     <div className="space-y-5">
-      {/* Row 1: Combined traffic — always visible, renders immediately */}
+      {/* Row 1: Combined traffic — data from server-averaged RPC */}
       <ChartCard
         id="export-chart-combined"
         title="Tráfico combinado por hora"
-        subtitle="Barras: Entradas (verde) · Líneas: Visitantes (indigo) / Pasantes (gris)"
+        subtitle={trafficSubtitle}
       >
-        <CombinedTrafficChart rows={hourly} loading={loading} />
+        <CombinedTrafficChart rows={hourlyAvg.length > 0 ? hourlyAvg : hourly} loading={loading} />
       </ChartCard>
 
       {/* Row 2: Heatmap — fila completa */}

@@ -27,7 +27,8 @@ export function ConversionChart({
   loading: boolean;
 }) {
   if (loading) return <SkeletonChart />;
-  if (!rows.length)
+  const visibleRows = rows.filter((r) => r.hour >= 7 && r.hour <= 23);
+  if (!visibleRows.length)
     return (
       <p className="text-sm text-gray-400 py-8 text-center">
         Sin datos de conversión.
@@ -42,7 +43,7 @@ export function ConversionChart({
       </p>
       <ResponsiveContainer width="100%" height={280}>
         <ComposedChart
-          data={rows}
+          data={visibleRows}
           margin={{ top: 4, right: 16, bottom: 0, left: 0 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />

@@ -15,14 +15,15 @@ export function OpportunityChart({
   loading: boolean;
 }) {
   if (loading) return <div className="h-52 bg-slate-50 rounded-xl animate-pulse" />;
-  if (!rows.length)
+  const visibleRows = rows.filter((r) => r.hour >= 7 && r.hour <= 23);
+  if (!visibleRows.length)
     return <p className="text-xs text-slate-400 text-center py-10">Sin datos de conversión.</p>;
 
-  const avgPas = rows.reduce((s, r) => s + r.pasantes, 0) / rows.length;
-  const avgConv = rows.reduce((s, r) => s + r.conv_enter_pct, 0) / rows.length;
+  const avgPas = visibleRows.reduce((s, r) => s + r.pasantes, 0) / visibleRows.length;
+  const avgConv = visibleRows.reduce((s, r) => s + r.conv_enter_pct, 0) / visibleRows.length;
 
   // Opportunity = high pasantes + low conversion
-  const data = rows.map((r) => ({
+  const data = visibleRows.map((r) => ({
     ...r,
     opportunity: r.pasantes > avgPas && r.conv_enter_pct < avgConv,
   }));

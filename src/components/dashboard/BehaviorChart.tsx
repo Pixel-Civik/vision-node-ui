@@ -19,14 +19,17 @@ function SkeletonChart() {
   );
 }
 
+const HOUR_MIN = 7;
+const HOUR_MAX = 23;
+
 function buildHourly(rows: HourlyRow[]) {
   const map = new Map<number, { hour: number; enter: number }>();
-  for (let h = 7; h <= 22; h++) map.set(h, { hour: h, enter: 0 });
+  for (let h = HOUR_MIN; h <= HOUR_MAX; h++) map.set(h, { hour: h, enter: 0 });
   for (const r of rows) {
     if (r.event_type !== "enter") continue;
-    const cur = map.get(r.hour) ?? { hour: r.hour, enter: 0 };
+    if (r.hour < HOUR_MIN || r.hour > HOUR_MAX) continue;
+    const cur = map.get(r.hour)!;
     cur.enter += r.count;
-    map.set(r.hour, cur);
   }
   return Array.from(map.values()).sort((a, b) => a.hour - b.hour);
 }
