@@ -14,9 +14,13 @@ function buildPayload(f: DashboardFilters) {
   };
 }
 
+const EMPTY_KPI: KPIResult = { enters: 0, exits: 0, net: 0, unique_tracks: 0, days: 0, enters_per_day: 0, exits_per_day: 0 };
+
 export async function fetchKPIs(f: DashboardFilters): Promise<KPIResult | null> {
   const rows = await rpc<KPIResult>("dashboard_kpi_enter_exit", buildPayload(f));
-  return rows[0] ?? null;
+  // Return zero-filled KPIResult when the period has no data (empty rows).
+  // null is reserved for actual RPC errors (caught upstream and retried).
+  return rows[0] ?? EMPTY_KPI;
 }
 
 export async function fetchHourly(f: DashboardFilters): Promise<HourlyRow[]> {

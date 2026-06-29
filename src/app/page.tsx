@@ -21,7 +21,9 @@ const Toaster = dynamic(
   () => import("@/components/ui/sonner").then((m) => ({ default: m.Toaster })),
   { ssr: false }
 );
-import { useDataFreshnessAlert } from "@/hooks/useDataFreshnessAlert";
+// Alerta de frescura desactivada: el stream de Supabase está cortado y solo hay
+// data histórica, por lo que esta alerta dispararía permanentemente.
+// import { useDataFreshnessAlert } from "@/hooks/useDataFreshnessAlert";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { type Section } from "@/components/layout/nav";
@@ -37,7 +39,7 @@ import { useDashboard } from "@/hooks/useDashboard";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import type { DashboardFilters } from "@/lib/types";
 
-const today = new Date().toISOString().slice(0, 10);
+const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima" }).format(new Date());
 
 // Lima = UTC-5 (no DST). Convert a Lima local date+hour to a UTC ISO string.
 // This avoids relying on timezone-offset literals that Postgres may strip
@@ -71,7 +73,10 @@ export default function App() {
     if (opts.loading || didSnapRef.current) return;
     if (opts.minDate >= today) return;
     didSnapRef.current = true;
-    setFv((prev) => ({ ...prev, startDate: opts.minDate, endDate: today }));
+    // endDate = último día con datos (maxDate). Antes era "ayer", pero al cortar
+    // el stream eso consultaba días vacíos al final y hacía la carga más lenta.
+    const endDate = opts.maxDate < today ? opts.maxDate : today;
+    setFv((prev) => ({ ...prev, startDate: opts.minDate, endDate }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opts.loading, opts.minDate]);
 
@@ -101,7 +106,7 @@ export default function App() {
   const data      = useDashboard(filters, { enabled: dashboardReady });
   const analytics = useAnalytics(filters);
 
-  useDataFreshnessAlert();
+  // useDataFreshnessAlert();  // desactivada — ver nota en el import
 
   const hasConversion = data.conversion.some((r) => r.pasantes > 0);
   const hasTIZ        = data.tizKpis.length > 0;

@@ -75,7 +75,7 @@ export function useDataFreshnessAlert() {
             ? `Sin eventos desde apertura (${mins} min). Verificar el sistema.`
             : `Último evento hace ${mins} min. Verificar cámaras o conexión.`,
           duration: Infinity,
-          dismissible: false,
+          dismissible: true,
         });
       } else {
         toast.dismiss(TOAST_ID);

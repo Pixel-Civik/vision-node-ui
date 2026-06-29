@@ -59,7 +59,7 @@ function useLocalKPIs(filters: DashboardFilters) {
       .catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.startTs, filters.endTs]);
+  }, [filters.startTs, filters.endTs, JSON.stringify(filters.sites), JSON.stringify(filters.channels), JSON.stringify(filters.zones), filters.hourMin, filters.hourMax, JSON.stringify(filters.dows)]);
 
   return { kpis, hourly, loading };
 }

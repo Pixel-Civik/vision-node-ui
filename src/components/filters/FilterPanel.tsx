@@ -23,7 +23,9 @@ export interface FilterValues {
   endDate: string;
 }
 
-function isoDate(d: Date) { return d.toISOString().slice(0, 10); }
+function isoDate(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima" }).format(d);
+}
 
 function fmtShort(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
@@ -38,8 +40,8 @@ interface Props {
 }
 
 export function FilterPanel({ opts, values, onChange }: Props) {
-  const today     = new Date().toISOString().slice(0, 10);
-  const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  const today     = isoDate(new Date());
+  const yesterday = isoDate(new Date(Date.now() - 86_400_000));
 
   const [datePickerMode, setDatePickerMode] = useState<DateMode>(
     values.startDate === values.endDate ? "single" : "range",
@@ -58,7 +60,7 @@ export function FilterPanel({ opts, values, onChange }: Props) {
     if (startDate === ago7 && endDate === yesterday) return "7dias";
     const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     if (startDate === isoDate(monthStart) && endDate === yesterday) return "mensual";
-    if (!opts.loading && opts.minDate < today && startDate === opts.minDate && endDate === today)
+    if (!opts.loading && opts.minDate < today && startDate === opts.minDate && endDate === yesterday)
       return "promedio";
     return "personalizado";
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -72,10 +74,11 @@ export function FilterPanel({ opts, values, onChange }: Props) {
     }
     setForcedPersonalizado(false);
     if (m === "promedio") {
-      const min = opts.minDate < today ? opts.minDate : today;
-      onChange({ startDate: min, endDate: today, hourMin: 0, hourMax: 23, dows: [0,1,2,3,4,5,6] });
+      const min = opts.minDate < today ? opts.minDate : yesterday;
+      onChange({ startDate: min, endDate: yesterday, hourMin: 0, hourMax: 23, dows: [0,1,2,3,4,5,6] });
     } else if (m === "hoy") {
-      onChange({ startDate: today, endDate: today });
+      const limaHour = new Date(Date.now() - 5 * 3_600_000).getUTCHours();
+      onChange({ startDate: today, endDate: today, hourMin: 0, hourMax: limaHour });
     } else if (m === "7dias") {
       const start = isoDate(new Date(Date.now() - 7 * 86_400_000));
       onChange({ startDate: start, endDate: yesterday, hourMin: 0, hourMax: 23, dows: [0,1,2,3,4,5,6] });
@@ -151,7 +154,7 @@ export function FilterPanel({ opts, values, onChange }: Props) {
                 Historial completo ·{" "}
                 <span className="text-slate-600 font-medium">{fmtShort(opts.minDate)}</span>
                 {" → "}
-                <span className="text-slate-600 font-medium">hoy</span>
+                <span className="text-slate-600 font-medium">ayer</span>
               </p>
             )}
             <DowPicker dows={values.dows} onChange={onChange} />

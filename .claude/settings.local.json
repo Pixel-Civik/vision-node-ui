@@ -53,7 +53,10 @@
       "Bash(npm list *)",
       "Bash(rm verify_freshness.mjs verify_freshness.png)",
       "Bash(npm uninstall *)",
-      "Bash(grep NEXT_PUBLIC_SUPABASE_ANON_KEY \"C:\\\\Users\\\\USER\\\\Desktop\\\\ACCESORIO\\\\Pixel-Civik\\\\vision-node\\\\frontend\\\\.env.local\")"
+      "Bash(grep NEXT_PUBLIC_SUPABASE_ANON_KEY \"C:\\\\Users\\\\USER\\\\Desktop\\\\ACCESORIO\\\\Pixel-Civik\\\\vision-node\\\\frontend\\\\.env.local\")",
+      "Bash(xargs grep -l \"dashboard_kpi_enter_exit\\\\|dashboard_breakdown_zone\")",
+      "Bash(npx eslint *)",
+      "Bash(git stash *)"
     ]
   },
   "enabledMcpjsonServers": [

@@ -94,7 +94,7 @@ export function useComparisonData(
     load().catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refFilters.startTs, refFilters.endTs, filters.startTs, filters.endTs, allSites.length]);
+  }, [refFilters.startTs, refFilters.endTs, filters.startTs, filters.endTs, allSites.length, JSON.stringify(filters.sites), JSON.stringify(filters.channels), JSON.stringify(filters.zones), filters.hourMin, filters.hourMax, JSON.stringify(filters.dows)]);
 
   const curPasantes = useMemo(() => sumByType(curHourly, "pasante"), [curHourly]);
   const refPasantes = useMemo(() => sumByType(refHourly, "pasante"), [refHourly]);

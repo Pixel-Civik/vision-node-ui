@@ -73,7 +73,7 @@ export function InicioSection({
         <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
           <h3 className="text-sm font-semibold text-slate-700 mb-1">Distribución del día</h3>
           <p className="text-xs text-slate-400 mb-4">% de entradas por franja horaria</p>
-          <TrafficPeriodChart rows={hourly} loading={loading} />
+          <TrafficPeriodChart rows={hourlyAvg.length > 0 ? hourlyAvg : hourly} loading={loading} />
         </div>
       </div>
 
