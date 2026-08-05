@@ -12,16 +12,19 @@ import { fmtHour } from "@/lib/fmt";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
+// El orden importa: el primero es el modo por defecto.
 const MODE_LABELS: Record<CompareMode, string> = {
+  "prev-period": "Período ant.",
+  "prev-month":  "Mes anterior",
   "prev-day":    "Día anterior",
   "same-dow":    "Misma sem. ant.",
-  "prev-period": "Período ant.",
 };
 
 const VS_LABELS: Record<CompareMode, string> = {
-  "prev-day":    "vs ayer",
-  "same-dow":    "vs mismo día sem. ant.",
   "prev-period": "vs período anterior",
+  "prev-month":  "vs mes anterior",
+  "prev-day":    "vs día anterior con datos",
+  "same-dow":    "vs mismo día sem. ant.",
 };
 
 function DeltaPill({ value, suffix = "%" }: { value: number | null; suffix?: string }) {
@@ -165,10 +168,13 @@ interface ComparisonPanelProps {
 export function ComparisonPanel({
   filters, kpis, hourly, allSites, loading: parentLoading,
 }: ComparisonPanelProps) {
-  const [mode, setMode] = useState<CompareMode>("prev-day");
+  // Por defecto se compara contra el período anterior equivalente, no contra
+  // el día anterior: con un corte de servicio de por medio, "ayer" suele ser
+  // un día sin datos y la comparación no dice nada.
+  const [mode, setMode] = useState<CompareMode>("prev-period");
 
   const {
-    refHourly, siteRank, loading: compLoading, deltas, curPasantes,
+    refHourly, siteRank, loading: compLoading, deltas, curPasantes, refPeriod,
   } = useComparisonData(filters, mode, kpis, hourly, allSites);
 
   const loading = parentLoading || compLoading;
@@ -195,8 +201,15 @@ export function ComparisonPanel({
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h3 className="text-sm font-semibold text-slate-700">Contexto comparativo</h3>
+          {/* Se muestra el período de referencia real: como salta los días sin
+              datos, puede no ser el inmediatamente anterior en el calendario. */}
           <p className="text-xs text-slate-400 mt-0.5">
-            Período actual {vsLabel}
+            {refPeriod?.found
+              ? <>Período actual {vsLabel} · <span className="font-medium text-slate-500">{refPeriod.label}</span>
+                  {refPeriod.days > 1 && ` (${refPeriod.days} días con datos)`}</>
+              : refPeriod
+              ? "No hay período anterior con datos para comparar"
+              : <>Período actual {vsLabel}</>}
           </p>
         </div>
         {/* REQ 1 toggle */}

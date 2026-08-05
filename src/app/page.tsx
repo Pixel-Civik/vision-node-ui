@@ -13,7 +13,7 @@
  */
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo } from "react";
 import { AlertTriangle } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -56,29 +56,31 @@ export default function App() {
 
   const opts = useFilterOptions();
 
-  // Initialise with today. The useEffect below snaps to minDate..today once
-  // the DB query resolves so the global filter covers all available history.
-  const [fv, setFv] = useState<FilterValues>({
+  // Las fechas arrancan vacías a propósito: el rango de apertura lo decide la
+  // BD (dashboard_default_range = mes en curso, o el último mes con datos) y
+  // se DERIVA abajo en vez de copiarse al estado con un efecto. Así no hay
+  // render en cascada ni una primera consulta con fechas provisionales.
+  //
+  // Antes acá se hacía un "snap" a minDate..maxDate, o sea TODO el histórico
+  // (170k eventos): eso era lo que mostraba fechas viejas al abrir y lo que
+  // hacía que la carga tardara o se cayera por statement timeout.
+  const [fvRaw, setFv] = useState<FilterValues>({
     sites: [], channels: [], zones: [],
     hourMin: 0,
     hourMax: 23,
     dows: [0, 1, 2, 3, 4, 5, 6],
-    startDate: today,
-    endDate: today,
+    startDate: "",
+    endDate: "",
   });
 
-  // After opts.minDate resolves, snap to minDate..today (all history to today).
-  const didSnapRef = useRef(false);
-  useEffect(() => {
-    if (opts.loading || didSnapRef.current) return;
-    if (opts.minDate >= today) return;
-    didSnapRef.current = true;
-    // endDate = último día con datos (maxDate). Antes era "ayer", pero al cortar
-    // el stream eso consultaba días vacíos al final y hacía la carga más lenta.
-    const endDate = opts.maxDate < today ? opts.maxDate : today;
-    setFv((prev) => ({ ...prev, startDate: opts.minDate, endDate }));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opts.loading, opts.minDate]);
+  const dr = opts.defaultRange;
+
+  // Lo que el usuario eligió gana; si todavía no eligió, manda la BD.
+  const fv = useMemo<FilterValues>(() => ({
+    ...fvRaw,
+    startDate: fvRaw.startDate || dr?.start_date || today.slice(0, 8) + "01",
+    endDate:   fvRaw.endDate   || dr?.end_date   || today,
+  }), [fvRaw, dr]);
 
   // Resolve "all selected" as null (no filter applied) for the RPC
   const resolvedSites    = fv.sites.length    > 0 ? fv.sites    : opts.sites;
@@ -97,11 +99,9 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [fv, opts.sites.length, opts.channels.length, opts.zones.length]);
 
-  // Block useDashboard only while the initial snap is still pending.
-  // Using didSnapRef avoids blocking manual filter changes (e.g. "Hoy") which
-  // also have startDate !== opts.minDate but should load immediately.
-  const snapPending = !opts.loading && !didSnapRef.current && opts.minDate < today;
-  const dashboardReady = !opts.loading && !snapPending;
+  // No consultar hasta conocer el rango de apertura: si no, se dispararía una
+  // consulta con fechas provisionales y otra con las definitivas.
+  const dashboardReady = !opts.loading && !!dr;
 
   const data      = useDashboard(filters, { enabled: dashboardReady });
   const analytics = useAnalytics(filters);
@@ -111,16 +111,9 @@ export default function App() {
   const hasConversion = data.conversion.some((r) => r.pasantes > 0);
   const hasTIZ        = data.tizKpis.length > 0;
 
-  // Derived visitor/pasante totals computed from hourly (no extra RPC needed)
-  const totals = useMemo(() => {
-    let visitors = 0, pasantes = 0;
-    for (const r of data.hourly) {
-      if (r.event_type === "visitor") visitors += r.count;
-      if (r.event_type === "pasante") pasantes += r.count;
-    }
-    const conv = pasantes > 0 ? Math.round((visitors / pasantes) * 1000) / 10 : null;
-    return { visitors, pasantes, conv };
-  }, [data.hourly]);
+  // Los totales (visitors/pasantes/conv) los calcula dashboard_overview.
+  // Antes se recorría data.hourly en el cliente en cada render.
+  const totals = data.totals;
 
   function navigate(id: Section) {
     setSection(id);
