@@ -8,15 +8,20 @@ import type { ShopliftingAlert, ShopliftingAlertStatus } from "@/lib/types";
 const BUCKET = "shoplifting-evidence";
 const QUERY_KEY = ["shoplifting-alerts"] as const;
 const COUNT_KEY = ["shoplifting-alerts", "new-count"] as const;
+const SIGN_BATCH_SIZE = 100;
+const ALERT_HISTORY_LIMIT = 500;
 
 async function signPaths(paths: string[]): Promise<Map<string, string>> {
   const unique = [...new Set(paths.filter(Boolean))];
   if (unique.length === 0) return new Map();
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(unique, 3600);
-  if (error) throw new Error(`No se pudo abrir la evidencia: ${error.message}`);
   const signed = new Map<string, string>();
-  for (const item of data ?? []) {
-    if (item.path && item.signedUrl) signed.set(item.path, item.signedUrl);
+  for (let offset = 0; offset < unique.length; offset += SIGN_BATCH_SIZE) {
+    const batch = unique.slice(offset, offset + SIGN_BATCH_SIZE);
+    const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(batch, 3600);
+    if (error) throw new Error(`No se pudo abrir la evidencia: ${error.message}`);
+    for (const item of data ?? []) {
+      if (item.path && item.signedUrl) signed.set(item.path, item.signedUrl);
+    }
   }
   return signed;
 }
@@ -26,7 +31,7 @@ async function fetchAlerts(): Promise<ShopliftingAlert[]> {
     .from("shoplifting_alerts")
     .select("*")
     .order("occurred_at", { ascending: false })
-    .limit(200);
+    .limit(ALERT_HISTORY_LIMIT);
   if (error) throw new Error(`No se pudieron cargar las alertas: ${error.message}`);
 
   const rows = (data ?? []) as ShopliftingAlert[];

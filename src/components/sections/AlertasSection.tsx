@@ -97,7 +97,7 @@ export function AlertasSection() {
             </span>
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-slate-900">Alertas sospechosas</h1>
-              <p className="text-sm text-slate-500">Última imagen sospechosa de cada cámara · hora Perú</p>
+              <p className="text-sm text-slate-500">Historial de evidencias por cámara · hora Perú</p>
             </div>
           </div>
         </div>
