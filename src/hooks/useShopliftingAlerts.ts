@@ -30,10 +30,9 @@ async function fetchAlerts(): Promise<ShopliftingAlert[]> {
   if (error) throw new Error(`No se pudieron cargar las alertas: ${error.message}`);
 
   const rows = (data ?? []) as ShopliftingAlert[];
-  const urls = await signPaths(rows.flatMap((row) => [row.video_path, row.thumbnail_path ?? ""]));
+  const urls = await signPaths(rows.map((row) => row.thumbnail_path ?? ""));
   return rows.map((row) => ({
     ...row,
-    video_url: urls.get(row.video_path) ?? null,
     thumbnail_url: row.thumbnail_path ? urls.get(row.thumbnail_path) ?? null : null,
   }));
 }

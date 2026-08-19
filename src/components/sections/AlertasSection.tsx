@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   AlertTriangle, Camera, CheckCircle2, Clock3, Eye, Filter,
-  LoaderCircle, Play, RefreshCw, ShieldAlert, ShieldCheck, XCircle,
+  LoaderCircle, RefreshCw, ShieldAlert, ShieldCheck, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -93,7 +93,7 @@ export function AlertasSection() {
             </span>
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-slate-900">Alertas sospechosas</h1>
-              <p className="text-sm text-slate-500">Evidencia detectada por las cámaras · hora Perú</p>
+              <p className="text-sm text-slate-500">Última imagen sospechosa de cada cámara · hora Perú</p>
             </div>
           </div>
         </div>
@@ -180,7 +180,7 @@ export function AlertasSection() {
                   <span className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent" />
                   <span className="absolute left-3 top-3 rounded-full bg-red-600 px-2.5 py-1 text-[10px] font-bold tracking-wide text-white shadow">SOSPECHOSO</span>
                   <span className="absolute inset-0 flex items-center justify-center opacity-0 transition group-hover:opacity-100">
-                    <span className="flex size-11 items-center justify-center rounded-full bg-white/90 text-red-600 shadow-lg"><Play size={19} fill="currentColor" /></span>
+                    <span className="flex size-11 items-center justify-center rounded-full bg-white/90 text-red-600 shadow-lg"><Eye size={19} /></span>
                   </span>
                   <span className="absolute bottom-3 left-3 right-3 flex items-end justify-between text-white">
                     <span><span className="block text-sm font-bold">{alert.camera_name || `Cámara ${alert.camera_id}`}</span><span className="text-[11px] text-white/75">Canal {alert.camera_id}</span></span>
@@ -197,7 +197,7 @@ export function AlertasSection() {
                       <span key={reason} className="rounded-md bg-slate-100 px-2 py-1 text-[10px] text-slate-600">{reason.replaceAll("_", " ")}</span>
                     ))}
                   </div>
-                  <Button variant="outline" className="w-full border-slate-200 text-slate-700" onClick={() => setSelected(alert)}><Eye /> Revisar evidencia</Button>
+                  <Button variant="outline" className="w-full border-slate-200 text-slate-700" onClick={() => setSelected(alert)}><Eye /> Ver imagen de alerta</Button>
                 </div>
               </article>
             );
@@ -210,8 +210,10 @@ export function AlertasSection() {
           {selected && (
             <>
               <div className="overflow-hidden rounded-t-xl bg-black">
-                {selected.video_url ? (
-                  <video src={selected.video_url} poster={selected.thumbnail_url ?? undefined} controls autoPlay className="max-h-[62vh] w-full bg-black" />
+                {selected.thumbnail_url ? (
+                  // Signed image URL intentionally bypasses Next's persistent cache.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={selected.thumbnail_url} alt={`Alerta cámara ${selected.camera_id}`} className="max-h-[68vh] w-full object-contain" />
                 ) : (
                   <div className="flex aspect-video items-center justify-center text-slate-400"><Camera size={40} /></div>
                 )}
@@ -221,7 +223,7 @@ export function AlertasSection() {
                   <DialogTitle className="flex items-center gap-2 text-lg text-slate-900"><AlertTriangle size={18} className="text-red-600" /> {selected.camera_name || `Cámara ${selected.camera_id}`}</DialogTitle>
                   <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${STATUS_META[selected.status].className}`}>{STATUS_META[selected.status].label}</span>
                 </div>
-                <DialogDescription>{formatDate(selected.occurred_at)} · riesgo {Math.round(selected.risk_score * 100)}% · {selected.duration_sec ? `${selected.duration_sec.toFixed(1)} s` : "duración no disponible"}</DialogDescription>
+                <DialogDescription>{formatDate(selected.occurred_at)} · riesgo {Math.round(selected.risk_score * 100)}% · imagen JPG comprimida</DialogDescription>
               </DialogHeader>
               <div className="px-5 pb-1">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Señales detectadas</p>

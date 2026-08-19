@@ -96,13 +96,12 @@ export interface ShopliftingAlert {
   risk_score: number;
   risk_reasons: string[];
   status: ShopliftingAlertStatus;
-  video_path: string;
+  video_path: string | null;
   thumbnail_path: string | null;
   duration_sec: number | null;
   metadata: Record<string, unknown>;
   created_at: string;
   reviewed_at: string | null;
-  video_url?: string | null;
   thumbnail_url?: string | null;
 }
 
