@@ -85,6 +85,27 @@ export interface DailyRow {
   exits: number;
 }
 
+export type ShopliftingAlertStatus = "new" | "confirmed" | "dismissed";
+
+export interface ShopliftingAlert {
+  id: string;
+  site: string;
+  camera_id: string;
+  camera_name: string | null;
+  occurred_at: string;
+  risk_score: number;
+  risk_reasons: string[];
+  status: ShopliftingAlertStatus;
+  video_path: string;
+  thumbnail_path: string | null;
+  duration_sec: number | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  reviewed_at: string | null;
+  video_url?: string | null;
+  thumbnail_url?: string | null;
+}
+
 // ── Contratos de los RPCs v7 (lógica servidor) ───────────────────────────────
 
 /** Totales que antes se recorrían a mano en page.tsx sobre data.hourly. */

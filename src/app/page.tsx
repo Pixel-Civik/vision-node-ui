@@ -33,11 +33,13 @@ import { EntradasView } from "@/components/dashboards/EntradasView";
 import { VisitantesView } from "@/components/dashboards/VisitantesView";
 import { TIZView } from "@/components/dashboards/TIZView";
 import { TecnicoSection } from "@/components/sections/TecnicoSection";
+import { AlertasSection } from "@/components/sections/AlertasSection";
 import { type FilterValues } from "@/components/filters/FilterPanel";
 import { useFilterOptions } from "@/hooks/useFilterOptions";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import type { DashboardFilters } from "@/lib/types";
+import { useShopliftingAlertCount } from "@/hooks/useShopliftingAlerts";
 
 const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima" }).format(new Date());
 
@@ -53,6 +55,7 @@ function limaToUtc(date: string, h: number, m: number, s: number): string {
 export default function App() {
   const [section, setSection]       = useState<Section>("reporte");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { data: shopliftingAlertCount = 0 } = useShopliftingAlertCount();
 
   const opts = useFilterOptions();
 
@@ -142,6 +145,7 @@ export default function App() {
           loading={data.loading}
           onRefresh={data.refresh}
           dateRange={{ start: fv.startDate, end: fv.endDate }}
+          alertCount={shopliftingAlertCount}
         />
       </aside>
 
@@ -179,6 +183,8 @@ export default function App() {
               onFilterChange={(patch) => setFv((prev) => ({ ...prev, ...patch }))}
             />
           </div>
+
+          {section === "alertas" && <AlertasSection />}
 
           <div className={section !== "entradas"   ? "hidden" : undefined}>
             <EntradasView
