@@ -14,7 +14,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, X } from "lucide-react";
 import dynamic from "next/dynamic";
 
 const Toaster = dynamic(
@@ -130,15 +130,25 @@ export default function App() {
       {/* ── Mobile overlay ───────────────────────────────────────────────── */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-[2px] xl:hidden"
           onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
         />
       )}
 
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-56 bg-[#0B1222] flex flex-col transition-transform duration-200
-        md:static md:translate-x-0 md:flex ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+      <aside
+        id="app-sidebar"
+        className={`fixed inset-y-0 left-0 z-50 flex w-[min(18rem,86vw)] flex-col bg-[#0B1222] shadow-2xl transition-transform duration-300 ease-out
+          sm:w-64 xl:static xl:flex xl:w-56 xl:translate-x-0 xl:shadow-none ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
+        <button
+          onClick={() => setSidebarOpen(false)}
+          className="absolute right-3 top-3 z-10 flex size-9 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-slate-300 transition hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 xl:hidden"
+          aria-label="Cerrar menú"
+        >
+          <X size={18} />
+        </button>
         <Sidebar
           section={section}
           onNavigate={navigate}

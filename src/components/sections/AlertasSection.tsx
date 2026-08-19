@@ -8,6 +8,10 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel,
+  SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { updateShopliftingAlert, useShopliftingAlerts } from "@/hooks/useShopliftingAlerts";
@@ -97,13 +101,18 @@ export function AlertasSection() {
             </div>
           </div>
         </div>
-        <Button variant="outline" onClick={() => void refetch()} disabled={isFetching} className="text-slate-600">
+        <Button
+          variant="outline"
+          onClick={() => void refetch()}
+          disabled={isFetching}
+          className="w-full border-slate-200 bg-white text-slate-600 shadow-sm sm:w-auto"
+        >
           <RefreshCw className={isFetching ? "animate-spin" : ""} />
           Actualizar
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:grid-cols-4">
         {[
           { label: "Sin revisar", value: newCount, icon: AlertTriangle, cls: "border-red-200 bg-red-50 text-red-700" },
           { label: "Confirmadas", value: confirmedCount, icon: ShieldCheck, cls: "border-amber-200 bg-amber-50 text-amber-700" },
@@ -120,29 +129,88 @@ export function AlertasSection() {
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
-        <span className="flex items-center gap-1.5 px-2 text-xs font-semibold text-slate-500"><Filter size={13} /> Filtrar</span>
-        <select
-          value={camera}
-          onChange={(event) => setCamera(event.target.value)}
-          className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-red-300 focus:ring-2 focus:ring-red-100"
-          aria-label="Filtrar por cámara"
-        >
-          <option value="all">Todas las cámaras</option>
-          {cameras.map((id) => <option key={id} value={id}>Cámara {id}</option>)}
-        </select>
-        <select
-          value={status}
-          onChange={(event) => setStatus(event.target.value as FilterStatus)}
-          className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-red-300 focus:ring-2 focus:ring-red-100"
-          aria-label="Filtrar por estado"
-        >
-          <option value="all">Todos los estados</option>
-          <option value="new">Sin revisar</option>
-          <option value="confirmed">Confirmadas</option>
-          <option value="dismissed">Descartadas</option>
-        </select>
-        <span className="ml-auto px-2 text-xs text-slate-400">{visible.length} resultado(s)</span>
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+          <div className="flex items-center gap-2 px-1 lg:pb-2.5">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+              <Filter size={14} />
+            </span>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-600">Filtros</p>
+              <p className="text-[11px] text-slate-400">Acota las alertas visibles</p>
+            </div>
+          </div>
+
+          <div className="grid flex-1 gap-3 sm:grid-cols-2">
+            <label className="grid gap-1.5">
+              <span className="px-1 text-[11px] font-semibold text-slate-500">Cámara</span>
+              <Select value={camera} onValueChange={(value) => setCamera(value ?? "all")}>
+                <SelectTrigger
+                  aria-label="Filtrar por cámara"
+                  className="h-11 w-full rounded-xl border-slate-200 bg-slate-50/70 px-3 text-slate-700 shadow-none hover:bg-slate-50 focus-visible:border-red-300 focus-visible:ring-red-100"
+                >
+                  <SelectValue>
+                    <Camera className={camera === "all" ? "text-slate-400" : "text-red-500"} />
+                    {camera === "all" ? "Todas las cámaras" : `Cámara ${camera}`}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent align="start" className="rounded-xl p-1 shadow-xl">
+                  <SelectGroup>
+                    <SelectLabel>Cámaras disponibles</SelectLabel>
+                    <SelectItem value="all" className="py-2.5">
+                      <Camera className="text-slate-400" /> Todas las cámaras
+                    </SelectItem>
+                    {cameras.map((id) => (
+                      <SelectItem key={id} value={id} className="py-2.5">
+                        <Camera className="text-red-500" /> Cámara {id}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </label>
+
+            <label className="grid gap-1.5">
+              <span className="px-1 text-[11px] font-semibold text-slate-500">Clasificación</span>
+              <Select value={status} onValueChange={(value) => setStatus((value ?? "all") as FilterStatus)}>
+                <SelectTrigger
+                  aria-label="Filtrar por estado"
+                  className="h-11 w-full rounded-xl border-slate-200 bg-slate-50/70 px-3 text-slate-700 shadow-none hover:bg-slate-50 focus-visible:border-red-300 focus-visible:ring-red-100"
+                >
+                  <SelectValue>
+                    {status === "new" ? <AlertTriangle className="text-red-500" />
+                      : status === "confirmed" ? <ShieldAlert className="text-amber-500" />
+                      : status === "dismissed" ? <CheckCircle2 className="text-emerald-500" />
+                      : <Filter className="text-slate-400" />}
+                    {status === "all" ? "Todos los estados" : STATUS_META[status].label}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent align="start" className="rounded-xl p-1 shadow-xl">
+                  <SelectGroup>
+                    <SelectLabel>Estado de revisión</SelectLabel>
+                    <SelectItem value="all" className="py-2.5">
+                      <Filter className="text-slate-400" /> Todos los estados
+                    </SelectItem>
+                    <SelectItem value="new" className="py-2.5">
+                      <AlertTriangle className="text-red-500" /> Sin revisar
+                    </SelectItem>
+                    <SelectItem value="confirmed" className="py-2.5">
+                      <ShieldAlert className="text-amber-500" /> Confirmadas
+                    </SelectItem>
+                    <SelectItem value="dismissed" className="py-2.5">
+                      <CheckCircle2 className="text-emerald-500" /> Descartadas
+                    </SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </label>
+          </div>
+
+          <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5 lg:min-w-32 lg:justify-center">
+            <span className="text-xs text-slate-500 lg:hidden">Resultados visibles</span>
+            <span className="text-sm font-bold text-slate-700">{visible.length} <span className="font-normal text-slate-400">resultado(s)</span></span>
+          </div>
+        </div>
       </div>
 
       {isLoading ? (
