@@ -104,11 +104,23 @@ Se declaran en `.env.local`, que **no se versiona**.
 | ------------------------------- | ----------- | -------------------------------------------------- |
 | `NEXT_PUBLIC_SUPABASE_URL`      | Sí          | URL del proyecto, `https://<ref>.supabase.co`      |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Sí          | Clave pública (rol `anon`)                          |
+| `GCP_PROJECT_ID`                | Videos      | `lens-506116`; solo servidor                        |
+| `GCP_PROJECT_NUMBER`            | Videos      | `1039739275295`; solo servidor                      |
+| `GCP_STORAGE_BUCKET`            | Videos      | `lens-506116-shoplifting-evidence`                  |
+| `GCP_SERVICE_ACCOUNT_EMAIL`     | Videos      | Identidad de firma Vercel                           |
+| `GCP_WORKLOAD_IDENTITY_POOL_ID` | Videos      | `vercel-shoplifting`                                |
+| `GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID` | Videos | `vercel`                                         |
 
 El prefijo `NEXT_PUBLIC_` expone la variable al navegador. Por eso aquí solo
 puede usarse la clave `anon`, nunca `service_role`: esta última omite las
 políticas de seguridad a nivel de fila (RLS) y publicarla equivaldría a dar
 acceso total a la base de datos.
+
+Las variables GCP no llevan `NEXT_PUBLIC_`: el Route Handler las usa para
+generar enlaces privados de cinco minutos. En Vercel se activa OIDC con issuer
+de equipo; no se almacena ninguna llave JSON. Para reproducir o clasificar una
+alerta debe existir un usuario en `Supabase > Authentication > Users`; no se
+habilita registro público porque daría acceso a evidencia sensible.
 
 ---
 
@@ -311,9 +323,9 @@ SELECT cron.alter_job(
 El proyecto se despliega en Vercel. La rama `main` corresponde al entorno de
 producción; cada Pull Request genera un despliegue de vista previa.
 
-Las variables `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-deben estar definidas en el panel de Vercel para los entornos de producción,
-vista previa y desarrollo.
+Las variables públicas de Supabase y las seis variables GCP de la tabla deben
+estar definidas en Vercel. La confianza OIDC de producción se restringe al ID
+inmutable del proyecto Vercel y al entorno `production`.
 
 Las funciones SQL **no se despliegan junto con la aplicación**. Al incorporar
 cambios en `supabase/functions/*.sql` hay que aplicarlos manualmente en el

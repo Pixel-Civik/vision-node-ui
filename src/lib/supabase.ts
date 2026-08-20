@@ -8,9 +8,9 @@ const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const G = globalThis as typeof globalThis & { __supabase?: SupabaseClient };
 if (!G.__supabase) {
   G.__supabase = createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
     global: {
-      headers: { apikey: key, Authorization: `Bearer ${key}` },
+      headers: { apikey: key },
     },
   });
 }

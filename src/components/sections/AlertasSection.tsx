@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   AlertTriangle, Camera, CheckCircle2, Clock3, Eye, Filter,
-  LoaderCircle, RefreshCw, ShieldAlert, ShieldCheck, XCircle,
+  Film, LoaderCircle, LogIn, Play, RefreshCw, ShieldAlert, ShieldCheck, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,8 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { updateShopliftingAlert, useShopliftingAlerts } from "@/hooks/useShopliftingAlerts";
+import { getShopliftingVideoUrl, updateShopliftingAlert, useShopliftingAlerts } from "@/hooks/useShopliftingAlerts";
+import { supabase } from "@/lib/supabase";
 import type { ShopliftingAlert, ShopliftingAlertStatus } from "@/lib/types";
 
 type FilterStatus = "all" | ShopliftingAlertStatus;
@@ -49,12 +50,24 @@ function riskLabel(score: number) {
   return "Revisión necesaria";
 }
 
+function alertDelay(alert: ShopliftingAlert): number | null {
+  const latency = alert.metadata?.event_latency;
+  if (!latency || typeof latency !== "object") return null;
+  const value = (latency as Record<string, unknown>).decision_delay_sec;
+  return typeof value === "number" ? value : null;
+}
+
 export function AlertasSection() {
   const { data: alerts = [], isLoading, isFetching, error, refetch } = useShopliftingAlerts();
   const [camera, setCamera] = useState("all");
   const [status, setStatus] = useState<FilterStatus>("all");
   const [selected, setSelected] = useState<ShopliftingAlert | null>(null);
   const [saving, setSaving] = useState(false);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoLoading, setVideoLoading] = useState(false);
+  const [authNeeded, setAuthNeeded] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const cameras = useMemo(
     () => [...new Set(alerts.map((alert) => alert.camera_id))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
@@ -75,6 +88,11 @@ export function AlertasSection() {
     if (!selected) return;
     setSaving(true);
     try {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        setAuthNeeded(true);
+        throw new Error("Inicia sesión como operador para clasificar la alerta");
+      }
       await updateShopliftingAlert(selected.id, nextStatus);
       toast.success(nextStatus === "confirmed" ? "Alerta confirmada" : "Falso positivo descartado");
       setSelected(null);
@@ -84,6 +102,42 @@ export function AlertasSection() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function openVideo() {
+    if (!selected) return;
+    setVideoLoading(true);
+    try {
+      setVideoUrl(await getShopliftingVideoUrl(selected.id));
+      setAuthNeeded(false);
+    } catch (videoError) {
+      const message = videoError instanceof Error ? videoError.message : "Video no disponible";
+      if (message.includes("sesión") || message.includes("Inicia")) setAuthNeeded(true);
+      toast.error(message);
+    } finally {
+      setVideoLoading(false);
+    }
+  }
+
+  async function signIn() {
+    if (!email || !password) return;
+    setVideoLoading(true);
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    setVideoLoading(false);
+    if (signInError) {
+      toast.error(`No se pudo iniciar sesión: ${signInError.message}`);
+      return;
+    }
+    setPassword("");
+    setAuthNeeded(false);
+    toast.success("Sesión de operador iniciada");
+    await openVideo();
+  }
+
+  function selectAlert(alert: ShopliftingAlert) {
+    setSelected(alert);
+    setVideoUrl(null);
+    setAuthNeeded(false);
   }
 
   return (
@@ -237,7 +291,7 @@ export function AlertasSection() {
                 key={alert.id}
                 className={`group overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${alert.status === "new" ? "border-red-200 ring-1 ring-red-100" : "border-slate-100"}`}
               >
-                <button className="relative block aspect-video w-full overflow-hidden bg-slate-900 text-left" onClick={() => setSelected(alert)}>
+                <button className="relative block aspect-video w-full overflow-hidden bg-slate-900 text-left" onClick={() => selectAlert(alert)}>
                   {alert.thumbnail_url ? (
                     // Signed URLs expire and are intentionally rendered without Next's image cache.
                     // eslint-disable-next-line @next/next/no-img-element
@@ -265,7 +319,7 @@ export function AlertasSection() {
                       <span key={reason} className="rounded-md bg-slate-100 px-2 py-1 text-[10px] text-slate-600">{reason.replaceAll("_", " ")}</span>
                     ))}
                   </div>
-                  <Button variant="outline" className="w-full border-slate-200 text-slate-700" onClick={() => setSelected(alert)}><Eye /> Ver imagen de alerta</Button>
+                  <Button variant="outline" className="w-full border-slate-200 text-slate-700" onClick={() => selectAlert(alert)}><Eye /> Ver evidencia</Button>
                 </div>
               </article>
             );
@@ -278,7 +332,9 @@ export function AlertasSection() {
           {selected && (
             <>
               <div className="overflow-hidden rounded-t-xl bg-black">
-                {selected.thumbnail_url ? (
+                {videoUrl ? (
+                  <video src={videoUrl} controls autoPlay playsInline className="max-h-[68vh] w-full object-contain" />
+                ) : selected.thumbnail_url ? (
                   // Signed image URL intentionally bypasses Next's persistent cache.
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={selected.thumbnail_url} alt={`Alerta cámara ${selected.camera_id}`} className="max-h-[68vh] w-full object-contain" />
@@ -291,12 +347,40 @@ export function AlertasSection() {
                   <DialogTitle className="flex items-center gap-2 text-lg text-slate-900"><AlertTriangle size={18} className="text-red-600" /> {selected.camera_name || `Cámara ${selected.camera_id}`}</DialogTitle>
                   <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${STATUS_META[selected.status].className}`}>{STATUS_META[selected.status].label}</span>
                 </div>
-                <DialogDescription>{formatDate(selected.occurred_at)} · riesgo {Math.round(selected.risk_score * 100)}% · imagen JPG comprimida</DialogDescription>
+                <DialogDescription>
+                  {formatDate(selected.occurred_at)} · riesgo {Math.round(selected.risk_score * 100)}%
+                  {alertDelay(selected) !== null ? ` · decisión en ${alertDelay(selected)!.toFixed(3)} s` : ""}
+                </DialogDescription>
               </DialogHeader>
               <div className="px-5 pb-1">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Señales detectadas</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {(selected.risk_reasons.length ? selected.risk_reasons : ["comportamiento_sospechoso"]).map((reason) => <span key={reason} className="rounded-lg bg-red-50 px-2.5 py-1.5 text-xs text-red-700">{reason.replaceAll("_", " ")}</span>)}
+                </div>
+                <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="flex items-center gap-1.5 text-xs font-bold text-slate-700"><Film size={14} /> Clip privado GCS</p>
+                      <p className="mt-0.5 text-[11px] text-slate-500">
+                        {selected.video_status === "ready" ? "Disponible mediante enlace temporal de 5 minutos"
+                          : selected.video_status === "pending" ? "Subida en proceso"
+                          : selected.video_status === "failed" ? "La subida falló; el original permanece en Jetson"
+                          : "Esta alerta aún no tiene video cloud"}
+                      </p>
+                    </div>
+                    {selected.video_status === "ready" && (
+                      <Button size="sm" disabled={videoLoading} onClick={() => void openVideo()} className="bg-slate-900 text-white hover:bg-slate-800">
+                        {videoLoading ? <LoaderCircle className="animate-spin" /> : <Play />} Reproducir
+                      </Button>
+                    )}
+                  </div>
+                  {authNeeded && (
+                    <div className="mt-3 grid gap-2 border-t border-slate-200 pt-3 sm:grid-cols-[1fr_1fr_auto]">
+                      <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Correo operador" autoComplete="username" className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-red-300" />
+                      <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Contraseña" autoComplete="current-password" className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-red-300" />
+                      <Button size="sm" disabled={videoLoading || !email || !password} onClick={() => void signIn()}><LogIn /> Ingresar</Button>
+                    </div>
+                  )}
                 </div>
               </div>
               <DialogFooter className="mx-0 mb-0 px-5">

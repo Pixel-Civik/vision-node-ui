@@ -10,6 +10,11 @@ const QUERY_KEY = ["shoplifting-alerts"] as const;
 const COUNT_KEY = ["shoplifting-alerts", "new-count"] as const;
 const SIGN_BATCH_SIZE = 100;
 const ALERT_HISTORY_LIMIT = 500;
+const PUBLIC_ALERT_COLUMNS = [
+  "id", "site", "camera_id", "camera_name", "occurred_at", "risk_score",
+  "risk_reasons", "status", "thumbnail_path", "duration_sec", "metadata",
+  "created_at", "reviewed_at", "video_status", "video_uploaded_at", "video_size_bytes",
+].join(",");
 
 async function signPaths(paths: string[]): Promise<Map<string, string>> {
   const unique = [...new Set(paths.filter(Boolean))];
@@ -29,17 +34,30 @@ async function signPaths(paths: string[]): Promise<Map<string, string>> {
 async function fetchAlerts(): Promise<ShopliftingAlert[]> {
   const { data, error } = await supabase
     .from("shoplifting_alerts")
-    .select("*")
+    .select(PUBLIC_ALERT_COLUMNS)
     .order("occurred_at", { ascending: false })
     .limit(ALERT_HISTORY_LIMIT);
   if (error) throw new Error(`No se pudieron cargar las alertas: ${error.message}`);
 
-  const rows = (data ?? []) as ShopliftingAlert[];
+  const rows = (data ?? []) as unknown as ShopliftingAlert[];
   const urls = await signPaths(rows.map((row) => row.thumbnail_path ?? ""));
   return rows.map((row) => ({
     ...row,
     thumbnail_url: row.thumbnail_path ? urls.get(row.thumbnail_path) ?? null : null,
   }));
+}
+
+export async function getShopliftingVideoUrl(id: string): Promise<string> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("Inicia sesión como operador para ver el video");
+  const result = await fetch(`/api/shoplifting-alerts/${encodeURIComponent(id)}/video`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  const payload = await result.json() as { url?: string; error?: string };
+  if (!result.ok || !payload.url) throw new Error(payload.error || "Video no disponible");
+  return payload.url;
 }
 
 async function fetchNewCount(): Promise<number> {
