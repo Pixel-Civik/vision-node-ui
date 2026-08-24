@@ -1,5 +1,5 @@
-import type { DashboardFilters, KPIResult, HourlyRow, ZoneBreakdownRow, ChannelBreakdownRow, HeatmapRow, TIZKpiRow, ConversionHourRow, GenderRow, AgeRow, TIZRaw, DailyRow } from "./types";
-import { rpc, supabase } from "./supabase";
+import type { DashboardFilters, KPIResult, HourlyRow, ZoneBreakdownRow, ChannelBreakdownRow, HeatmapRow, TIZKpiRow, ConversionHourRow, GenderRow, AgeRow, TIZRaw, DailyRow, OverviewResult, CompareResult, DefaultRange } from "./types";
+import { rpc, rpcOne, supabase } from "./supabase";
 
 function buildPayload(f: DashboardFilters) {
   return {
@@ -15,6 +15,55 @@ function buildPayload(f: DashboardFilters) {
 }
 
 const EMPTY_KPI: KPIResult = { enters: 0, exits: 0, net: 0, unique_tracks: 0, days: 0, enters_per_day: 0, exits_per_day: 0 };
+
+export const EMPTY_OVERVIEW: OverviewResult = {
+  kpis: EMPTY_KPI,
+  totals: { visitors: 0, pasantes: 0, conv: null },
+  hourly: [], hourly_avg: [], conversion: [],
+  zones: [], channels: [], heatmap: [], tiz: [],
+};
+
+// ── RPCs v7 — la lógica vive en la BD ────────────────────────────────────────
+
+/**
+ * Un solo round-trip para todo el dashboard. Sustituye la cadena en serie de
+ * fetchKPIs → fetchHourly → fetchZoneBreakdown → fetchChannelBreakdown →
+ * fetchHeatmap → fetchTIZKpis, y trae ya calculados totals, hourly_avg y
+ * conversion, que antes se derivaban en JS.
+ */
+export async function fetchOverview(f: DashboardFilters, signal?: AbortSignal): Promise<OverviewResult> {
+  const data = await rpcOne<OverviewResult | null>("dashboard_overview", buildPayload(f), signal);
+  return data ?? EMPTY_OVERVIEW;
+}
+
+/**
+ * Comparación contra el período de referencia. La BD elige la referencia
+ * saltando los días sin datos, así que un corte de servicio ya no produce
+ * deltas contra cero.
+ */
+export async function fetchCompare(
+  f: DashboardFilters, mode: string, signal?: AbortSignal
+): Promise<CompareResult | null> {
+  return rpcOne<CompareResult | null>(
+    "dashboard_compare", { ...buildPayload(f), p_mode: mode }, signal
+  );
+}
+
+/** Rango con el que abre el dashboard (mes en curso, o el último con datos). */
+export async function fetchDefaultRange(signal?: AbortSignal): Promise<DefaultRange | null> {
+  const rows = await rpc<DefaultRange>("dashboard_default_range", {}, signal);
+  return rows[0] ?? null;
+}
+
+/** Días que realmente tienen datos — puntos del calendario. */
+export async function fetchDataDays(
+  from?: string, to?: string, signal?: AbortSignal
+): Promise<string[]> {
+  const rows = await rpc<{ day: string; events: number }>(
+    "dashboard_data_days", { p_from: from ?? null, p_to: to ?? null }, signal
+  );
+  return rows.map((r) => r.day);
+}
 
 export async function fetchKPIs(f: DashboardFilters): Promise<KPIResult | null> {
   const rows = await rpc<KPIResult>("dashboard_kpi_enter_exit", buildPayload(f));
@@ -115,7 +164,7 @@ export async function fetchDailyTrends(f: DashboardFilters): Promise<DailyTrendR
   return rpc<DailyTrendRow>("dashboard_daily_trend", buildPayload(f));
 }
 
-export async function fetchFilterOptions(): Promise<{
+export async function fetchFilterOptions(signal?: AbortSignal): Promise<{
   sites: string[];
   channels: string[];
   zones: string[];
@@ -123,7 +172,7 @@ export async function fetchFilterOptions(): Promise<{
   maxDate: string;
 }> {
   const rows = await rpc<{ sites: string[]; channels: string[]; zones: string[]; min_date: string; max_date: string }>(
-    "dashboard_filter_options", {}
+    "dashboard_filter_options", {}, signal
   );
   const row = rows[0];
   const today = new Date().toISOString().slice(0, 10);

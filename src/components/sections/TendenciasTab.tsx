@@ -110,9 +110,10 @@ function DeltaPill({ value, suffix = "%" }: { value: number | null; suffix?: str
 // ── KPI card (REQ 2 del mockup) ───────────────────────────────────────────────
 
 const MODE_LABELS: Record<CompareMode, string> = {
-  "prev-day":    "vs día anterior",
-  "same-dow":    "vs mismo día sem. ant.",
   "prev-period": "vs período anterior",
+  "prev-month":  "vs mes anterior",
+  "prev-day":    "vs día anterior con datos",
+  "same-dow":    "vs mismo día sem. ant.",
 };
 
 function KPICompareCard({
@@ -389,7 +390,7 @@ export function TendenciasTab({
   const [localDates, setLocalDates]     = useState({ start: DAY_BEFORE, end: YESTERDAY });
   const [activePreset, setActivePreset] = useState<string>("2 días");
   const [dateMode, setDateMode]         = useState<DateMode>("range");
-  const [compareMode, setCompareMode]   = useState<CompareMode>("prev-day");
+  const [compareMode, setCompareMode]   = useState<CompareMode>("prev-period");
 
   // Build local DashboardFilters: inherit sites/channels/zones from global, override period
   const localFilters = useMemo<DashboardFilters>(() => ({
@@ -444,9 +445,10 @@ export function TendenciasTab({
   }, [localHourly, refHourly]);
 
   const COMPARE_MODES: { key: CompareMode; label: string }[] = [
-    { key: "prev-day",    label: "Día anterior"    },
-    { key: "same-dow",    label: "Misma sem. ant."  },
     { key: "prev-period", label: "Período ant."     },
+    { key: "prev-month",  label: "Mes anterior"     },
+    { key: "prev-day",    label: "Día anterior"     },
+    { key: "same-dow",    label: "Misma sem. ant."  },
   ];
 
   return (

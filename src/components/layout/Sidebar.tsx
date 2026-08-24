@@ -15,6 +15,7 @@ interface SidebarProps {
   loading: boolean;
   onRefresh: () => void;
   dateRange: { start: string; end: string };
+  alertCount?: number;
 }
 
 export function Sidebar({
@@ -23,6 +24,7 @@ export function Sidebar({
   loading,
   onRefresh,
   dateRange,
+  alertCount = 0,
 }: SidebarProps) {
   return (
     <>
@@ -51,7 +53,7 @@ export function Sidebar({
         <p className="px-3 pb-3 text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
           Navegación
         </p>
-        <NavList section={section} onNavigate={onNavigate} />
+        <NavList section={section} onNavigate={onNavigate} alertCount={alertCount} />
       </nav>
 
       {/* ── Footer: refresh + date range ──────────────────────────────── */}
@@ -76,14 +78,12 @@ export function Sidebar({
 function NavList({
   section,
   onNavigate,
-}: Pick<SidebarProps, "section" | "onNavigate">) {
-  let lastGroup = "";
-
+  alertCount = 0,
+}: Pick<SidebarProps, "section" | "onNavigate" | "alertCount">) {
   return (
     <>
-      {NAV_ITEMS.map(({ id, label, Icon, group }) => {
-        const showGroup = !!group && group !== lastGroup;
-        if (showGroup) lastGroup = group!;
+      {NAV_ITEMS.map(({ id, label, Icon, group }, index) => {
+        const showGroup = !!group && group !== NAV_ITEMS[index - 1]?.group;
 
         return (
           <div key={id}>
@@ -106,6 +106,11 @@ function NavList({
                 style={section === id ? { color: "#2DD4BF" } : undefined}
               />
               {label}
+              {id === "alertas" && alertCount > 0 && (
+                <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow-sm shadow-red-950/30 animate-pulse">
+                  {alertCount > 99 ? "99+" : alertCount}
+                </span>
+              )}
             </button>
           </div>
         );

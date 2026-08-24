@@ -1,105 +1,78 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { fetchFilterOptions } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
+import { fetchFilterOptions, fetchDataDays, fetchDefaultRange } from "@/lib/api";
+import type { DefaultRange } from "@/lib/types";
 
 export interface FilterOptions {
   sites: string[];
   channels: string[];
   zones: string[];
-  minDate: string;              // earliest date with data (Lima local, YYYY-MM-DD)
-  maxDate: string;              // latest date with data  (Lima local, YYYY-MM-DD)
-  availableDates: Set<string>;  // every day minDate..yesterday — dots in calendar
+  minDate: string;              // primer día con datos (Lima, YYYY-MM-DD)
+  maxDate: string;              // último día con datos  (Lima, YYYY-MM-DD)
+  availableDates: Set<string>;  // días que REALMENTE tienen datos
+  defaultRange: DefaultRange | null;  // rango de apertura decidido por la BD
   loading: boolean;
 }
 
-// v6 — uses dashboard_filter_options RPC (server-side aggregation)
-const SESSION_KEY = "pixel-civik-filter-opts-v6";
-
-type CachedOpts = Omit<FilterOptions, "loading" | "availableDates"> & { dates: string[] };
-
-function readCache(): Omit<FilterOptions, "loading"> | null {
-  try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    const { sites, channels, zones, minDate, maxDate, dates }: CachedOpts = JSON.parse(raw);
-    return { sites, channels, zones, minDate, maxDate, availableDates: new Set<string>(dates) };
-  } catch {
-    return null;
-  }
-}
-
-function writeCache(o: Omit<FilterOptions, "loading">) {
-  try {
-    const payload: CachedOpts = {
-      sites: o.sites, channels: o.channels, zones: o.zones,
-      minDate: o.minDate, maxDate: o.maxDate,
-      dates: [...o.availableDates],
-    };
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(payload));
-  } catch {}
-}
-
-// Build a local Date from an ISO date string (avoids UTC midnight shift)
-function localDate(iso: string): Date {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function isoStr(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-const TODAY = new Date().toISOString().slice(0, 10);
+const TODAY = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima" }).format(new Date());
 
 const EMPTY: Omit<FilterOptions, "loading"> = {
   sites: [], channels: [], zones: [],
   minDate: TODAY, maxDate: TODAY,
   availableDates: new Set<string>(),
+  defaultRange: null,
 };
 
+/**
+ * Opciones de filtro + días con datos + rango de apertura.
+ *
+ * Cambios respecto a la versión anterior:
+ *
+ *  - `availableDates` viene de dashboard_data_days, no de un bucle en JS que
+ *    asumía que TODOS los días entre minDate y ayer tenían datos. Con el corte
+ *    de servicio esa suposición pintaba puntos en el calendario para días
+ *    vacíos.
+ *  - `defaultRange` lo decide la BD (mes en curso, o el último mes con datos)
+ *    en vez del "snap" a todo el histórico que hacía page.tsx.
+ *  - La caché manual en sessionStorage se reemplaza por la de TanStack Query.
+ *    Aquella se invalidaba a mano subiendo el número de versión de la clave y
+ *    podía servir datos rancios indefinidamente dentro de una sesión.
+ */
 export function useFilterOptions(): FilterOptions {
-  // Always start with EMPTY so SSR and client initial render match.
-  // Cache is applied in useEffect (client-only, after hydration) to avoid #418.
-  const [opts, setOpts] = useState<Omit<FilterOptions, "loading">>(EMPTY);
-  const [loading, setLoading] = useState(true);
+  const opts = useQuery({
+    queryKey: ["filter-options"],
+    queryFn: ({ signal }) => fetchFilterOptions(signal),
+    staleTime: 10 * 60_000,   // catálogos: cambian poco
+  });
 
-  useEffect(() => {
-    // Apply sessionStorage cache immediately so charts appear without a network round-trip.
-    const cached = readCache();
-    if (cached) {
-      setOpts(cached);
-      setLoading(false);
-    }
+  const range = useQuery({
+    queryKey: ["default-range"],
+    queryFn: ({ signal }) => fetchDefaultRange(signal),
+    staleTime: 5 * 60_000,
+  });
 
-    async function load() {
-      const result = await fetchFilterOptions().catch(() => null);
-      if (!result) { if (!cached) setLoading(false); return; }
+  const days = useQuery({
+    queryKey: ["data-days"],
+    queryFn: ({ signal }) => fetchDataDays(undefined, undefined, signal),
+    staleTime: 10 * 60_000,
+  });
 
-      const { sites, channels, zones, minDate, maxDate } = result;
+  if (!opts.data) {
+    return { ...EMPTY, defaultRange: range.data ?? null, loading: opts.isPending };
+  }
 
-      // Build the set of days with data: minDate through yesterday (complete days)
-      // plus today if the most recent event is from today (data in progress).
-      const yd = isoStr(new Date(Date.now() - 86_400_000));
-      const availableDates = new Set<string>();
-      if (minDate <= yd) {
-        for (
-          let d = localDate(minDate);
-          isoStr(d) <= yd;
-          d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)
-        ) {
-          availableDates.add(isoStr(d));
-        }
-      }
-      if (maxDate >= TODAY) availableDates.add(TODAY);
-
-      const fresh = { sites, channels, zones, minDate, maxDate, availableDates };
-      setOpts(fresh);
-      setLoading(false);
-      writeCache(fresh);
-    }
-    load();
-  }, []);
-
-  return { ...opts, loading };
+  return {
+    sites:          opts.data.sites,
+    channels:       opts.data.channels,
+    zones:          opts.data.zones,
+    minDate:        opts.data.minDate,
+    maxDate:        opts.data.maxDate,
+    availableDates: new Set(days.data ?? []),
+    defaultRange:   range.data ?? null,
+    // El rango de apertura es obligatorio antes de consultar: sin él page.tsx
+    // dispararía una consulta con fechas provisionales y luego otra con las
+    // reales — la doble carga que ya existía antes.
+    loading:        opts.isPending || range.isPending,
+  };
 }

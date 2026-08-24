@@ -1,6 +1,6 @@
 /**
- * TopBar — mobile-only header with hamburger toggle.
- * SRP: only handles the mobile top bar UI.
+ * TopBar — mobile/tablet header with hamburger toggle.
+ * SRP: only handles the compact top bar UI.
  */
 "use client";
 
@@ -14,24 +14,21 @@ interface TopBarProps {
 
 export function TopBar({ open, onOpen, onClose }: TopBarProps) {
   return (
-    <div className="md:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-100">
+    <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200/80 bg-white/95 px-4 py-3 shadow-sm backdrop-blur xl:hidden">
       <button
-        onClick={onOpen}
-        className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100"
-        aria-label="Abrir menú"
+        onClick={open ? onClose : onOpen}
+        className="flex size-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:border-slate-300 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
+        aria-label={open ? "Cerrar menú" : "Abrir menú"}
+        aria-expanded={open}
+        aria-controls="app-sidebar"
       >
-        <Menu size={20} />
+        {open ? <X size={19} /> : <Menu size={20} />}
       </button>
-      <span className="text-sm font-semibold text-slate-700">Vision Node</span>
-      {open && (
-        <button
-          onClick={onClose}
-          className="ml-auto p-1.5 rounded-lg text-slate-500 hover:bg-slate-100"
-          aria-label="Cerrar menú"
-        >
-          <X size={18} />
-        </button>
-      )}
+      <div className="min-w-0">
+        <span className="block truncate text-sm font-bold text-slate-800">Vision Node</span>
+        <span className="block text-[10px] font-semibold uppercase tracking-wider text-teal-600">Pixel Civik</span>
+      </div>
+      <span className="ml-auto rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-500">Panel</span>
     </div>
   );
 }

@@ -8,9 +8,9 @@ const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const G = globalThis as typeof globalThis & { __supabase?: SupabaseClient };
 if (!G.__supabase) {
   G.__supabase = createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
     global: {
-      headers: { apikey: key, Authorization: `Bearer ${key}` },
+      headers: { apikey: key },
     },
   });
 }
@@ -18,9 +18,27 @@ export const supabase = G.__supabase;
 
 export async function rpc<T = unknown>(
   fn: string,
-  params: Record<string, unknown>
+  params: Record<string, unknown>,
+  signal?: AbortSignal
 ): Promise<T[]> {
-  const { data, error } = await supabase.rpc(fn, params);
+  const q = supabase.rpc(fn, params);
+  const { data, error } = await (signal ? q.abortSignal(signal) : q);
   if (error) throw new Error(`${fn}: ${error.message}`);
   return (data as T[]) ?? [];
+}
+
+/**
+ * RPC que devuelve un valor escalar (jsonb), no un conjunto de filas.
+ * dashboard_overview y dashboard_compare devuelven un único objeto JSON, así
+ * que castearlo a array como hace `rpc` daría un tipo equivocado.
+ */
+export async function rpcOne<T = unknown>(
+  fn: string,
+  params: Record<string, unknown>,
+  signal?: AbortSignal
+): Promise<T> {
+  const q = supabase.rpc(fn, params);
+  const { data, error } = await (signal ? q.abortSignal(signal) : q);
+  if (error) throw new Error(`${fn}: ${error.message}`);
+  return data as T;
 }
