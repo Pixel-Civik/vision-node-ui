@@ -12,6 +12,7 @@ const SIGN_BATCH_SIZE = 100;
 const ALERT_PAGE_SIZE = 500;
 const ALERT_HISTORY_LIMIT = 5_000;
 const THUMBNAIL_SIGN_LIMIT = 120;
+const EVIDENCE_GENERATION = "h264-faststart-v1";
 const PUBLIC_ALERT_COLUMNS = [
   "id", "site", "camera_id", "camera_name", "occurred_at", "risk_score",
   "risk_reasons", "status", "thumbnail_path", "duration_sec", "metadata",
@@ -39,6 +40,7 @@ async function fetchAlerts(): Promise<ShopliftingAlert[]> {
     const { data, error } = await supabase
       .from("shoplifting_alerts")
       .select(PUBLIC_ALERT_COLUMNS)
+      .contains("metadata", { evidence_generation: EVIDENCE_GENERATION })
       .order("occurred_at", { ascending: false })
       .range(offset, offset + ALERT_PAGE_SIZE - 1);
     if (error) throw new Error(`No se pudieron cargar las alertas: ${error.message}`);
@@ -75,6 +77,7 @@ async function fetchNewCount(): Promise<number> {
   const { count, error } = await supabase
     .from("shoplifting_alerts")
     .select("id", { count: "exact", head: true })
+    .contains("metadata", { evidence_generation: EVIDENCE_GENERATION })
     .eq("status", "new");
   if (error) return 0;
   return count ?? 0;
