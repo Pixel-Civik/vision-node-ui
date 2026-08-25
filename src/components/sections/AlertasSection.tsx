@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import {
   AlertTriangle, Camera, CheckCircle2, Clock3, Eye, Filter,
-  Film, LoaderCircle, LogIn, Play, RefreshCw, ShieldAlert, ShieldCheck, XCircle,
+  ChevronLeft, ChevronRight, Film, LoaderCircle, LogIn, Play, RefreshCw,
+  ShieldAlert, ShieldCheck, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,7 @@ import { supabase } from "@/lib/supabase";
 import type { ShopliftingAlert, ShopliftingAlertStatus } from "@/lib/types";
 
 type FilterStatus = "all" | ShopliftingAlertStatus;
-const INITIAL_VISIBLE_ALERTS = 60;
+const ALERTS_PER_PAGE = 24;
 
 const STATUS_META: Record<ShopliftingAlertStatus, { label: string; className: string }> = {
   new: { label: "Sin revisar", className: "bg-red-100 text-red-700" },
@@ -58,6 +59,19 @@ function alertDelay(alert: ShopliftingAlert): number | null {
   return typeof value === "number" ? value : null;
 }
 
+function paginationPages(currentPage: number, totalPages: number): Array<number | string> {
+  const candidates = [1, currentPage - 1, currentPage, currentPage + 1, totalPages]
+    .filter((page) => page >= 1 && page <= totalPages);
+  const pages = [...new Set(candidates)].sort((a, b) => a - b);
+  const result: Array<number | string> = [];
+  pages.forEach((page, index) => {
+    const previous = pages[index - 1];
+    if (previous && page - previous > 1) result.push(`gap-${previous}-${page}`);
+    result.push(page);
+  });
+  return result;
+}
+
 export function AlertasSection() {
   const { data: alerts = [], isLoading, isFetching, error, refetch } = useShopliftingAlerts();
   const [camera, setCamera] = useState("all");
@@ -69,7 +83,7 @@ export function AlertasSection() {
   const [authNeeded, setAuthNeeded] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [visibleLimit, setVisibleLimit] = useState(INITIAL_VISIBLE_ALERTS);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const cameras = useMemo(
     () => [...new Set(alerts.map((alert) => alert.camera_id))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
@@ -85,7 +99,11 @@ export function AlertasSection() {
   const newCount = alerts.filter((alert) => alert.status === "new").length;
   const confirmedCount = alerts.filter((alert) => alert.status === "confirmed").length;
   const dismissedCount = alerts.filter((alert) => alert.status === "dismissed").length;
-  const displayed = visible.slice(0, visibleLimit);
+  const totalPages = Math.max(1, Math.ceil(visible.length / ALERTS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = (safePage - 1) * ALERTS_PER_PAGE;
+  const displayed = visible.slice(pageStart, pageStart + ALERTS_PER_PAGE);
+  const pageItems = paginationPages(safePage, totalPages);
 
   async function review(nextStatus: "confirmed" | "dismissed") {
     if (!selected) return;
@@ -203,7 +221,7 @@ export function AlertasSection() {
               <span className="px-1 text-[11px] font-semibold text-slate-500">Cámara</span>
               <Select value={camera} onValueChange={(value) => {
                 setCamera(value ?? "all");
-                setVisibleLimit(INITIAL_VISIBLE_ALERTS);
+                setCurrentPage(1);
               }}>
                 <SelectTrigger
                   aria-label="Filtrar por cámara"
@@ -234,7 +252,7 @@ export function AlertasSection() {
               <span className="px-1 text-[11px] font-semibold text-slate-500">Clasificación</span>
               <Select value={status} onValueChange={(value) => {
                 setStatus((value ?? "all") as FilterStatus);
-                setVisibleLimit(INITIAL_VISIBLE_ALERTS);
+                setCurrentPage(1);
               }}>
                 <SelectTrigger
                   aria-label="Filtrar por estado"
@@ -345,15 +363,62 @@ export function AlertasSection() {
         </div>
       )}
 
-      {displayed.length < visible.length && (
-        <div className="flex justify-center">
-          <Button
-            variant="outline"
-            className="border-slate-200 bg-white text-slate-700"
-            onClick={() => setVisibleLimit((current) => current + INITIAL_VISIBLE_ALERTS)}
-          >
-            Mostrar 60 más ({visible.length - displayed.length} pendientes)
-          </Button>
+      {visible.length > 0 && (
+        <div
+          data-testid="alerts-pagination"
+          className="flex flex-col items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm sm:flex-row sm:px-4"
+        >
+          <p className="text-xs text-slate-500">
+            Mostrando <span className="font-bold text-slate-700">{pageStart + 1}–{Math.min(pageStart + ALERTS_PER_PAGE, visible.length)}</span> de {visible.length}
+          </p>
+          <nav aria-label="Paginación de alertas" className="flex items-center gap-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-label="Página anterior"
+              disabled={safePage === 1}
+              onClick={() => setCurrentPage(Math.max(1, safePage - 1))}
+              className="border-slate-200 px-2 sm:px-3"
+            >
+              <ChevronLeft /> <span className="hidden sm:inline">Anterior</span>
+            </Button>
+
+            <div className="hidden items-center gap-1 sm:flex">
+              {pageItems.map((item) => typeof item === "number" ? (
+                <Button
+                  key={item}
+                  type="button"
+                  size="sm"
+                  variant={item === safePage ? "default" : "outline"}
+                  aria-label={`Página ${item}`}
+                  aria-current={item === safePage ? "page" : undefined}
+                  onClick={() => setCurrentPage(item)}
+                  className={item === safePage ? "min-w-9 bg-red-600 text-white hover:bg-red-700" : "min-w-9 border-slate-200"}
+                >
+                  {item}
+                </Button>
+              ) : (
+                <span key={item} aria-hidden="true" className="px-1 text-slate-400">…</span>
+              ))}
+            </div>
+
+            <span className="min-w-24 text-center text-xs font-semibold text-slate-600 sm:hidden">
+              Página {safePage} de {totalPages}
+            </span>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-label="Página siguiente"
+              disabled={safePage === totalPages}
+              onClick={() => setCurrentPage(Math.min(totalPages, safePage + 1))}
+              className="border-slate-200 px-2 sm:px-3"
+            >
+              <span className="hidden sm:inline">Siguiente</span> <ChevronRight />
+            </Button>
+          </nav>
         </div>
       )}
 
