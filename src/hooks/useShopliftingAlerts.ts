@@ -9,7 +9,9 @@ const BUCKET = "shoplifting-evidence";
 const QUERY_KEY = ["shoplifting-alerts"] as const;
 const COUNT_KEY = ["shoplifting-alerts", "new-count"] as const;
 const SIGN_BATCH_SIZE = 100;
-const ALERT_HISTORY_LIMIT = 500;
+const ALERT_PAGE_SIZE = 500;
+const ALERT_HISTORY_LIMIT = 5_000;
+const THUMBNAIL_SIGN_LIMIT = 120;
 const PUBLIC_ALERT_COLUMNS = [
   "id", "site", "camera_id", "camera_name", "occurred_at", "risk_score",
   "risk_reasons", "status", "thumbnail_path", "duration_sec", "metadata",
@@ -32,15 +34,23 @@ async function signPaths(paths: string[]): Promise<Map<string, string>> {
 }
 
 async function fetchAlerts(): Promise<ShopliftingAlert[]> {
-  const { data, error } = await supabase
-    .from("shoplifting_alerts")
-    .select(PUBLIC_ALERT_COLUMNS)
-    .order("occurred_at", { ascending: false })
-    .limit(ALERT_HISTORY_LIMIT);
-  if (error) throw new Error(`No se pudieron cargar las alertas: ${error.message}`);
-
-  const rows = (data ?? []) as unknown as ShopliftingAlert[];
-  const urls = await signPaths(rows.map((row) => row.thumbnail_path ?? ""));
+  const rows: ShopliftingAlert[] = [];
+  for (let offset = 0; offset < ALERT_HISTORY_LIMIT; offset += ALERT_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("shoplifting_alerts")
+      .select(PUBLIC_ALERT_COLUMNS)
+      .order("occurred_at", { ascending: false })
+      .range(offset, offset + ALERT_PAGE_SIZE - 1);
+    if (error) throw new Error(`No se pudieron cargar las alertas: ${error.message}`);
+    const page = (data ?? []) as unknown as ShopliftingAlert[];
+    rows.push(...page);
+    if (page.length < ALERT_PAGE_SIZE) break;
+  }
+  // Firmar miles de JPG al abrir el dashboard era el mayor costo. Los videos
+  // legacy no dependen de miniatura y las evidencias recientes conservan preview.
+  const urls = await signPaths(
+    rows.slice(0, THUMBNAIL_SIGN_LIMIT).map((row) => row.thumbnail_path ?? "")
+  );
   return rows.map((row) => ({
     ...row,
     thumbnail_url: row.thumbnail_path ? urls.get(row.thumbnail_path) ?? null : null,

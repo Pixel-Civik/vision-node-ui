@@ -19,6 +19,7 @@ import { supabase } from "@/lib/supabase";
 import type { ShopliftingAlert, ShopliftingAlertStatus } from "@/lib/types";
 
 type FilterStatus = "all" | ShopliftingAlertStatus;
+const INITIAL_VISIBLE_ALERTS = 60;
 
 const STATUS_META: Record<ShopliftingAlertStatus, { label: string; className: string }> = {
   new: { label: "Sin revisar", className: "bg-red-100 text-red-700" },
@@ -68,6 +69,7 @@ export function AlertasSection() {
   const [authNeeded, setAuthNeeded] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [visibleLimit, setVisibleLimit] = useState(INITIAL_VISIBLE_ALERTS);
 
   const cameras = useMemo(
     () => [...new Set(alerts.map((alert) => alert.camera_id))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
@@ -83,6 +85,7 @@ export function AlertasSection() {
   const newCount = alerts.filter((alert) => alert.status === "new").length;
   const confirmedCount = alerts.filter((alert) => alert.status === "confirmed").length;
   const dismissedCount = alerts.filter((alert) => alert.status === "dismissed").length;
+  const displayed = visible.slice(0, visibleLimit);
 
   async function review(nextStatus: "confirmed" | "dismissed") {
     if (!selected) return;
@@ -198,7 +201,10 @@ export function AlertasSection() {
           <div className="grid flex-1 gap-3 sm:grid-cols-2">
             <label className="grid gap-1.5">
               <span className="px-1 text-[11px] font-semibold text-slate-500">Cámara</span>
-              <Select value={camera} onValueChange={(value) => setCamera(value ?? "all")}>
+              <Select value={camera} onValueChange={(value) => {
+                setCamera(value ?? "all");
+                setVisibleLimit(INITIAL_VISIBLE_ALERTS);
+              }}>
                 <SelectTrigger
                   aria-label="Filtrar por cámara"
                   className="h-11 w-full rounded-xl border-slate-200 bg-slate-50/70 px-3 text-slate-700 shadow-none hover:bg-slate-50 focus-visible:border-red-300 focus-visible:ring-red-100"
@@ -226,7 +232,10 @@ export function AlertasSection() {
 
             <label className="grid gap-1.5">
               <span className="px-1 text-[11px] font-semibold text-slate-500">Clasificación</span>
-              <Select value={status} onValueChange={(value) => setStatus((value ?? "all") as FilterStatus)}>
+              <Select value={status} onValueChange={(value) => {
+                setStatus((value ?? "all") as FilterStatus);
+                setVisibleLimit(INITIAL_VISIBLE_ALERTS);
+              }}>
                 <SelectTrigger
                   aria-label="Filtrar por estado"
                   className="h-11 w-full rounded-xl border-slate-200 bg-slate-50/70 px-3 text-slate-700 shadow-none hover:bg-slate-50 focus-visible:border-red-300 focus-visible:ring-red-100"
@@ -284,7 +293,7 @@ export function AlertasSection() {
         </div>
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {visible.map((alert) => {
+          {displayed.map((alert) => {
             const statusMeta = STATUS_META[alert.status];
             return (
               <article
@@ -297,7 +306,12 @@ export function AlertasSection() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={alert.thumbnail_url} alt={`Alerta cámara ${alert.camera_id}`} className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]" />
                   ) : (
-                    <span className="flex h-full items-center justify-center text-slate-500"><Camera size={36} /></span>
+                    <span className="flex h-full flex-col items-center justify-center gap-2 text-slate-400">
+                      {alert.video_status === "ready" ? <Film size={36} /> : <Camera size={36} />}
+                      <span className="text-[11px] font-semibold">
+                        {alert.video_status === "ready" ? "Video privado disponible" : "Sin vista previa"}
+                      </span>
+                    </span>
                   )}
                   <span className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent" />
                   <span className="absolute left-3 top-3 rounded-full bg-red-600 px-2.5 py-1 text-[10px] font-bold tracking-wide text-white shadow">SOSPECHOSO</span>
@@ -319,11 +333,27 @@ export function AlertasSection() {
                       <span key={reason} className="rounded-md bg-slate-100 px-2 py-1 text-[10px] text-slate-600">{reason.replaceAll("_", " ")}</span>
                     ))}
                   </div>
+                  <p className={`flex items-center gap-1.5 text-[11px] font-semibold ${alert.video_status === "ready" ? "text-emerald-600" : "text-slate-400"}`}>
+                    <Film size={12} />
+                    {alert.video_status === "ready" ? "MP4 listo para revisión" : alert.video_status === "pending" ? "MP4 subiendo" : "Sin MP4 asociado"}
+                  </p>
                   <Button variant="outline" className="w-full border-slate-200 text-slate-700" onClick={() => selectAlert(alert)}><Eye /> Ver evidencia</Button>
                 </div>
               </article>
             );
           })}
+        </div>
+      )}
+
+      {displayed.length < visible.length && (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            className="border-slate-200 bg-white text-slate-700"
+            onClick={() => setVisibleLimit((current) => current + INITIAL_VISIBLE_ALERTS)}
+          >
+            Mostrar 60 más ({visible.length - displayed.length} pendientes)
+          </Button>
         </div>
       )}
 
