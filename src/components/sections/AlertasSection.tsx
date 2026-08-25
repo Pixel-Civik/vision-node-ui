@@ -129,11 +129,13 @@ export function AlertasSection() {
     if (!selected) return;
     setVideoLoading(true);
     try {
-      setVideoUrl(await getShopliftingVideoUrl(selected.id));
-      setAuthNeeded(false);
+      setVideoUrl(await getShopliftingVideoUrl(
+        selected.id,
+        selected.camera_id,
+        selected.occurred_at,
+      ));
     } catch (videoError) {
       const message = videoError instanceof Error ? videoError.message : "Video no disponible";
-      if (message.includes("sesión") || message.includes("Inicia")) setAuthNeeded(true);
       toast.error(message);
     } finally {
       setVideoLoading(false);
@@ -455,9 +457,9 @@ export function AlertasSection() {
                 <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <p className="flex items-center gap-1.5 text-xs font-bold text-slate-700"><Film size={14} /> Clip privado GCS</p>
+                      <p className="flex items-center gap-1.5 text-xs font-bold text-slate-700"><Film size={14} /> Video GCS protegido</p>
                       <p className="mt-0.5 text-[11px] text-slate-500">
-                        {selected.video_status === "ready" ? "Disponible mediante enlace temporal de 5 minutos"
+                        {selected.video_status === "ready" ? "Visualización pública de solo lectura mediante enlace temporal de 5 minutos"
                           : selected.video_status === "pending" ? "Subida en proceso"
                           : selected.video_status === "failed" ? "La subida falló; el original permanece en Jetson"
                           : "Esta alerta aún no tiene video cloud"}
@@ -471,6 +473,7 @@ export function AlertasSection() {
                   </div>
                   {authNeeded && (
                     <div className="mt-3 grid gap-2 border-t border-slate-200 pt-3 sm:grid-cols-[1fr_1fr_auto]">
+                      <p className="text-[11px] text-slate-500 sm:col-span-3">Inicia sesión únicamente para clasificar la alerta.</p>
                       <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Correo operador" autoComplete="username" className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-red-300" />
                       <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Contraseña" autoComplete="current-password" className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-red-300" />
                       <Button size="sm" disabled={videoLoading || !email || !password} onClick={() => void signIn()}><LogIn /> Ingresar</Button>

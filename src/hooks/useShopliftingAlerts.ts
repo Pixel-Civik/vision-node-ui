@@ -57,12 +57,13 @@ async function fetchAlerts(): Promise<ShopliftingAlert[]> {
   }));
 }
 
-export async function getShopliftingVideoUrl(id: string): Promise<string> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) throw new Error("Inicia sesión como operador para ver el video");
-  const result = await fetch(`/api/shoplifting-alerts/${encodeURIComponent(id)}/video`, {
-    headers: { Authorization: `Bearer ${token}` },
+export async function getShopliftingVideoUrl(
+  id: string,
+  cameraId: string,
+  occurredAt: string,
+): Promise<string> {
+  const params = new URLSearchParams({ camera_id: cameraId, occurred_at: occurredAt });
+  const result = await fetch(`/api/shoplifting-alerts/${encodeURIComponent(id)}/video?${params}`, {
     cache: "no-store",
   });
   const payload = await result.json() as { url?: string; error?: string };
