@@ -116,7 +116,11 @@ export function AlertasSection() {
         throw new Error("Inicia sesión como operador para clasificar la alerta");
       }
       await updateShopliftingAlert(selected.id, nextStatus);
-      toast.success(nextStatus === "confirmed" ? "Alerta confirmada" : "Falso positivo descartado");
+      toast.success(
+        nextStatus === "confirmed"
+          ? "Alerta confirmada y vinculada al video de entrenamiento"
+          : "Falso positivo guardado como muestra normal"
+      );
       setSelected(null);
       await refetch();
     } catch (reviewError) {

@@ -87,10 +87,12 @@ export async function updateShopliftingAlert(
   id: string,
   status: Exclude<ShopliftingAlertStatus, "new">
 ): Promise<void> {
-  const { error } = await supabase
-    .from("shoplifting_alerts")
-    .update({ status, reviewed_at: new Date().toISOString() })
-    .eq("id", id);
+  const { error } = await supabase.rpc("review_shoplifting_alert", {
+    p_alert_id: id,
+    p_status: status,
+    p_notes: null,
+    p_training_eligible: true,
+  });
   if (error) throw new Error(`No se pudo guardar la revisión: ${error.message}`);
 }
 
