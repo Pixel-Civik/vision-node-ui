@@ -46,7 +46,11 @@ async function storageClient(): Promise<Storage> {
       subject_token_type: "urn:ietf:params:oauth:token-type:jwt",
       token_url: "https://sts.googleapis.com/v1/token",
       service_account_impersonation_url: `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${serviceAccount}:generateAccessToken`,
-      subject_token_supplier: { getSubjectToken: getVercelOidcToken },
+      // Google invokes the supplier with its own context argument. Passing the
+      // Vercel helper directly makes that context look like Vercel OIDC options
+      // and exchanges the token to the WIF resource audience. The provider is
+      // intentionally configured for Vercel's native audience instead.
+      subject_token_supplier: { getSubjectToken: () => getVercelOidcToken() },
     });
     if (!authClient) throw new Error("No se pudo iniciar identidad efímera GCP");
     return new Storage({ projectId, authClient });
