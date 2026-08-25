@@ -80,6 +80,7 @@ export function AlertasSection() {
   const [saving, setSaving] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoLoading, setVideoLoading] = useState(false);
+  const [videoPlaybackError, setVideoPlaybackError] = useState<string | null>(null);
   const [authNeeded, setAuthNeeded] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -128,6 +129,7 @@ export function AlertasSection() {
   async function openVideo() {
     if (!selected) return;
     setVideoLoading(true);
+    setVideoPlaybackError(null);
     try {
       setVideoUrl(await getShopliftingVideoUrl(
         selected.id,
@@ -160,6 +162,7 @@ export function AlertasSection() {
   function selectAlert(alert: ShopliftingAlert) {
     setSelected(alert);
     setVideoUrl(null);
+    setVideoPlaybackError(null);
     setAuthNeeded(false);
   }
 
@@ -430,7 +433,29 @@ export function AlertasSection() {
             <>
               <div className="overflow-hidden rounded-t-xl bg-black">
                 {videoUrl ? (
-                  <video src={videoUrl} controls autoPlay playsInline className="max-h-[68vh] w-full object-contain" />
+                  <div className="relative">
+                    <video
+                      key={videoUrl}
+                      controls
+                      autoPlay
+                      muted
+                      playsInline
+                      preload="metadata"
+                      onLoadedMetadata={() => setVideoPlaybackError(null)}
+                      onError={() => setVideoPlaybackError(
+                        "El archivo no puede reproducirse en este navegador. Actualiza la alerta o espera la nueva versión H.264."
+                      )}
+                      className="max-h-[68vh] w-full object-contain"
+                    >
+                      <source src={videoUrl} type="video/mp4" />
+                      Tu navegador no admite video MP4.
+                    </video>
+                    {videoPlaybackError && (
+                      <div className="absolute inset-x-3 bottom-3 rounded-lg bg-red-950/90 px-3 py-2 text-center text-xs font-medium text-red-100">
+                        {videoPlaybackError}
+                      </div>
+                    )}
+                  </div>
                 ) : selected.thumbnail_url ? (
                   // Signed image URL intentionally bypasses Next's persistent cache.
                   // eslint-disable-next-line @next/next/no-img-element

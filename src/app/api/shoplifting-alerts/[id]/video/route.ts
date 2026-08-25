@@ -59,8 +59,8 @@ async function storageClient(): Promise<Storage> {
 }
 
 function datePrefixes(objectRoot: string, cameraId: string, occurredAt: Date): string[] {
-  // El objeto live usa la fecha UTC del evento. El backfill histórico usa el
-  // mtime del archivo; ±1 día cubre clips cercanos a medianoche sin abrir todo el bucket.
+  // El objeto usa la fecha Perú del evento. ±1 día UTC cubre clips cercanos a
+  // medianoche sin listar el bucket completo; la categoría es un subdirectorio.
   return [0, -1, 1].map((offset) => {
     const date = new Date(occurredAt);
     date.setUTCDate(date.getUTCDate() + offset);
