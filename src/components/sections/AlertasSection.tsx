@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   AlertTriangle, Camera, CheckCircle2, Clock3, Eye, Filter,
-  ChevronLeft, ChevronRight, Film, LoaderCircle, LogIn, Play, RefreshCw,
+  ChevronLeft, ChevronRight, Film, LoaderCircle, Play, RefreshCw,
   ShieldAlert, ShieldCheck, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -16,7 +16,6 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { getShopliftingVideoUrl, updateShopliftingAlert, useShopliftingAlerts } from "@/hooks/useShopliftingAlerts";
-import { supabase } from "@/lib/supabase";
 import type { ShopliftingAlert, ShopliftingAlertStatus } from "@/lib/types";
 
 type FilterStatus = "all" | ShopliftingAlertStatus;
@@ -81,9 +80,6 @@ export function AlertasSection() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoLoading, setVideoLoading] = useState(false);
   const [videoPlaybackError, setVideoPlaybackError] = useState<string | null>(null);
-  const [authNeeded, setAuthNeeded] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
   const cameras = useMemo(
@@ -110,11 +106,6 @@ export function AlertasSection() {
     if (!selected) return;
     setSaving(true);
     try {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) {
-        setAuthNeeded(true);
-        throw new Error("Inicia sesión como operador para clasificar la alerta");
-      }
       await updateShopliftingAlert(selected.id, nextStatus);
       toast.success(
         nextStatus === "confirmed"
@@ -148,26 +139,10 @@ export function AlertasSection() {
     }
   }
 
-  async function signIn() {
-    if (!email || !password) return;
-    setVideoLoading(true);
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    setVideoLoading(false);
-    if (signInError) {
-      toast.error(`No se pudo iniciar sesión: ${signInError.message}`);
-      return;
-    }
-    setPassword("");
-    setAuthNeeded(false);
-    toast.success("Sesión de operador iniciada");
-    await openVideo();
-  }
-
   function selectAlert(alert: ShopliftingAlert) {
     setSelected(alert);
     setVideoUrl(null);
     setVideoPlaybackError(null);
-    setAuthNeeded(false);
   }
 
   return (
@@ -331,7 +306,13 @@ export function AlertasSection() {
                   {alert.thumbnail_url ? (
                     // Signed URLs expire and are intentionally rendered without Next's image cache.
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={alert.thumbnail_url} alt={`Alerta cámara ${alert.camera_id}`} className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]" />
+                    <img
+                      src={alert.thumbnail_url}
+                      alt={`Alerta cámara ${alert.camera_id}`}
+                      loading="lazy"
+                      onError={(event) => { event.currentTarget.style.display = "none"; }}
+                      className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+                    />
                   ) : (
                     <span className="flex h-full flex-col items-center justify-center gap-2 text-slate-400">
                       {alert.video_status === "ready" ? <Film size={36} /> : <Camera size={36} />}
@@ -500,14 +481,9 @@ export function AlertasSection() {
                       </Button>
                     )}
                   </div>
-                  {authNeeded && (
-                    <div className="mt-3 grid gap-2 border-t border-slate-200 pt-3 sm:grid-cols-[1fr_1fr_auto]">
-                      <p className="text-[11px] text-slate-500 sm:col-span-3">Inicia sesión únicamente para clasificar la alerta.</p>
-                      <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Correo operador" autoComplete="username" className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-red-300" />
-                      <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Contraseña" autoComplete="current-password" className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-red-300" />
-                      <Button size="sm" disabled={videoLoading || !email || !password} onClick={() => void signIn()}><LogIn /> Ingresar</Button>
-                    </div>
-                  )}
+                  <p className="mt-3 border-t border-slate-200 pt-3 text-[11px] text-slate-500">
+                    La clasificación se guarda con una sesión de revisión auditable y queda vinculada a este MP4 exacto.
+                  </p>
                 </div>
               </div>
               <DialogFooter className="mx-0 mb-0 px-5">

@@ -53,10 +53,26 @@ async function fetchAlerts(): Promise<ShopliftingAlert[]> {
   const urls = await signPaths(
     rows.slice(0, THUMBNAIL_SIGN_LIMIT).map((row) => row.thumbnail_path ?? "")
   );
-  return rows.map((row) => ({
-    ...row,
-    thumbnail_url: row.thumbnail_path ? urls.get(row.thumbnail_path) ?? null : null,
-  }));
+  return rows.map((row) => {
+    const legacyThumbnail = row.thumbnail_path
+      ? urls.get(row.thumbnail_path) ?? null
+      : null;
+    const params = new URLSearchParams({
+      camera_id: row.camera_id,
+      occurred_at: row.occurred_at,
+    });
+    return {
+      ...row,
+      // Evidencia nueva: JPG privado junto al MP4 en GCS. La ruta del API
+      // firma y redirige sin exponer credenciales. Las alertas antiguas
+      // conservan su miniatura legacy de Supabase cuando existe.
+      thumbnail_url: legacyThumbnail ?? (
+        row.video_status === "ready"
+          ? `/api/shoplifting-alerts/${encodeURIComponent(row.id)}/thumbnail?${params}`
+          : null
+      ),
+    };
+  });
 }
 
 export async function getShopliftingVideoUrl(
@@ -87,6 +103,18 @@ export async function updateShopliftingAlert(
   id: string,
   status: Exclude<ShopliftingAlertStatus, "new">
 ): Promise<void> {
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) {
+    throw new Error(`No se pudo preparar la revisión: ${sessionError.message}`);
+  }
+  if (!sessionData.session) {
+    const { error: anonymousError } = await supabase.auth.signInAnonymously();
+    if (anonymousError) {
+      throw new Error(
+        `No se pudo crear la sesión de revisión: ${anonymousError.message}`
+      );
+    }
+  }
   const { error } = await supabase.rpc("review_shoplifting_alert", {
     p_alert_id: id,
     p_status: status,
