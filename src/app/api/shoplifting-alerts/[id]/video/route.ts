@@ -21,16 +21,32 @@ type OidcDiagnostics = {
   owner_id?: string;
   project_id?: string;
   environment?: string;
+  provider_id?: string;
+  sts_audience?: string;
 };
 
 class OidcExchangeError extends Error {
   constructor(
     message: string,
     readonly diagnostics: OidcDiagnostics,
+    readonly detail: string,
   ) {
     super(message);
     this.name = "OidcExchangeError";
   }
+}
+
+function safeErrorDetail(error: unknown): string {
+  const candidate =
+    error && typeof error === "object" && "response" in error
+      ? JSON.stringify((error as { response?: { data?: unknown } }).response?.data)
+      : error instanceof Error
+        ? error.message
+        : "OIDC exchange failed";
+  return candidate
+    .replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, "<jwt>")
+    .replace(/Bearer\s+\S+/gi, "Bearer <redacted>")
+    .slice(0, 500);
 }
 
 function oidcDiagnostics(token: string): OidcDiagnostics {
@@ -103,10 +119,15 @@ async function storageClient(): Promise<Storage> {
     // entregue x-vercel-oidc-token. Además permite separar fallos OIDC de
     // errores posteriores al buscar o firmar el objeto de GCS.
     const subjectToken = await getVercelOidcToken();
-    const diagnostics = oidcDiagnostics(subjectToken);
+    const audience = `//iam.googleapis.com/projects/${projectNumber}/locations/global/workloadIdentityPools/${poolId}/providers/${providerId}`;
+    const diagnostics = {
+      ...oidcDiagnostics(subjectToken),
+      provider_id: providerId,
+      sts_audience: audience,
+    };
     const authClient = ExternalAccountClient.fromJSON({
       type: "external_account",
-      audience: `//iam.googleapis.com/projects/${projectNumber}/locations/global/workloadIdentityPools/${poolId}/providers/${providerId}`,
+      audience,
       subject_token_type: "urn:ietf:params:oauth:token-type:jwt",
       token_url: "https://sts.googleapis.com/v1/token",
       service_account_impersonation_url: `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${serviceAccount}:generateAccessToken`,
@@ -123,6 +144,7 @@ async function storageClient(): Promise<Storage> {
       throw new OidcExchangeError(
         error instanceof Error ? error.message : "OIDC exchange failed",
         diagnostics,
+        safeErrorDetail(error),
       );
     }
     return new Storage({ projectId, authClient });
@@ -216,7 +238,7 @@ export async function GET(
         stage,
         code,
         ...(error instanceof OidcExchangeError
-          ? { oidc: error.diagnostics }
+          ? { oidc: error.diagnostics, detail: error.detail }
           : {}),
       },
       500,
