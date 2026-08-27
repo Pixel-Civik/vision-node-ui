@@ -58,6 +58,37 @@ function alertDelay(alert: ShopliftingAlert): number | null {
   return typeof value === "number" ? value : null;
 }
 
+function AlertPreview({
+  alert,
+  className,
+}: {
+  alert: ShopliftingAlert;
+  className: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (!alert.thumbnail_url || failed) {
+    return (
+      <span className={`flex flex-col items-center justify-center gap-2 bg-slate-900 text-slate-400 ${className}`}>
+        {alert.video_status === "ready" ? <Film size={36} /> : <Camera size={36} />}
+        <span className="text-[11px] font-semibold">
+          {alert.video_status === "ready" ? "Video privado disponible" : "Sin vista previa"}
+        </span>
+      </span>
+    );
+  }
+  return (
+    // Signed URLs expire and are intentionally rendered without Next's image cache.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={alert.thumbnail_url}
+      alt={`Alerta cámara ${alert.camera_id}`}
+      loading="lazy"
+      onError={() => setFailed(true)}
+      className={className}
+    />
+  );
+}
+
 function paginationPages(currentPage: number, totalPages: number): Array<number | string> {
   const candidates = [1, currentPage - 1, currentPage, currentPage + 1, totalPages]
     .filter((page) => page >= 1 && page <= totalPages);
@@ -303,24 +334,10 @@ export function AlertasSection() {
                 className={`group overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${alert.status === "new" ? "border-red-200 ring-1 ring-red-100" : "border-slate-100"}`}
               >
                 <button className="relative block aspect-video w-full overflow-hidden bg-slate-900 text-left" onClick={() => selectAlert(alert)}>
-                  {alert.thumbnail_url ? (
-                    // Signed URLs expire and are intentionally rendered without Next's image cache.
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={alert.thumbnail_url}
-                      alt={`Alerta cámara ${alert.camera_id}`}
-                      loading="lazy"
-                      onError={(event) => { event.currentTarget.style.display = "none"; }}
-                      className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
-                    />
-                  ) : (
-                    <span className="flex h-full flex-col items-center justify-center gap-2 text-slate-400">
-                      {alert.video_status === "ready" ? <Film size={36} /> : <Camera size={36} />}
-                      <span className="text-[11px] font-semibold">
-                        {alert.video_status === "ready" ? "Video privado disponible" : "Sin vista previa"}
-                      </span>
-                    </span>
-                  )}
+                  <AlertPreview
+                    alert={alert}
+                    className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+                  />
                   <span className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent" />
                   <span className="absolute left-3 top-3 rounded-full bg-red-600 px-2.5 py-1 text-[10px] font-bold tracking-wide text-white shadow">SOSPECHOSO</span>
                   <span className="absolute inset-0 flex items-center justify-center opacity-0 transition group-hover:opacity-100">
@@ -442,9 +459,11 @@ export function AlertasSection() {
                     )}
                   </div>
                 ) : selected.thumbnail_url ? (
-                  // Signed image URL intentionally bypasses Next's persistent cache.
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={selected.thumbnail_url} alt={`Alerta cámara ${selected.camera_id}`} className="max-h-[68vh] w-full object-contain" />
+                  <AlertPreview
+                    key={selected.id}
+                    alert={selected}
+                    className="aspect-video max-h-[68vh] w-full object-contain"
+                  />
                 ) : (
                   <div className="flex aspect-video items-center justify-center text-slate-400"><Camera size={40} /></div>
                 )}
