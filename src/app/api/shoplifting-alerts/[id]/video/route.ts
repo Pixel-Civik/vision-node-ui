@@ -15,61 +15,6 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const CAMERA_ID = /^[a-zA-Z0-9_-]{1,64}$/;
 const URL_NAMESPACE = Buffer.from("6ba7b8119dad11d180b400c04fd430c8", "hex");
 
-type OidcDiagnostics = {
-  iss?: string;
-  aud?: string | string[];
-  owner_id?: string;
-  project_id?: string;
-  environment?: string;
-  provider_id?: string;
-  sts_audience?: string;
-};
-
-class OidcExchangeError extends Error {
-  constructor(
-    message: string,
-    readonly diagnostics: OidcDiagnostics,
-    readonly detail: string,
-  ) {
-    super(message);
-    this.name = "OidcExchangeError";
-  }
-}
-
-function safeErrorDetail(error: unknown): string {
-  const candidate =
-    error && typeof error === "object" && "response" in error
-      ? JSON.stringify((error as { response?: { data?: unknown } }).response?.data)
-      : error instanceof Error
-        ? error.message
-        : "OIDC exchange failed";
-  return candidate
-    .replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, "<jwt>")
-    .replace(/Bearer\s+\S+/gi, "Bearer <redacted>")
-    .slice(0, 500);
-}
-
-function oidcDiagnostics(token: string): OidcDiagnostics {
-  try {
-    const payload = JSON.parse(
-      Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8"),
-    ) as Record<string, unknown>;
-    return {
-      iss: typeof payload.iss === "string" ? payload.iss : undefined,
-      aud:
-        typeof payload.aud === "string" || Array.isArray(payload.aud)
-          ? (payload.aud as string | string[])
-          : undefined,
-      owner_id: typeof payload.owner_id === "string" ? payload.owner_id : undefined,
-      project_id: typeof payload.project_id === "string" ? payload.project_id : undefined,
-      environment:
-        typeof payload.environment === "string" ? payload.environment : undefined,
-    };
-  } catch {
-    return {};
-  }
-}
-
 function response(body: object, status: number) {
   const revision = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ?? "local";
   return Response.json(body, {
@@ -120,11 +65,6 @@ async function storageClient(): Promise<Storage> {
     // errores posteriores al buscar o firmar el objeto de GCS.
     const subjectToken = await getVercelOidcToken();
     const audience = `//iam.googleapis.com/projects/${projectNumber}/locations/global/workloadIdentityPools/${poolId}/providers/${providerId}`;
-    const diagnostics = {
-      ...oidcDiagnostics(subjectToken),
-      provider_id: providerId,
-      sts_audience: audience,
-    };
     const authClient = ExternalAccountClient.fromJSON({
       type: "external_account",
       audience,
@@ -138,15 +78,7 @@ async function storageClient(): Promise<Storage> {
       subject_token_supplier: { getSubjectToken: async () => subjectToken },
     });
     if (!authClient) throw new Error("No se pudo iniciar identidad efímera GCP");
-    try {
-      await authClient.getAccessToken();
-    } catch (error) {
-      throw new OidcExchangeError(
-        error instanceof Error ? error.message : "OIDC exchange failed",
-        diagnostics,
-        safeErrorDetail(error),
-      );
-    }
+    await authClient.getAccessToken();
     return new Storage({ projectId, authClient });
   }
   return new Storage({ projectId });
@@ -232,16 +164,6 @@ export async function GET(
   } catch (error) {
     const code = safeErrorCode(error);
     console.error("shoplifting public video signed URL", { stage, code, error });
-    return response(
-      {
-        error: "No se pudo abrir el video",
-        stage,
-        code,
-        ...(error instanceof OidcExchangeError
-          ? { oidc: error.diagnostics, detail: error.detail }
-          : {}),
-      },
-      500,
-    );
+    return response({ error: "No se pudo abrir el video", stage, code }, 500);
   }
 }
