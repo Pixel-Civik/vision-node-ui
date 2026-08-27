@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, Camera, CheckCircle2, Clock3, Eye, Filter,
   ChevronLeft, ChevronRight, Film, LoaderCircle, Play, RefreshCw,
@@ -112,6 +112,8 @@ export function AlertasSection() {
   const [videoLoading, setVideoLoading] = useState(false);
   const [videoPlaybackError, setVideoPlaybackError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const videoRequestId = useRef(0);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const cameras = useMemo(
     () => [...new Set(alerts.map((alert) => alert.camera_id))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
@@ -143,7 +145,7 @@ export function AlertasSection() {
           ? "Alerta confirmada y vinculada al video de entrenamiento"
           : "Falso positivo guardado como muestra normal"
       );
-      setSelected(null);
+      closeAlert();
       await refetch();
     } catch (reviewError) {
       toast.error(reviewError instanceof Error ? reviewError.message : "No se pudo guardar la revisión");
@@ -152,27 +154,41 @@ export function AlertasSection() {
     }
   }
 
-  async function openVideo() {
-    if (!selected) return;
+  async function openVideo(alert: ShopliftingAlert | null = selected) {
+    if (!alert || alert.video_status !== "ready") return;
+    const requestId = ++videoRequestId.current;
     setVideoLoading(true);
     setVideoPlaybackError(null);
     try {
-      setVideoUrl(await getShopliftingVideoUrl(
-        selected.id,
-        selected.camera_id,
-        selected.occurred_at,
-      ));
+      const url = await getShopliftingVideoUrl(
+        alert.id,
+        alert.camera_id,
+        alert.occurred_at,
+      );
+      if (requestId === videoRequestId.current) setVideoUrl(url);
     } catch (videoError) {
+      if (requestId !== videoRequestId.current) return;
       const message = videoError instanceof Error ? videoError.message : "Video no disponible";
       toast.error(message);
     } finally {
-      setVideoLoading(false);
+      if (requestId === videoRequestId.current) setVideoLoading(false);
     }
   }
 
   function selectAlert(alert: ShopliftingAlert) {
+    videoRequestId.current += 1;
     setSelected(alert);
     setVideoUrl(null);
+    setVideoLoading(false);
+    setVideoPlaybackError(null);
+    if (alert.video_status === "ready") void openVideo(alert);
+  }
+
+  function closeAlert() {
+    videoRequestId.current += 1;
+    setSelected(null);
+    setVideoUrl(null);
+    setVideoLoading(false);
     setVideoPlaybackError(null);
   }
 
@@ -331,9 +347,16 @@ export function AlertasSection() {
             return (
               <article
                 key={alert.id}
-                className={`group overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${alert.status === "new" ? "border-red-200 ring-1 ring-red-100" : "border-slate-100"}`}
+                onClick={() => selectAlert(alert)}
+                className={`group cursor-pointer overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${alert.status === "new" ? "border-red-200 ring-1 ring-red-100" : "border-slate-100"}`}
               >
-                <button className="relative block aspect-video w-full overflow-hidden bg-slate-900 text-left" onClick={() => selectAlert(alert)}>
+                <button
+                  className="relative block aspect-video w-full overflow-hidden bg-slate-900 text-left"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    selectAlert(alert);
+                  }}
+                >
                   <AlertPreview
                     alert={alert}
                     className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
@@ -362,7 +385,14 @@ export function AlertasSection() {
                     <Film size={12} />
                     {alert.video_status === "ready" ? "MP4 listo para revisión" : alert.video_status === "pending" ? "MP4 subiendo" : "Sin MP4 asociado"}
                   </p>
-                  <Button variant="outline" className="w-full border-slate-200 text-slate-700" onClick={() => selectAlert(alert)}><Eye /> Ver evidencia</Button>
+                  <Button
+                    variant="outline"
+                    className="w-full border-slate-200 text-slate-700"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      selectAlert(alert);
+                    }}
+                  ><Eye /> Ver evidencia</Button>
                 </div>
               </article>
             );
@@ -429,7 +459,7 @@ export function AlertasSection() {
         </div>
       )}
 
-      <Dialog open={!!selected} onOpenChange={(open) => !open && !saving && setSelected(null)}>
+      <Dialog open={!!selected} onOpenChange={(open) => !open && !saving && closeAlert()}>
         <DialogContent className="max-h-[92vh] overflow-y-auto p-0 sm:max-w-4xl">
           {selected && (
             <>
@@ -438,11 +468,15 @@ export function AlertasSection() {
                   <div className="relative">
                     <video
                       key={videoUrl}
+                      ref={videoRef}
                       controls
                       autoPlay
                       muted
                       playsInline
                       preload="metadata"
+                      onCanPlay={() => {
+                        void videoRef.current?.play().catch(() => undefined);
+                      }}
                       onLoadedMetadata={() => setVideoPlaybackError(null)}
                       onError={() => setVideoPlaybackError(
                         "El archivo no puede reproducirse en este navegador. Actualiza la alerta o espera la nueva versión H.264."
@@ -494,9 +528,10 @@ export function AlertasSection() {
                           : "Esta alerta aún no tiene video cloud"}
                       </p>
                     </div>
-                    {selected.video_status === "ready" && (
+                    {selected.video_status === "ready" && !videoUrl && (
                       <Button size="sm" disabled={videoLoading} onClick={() => void openVideo()} className="bg-slate-900 text-white hover:bg-slate-800">
-                        {videoLoading ? <LoaderCircle className="animate-spin" /> : <Play />} Reproducir
+                        {videoLoading ? <LoaderCircle className="animate-spin" /> : <Play />}
+                        {videoLoading ? "Cargando video" : "Reintentar"}
                       </Button>
                     )}
                   </div>

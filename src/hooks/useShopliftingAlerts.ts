@@ -57,6 +57,11 @@ async function fetchAlerts(): Promise<ShopliftingAlert[]> {
     const legacyThumbnail = row.thumbnail_path
       ? urls.get(row.thumbnail_path) ?? null
       : null;
+    const gcsThumbnailObject = row.metadata?.gcs_thumbnail_object;
+    const hasGcsThumbnail = (
+      typeof gcsThumbnailObject === "string"
+      && gcsThumbnailObject.trim().length > 0
+    );
     const params = new URLSearchParams({
       camera_id: row.camera_id,
       occurred_at: row.occurred_at,
@@ -67,7 +72,7 @@ async function fetchAlerts(): Promise<ShopliftingAlert[]> {
       // firma y redirige sin exponer credenciales. Las alertas antiguas
       // conservan su miniatura legacy de Supabase cuando existe.
       thumbnail_url: legacyThumbnail ?? (
-        row.video_status === "ready"
+        row.video_status === "ready" && hasGcsThumbnail
           ? `/api/shoplifting-alerts/${encodeURIComponent(row.id)}/thumbnail?${params}`
           : null
       ),
