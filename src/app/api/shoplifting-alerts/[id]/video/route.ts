@@ -16,7 +16,27 @@ const CAMERA_ID = /^[a-zA-Z0-9_-]{1,64}$/;
 const URL_NAMESPACE = Buffer.from("6ba7b8119dad11d180b400c04fd430c8", "hex");
 
 function response(body: object, status: number) {
-  return Response.json(body, { status, headers: NO_STORE });
+  const revision = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ?? "local";
+  return Response.json(body, {
+    status,
+    headers: { ...NO_STORE, "X-App-Revision": revision },
+  });
+}
+
+function safeErrorCode(error: unknown): string {
+  const name = error instanceof Error ? error.name : "UnknownError";
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  if (message.includes("oidc token") || message.includes("vercel_oidc_token")) {
+    return "OIDC_TOKEN_UNAVAILABLE";
+  }
+  if (message.includes("invalid_target") || message.includes("audience")) {
+    return "OIDC_AUDIENCE_REJECTED";
+  }
+  if (message.includes("attribute condition")) return "OIDC_ATTRIBUTE_REJECTED";
+  if (message.includes("permission") || message.includes("forbidden")) {
+    return "GCP_PERMISSION_DENIED";
+  }
+  return name.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 64);
 }
 
 function uuid5(value: string): string {
@@ -40,6 +60,10 @@ async function storageClient(): Promise<Storage> {
   const providerId = process.env.GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID;
   const serviceAccount = process.env.GCP_SERVICE_ACCOUNT_EMAIL;
   if (projectNumber && poolId && providerId && serviceAccount) {
+    // Obtenerlo dentro del contexto de la petición garantiza que Vercel
+    // entregue x-vercel-oidc-token. Además permite separar fallos OIDC de
+    // errores posteriores al buscar o firmar el objeto de GCS.
+    const subjectToken = await getVercelOidcToken();
     const authClient = ExternalAccountClient.fromJSON({
       type: "external_account",
       audience: `//iam.googleapis.com/projects/${projectNumber}/locations/global/workloadIdentityPools/${poolId}/providers/${providerId}`,
@@ -50,9 +74,10 @@ async function storageClient(): Promise<Storage> {
       // Vercel helper directly makes that context look like Vercel OIDC options
       // and exchanges the token to the WIF resource audience. The provider is
       // intentionally configured for Vercel's native audience instead.
-      subject_token_supplier: { getSubjectToken: () => getVercelOidcToken() },
+      subject_token_supplier: { getSubjectToken: async () => subjectToken },
     });
     if (!authClient) throw new Error("No se pudo iniciar identidad efímera GCP");
+    await authClient.getAccessToken();
     return new Storage({ projectId, authClient });
   }
   return new Storage({ projectId });
@@ -102,6 +127,7 @@ export async function GET(
   request: Request,
   context: RouteContext<"/api/shoplifting-alerts/[id]/video">
 ) {
+  let stage = "request";
   try {
     const { id } = await context.params;
     if (!UUID.test(id)) return response({ error: "Alerta inválida" }, 400);
@@ -113,16 +139,20 @@ export async function GET(
       return response({ error: "Contexto de alerta inválido" }, 400);
     }
 
+    stage = "configuration";
     const bucketName = process.env.GCP_STORAGE_BUCKET;
     if (!bucketName) return response({ error: "Storage no configurado" }, 503);
     const objectRoot = (process.env.GCP_STORAGE_OBJECT_PREFIX ?? "shoplifting/tienda")
       .replace(/^\/+|\/+$/g, "");
     if (!objectRoot) return response({ error: "Prefijo no configurado" }, 503);
 
+    stage = "gcp_auth";
     const storage = await storageClient();
+    stage = "gcs_lookup";
     const file = await findVideo(storage, bucketName, objectRoot, cameraId, occurredAt, id);
     if (!file) return response({ error: "Video no encontrado o todavía subiendo" }, 404);
 
+    stage = "gcs_sign";
     const expiresAt = Date.now() + 5 * 60 * 1000;
     const [signedUrl] = await file.getSignedUrl({
       version: "v4",
@@ -131,7 +161,8 @@ export async function GET(
     });
     return response({ url: signedUrl, expires_at: new Date(expiresAt).toISOString() }, 200);
   } catch (error) {
-    console.error("shoplifting public video signed URL", error);
-    return response({ error: "No se pudo abrir el video" }, 500);
+    const code = safeErrorCode(error);
+    console.error("shoplifting public video signed URL", { stage, code, error });
+    return response({ error: "No se pudo abrir el video", stage, code }, 500);
   }
 }
