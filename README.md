@@ -107,9 +107,10 @@ Se declaran en `.env.local`, que **no se versiona**.
 | `GCP_PROJECT_ID`                | Videos      | `lens-506116`; solo servidor                        |
 | `GCP_PROJECT_NUMBER`            | Videos      | `1039739275295`; solo servidor                      |
 | `GCP_STORAGE_BUCKET`            | Videos      | `lens-506116-shoplifting-evidence`                  |
+| `GCP_STORAGE_OBJECT_PREFIX`     | Videos      | `shoplifting/tienda`                                |
 | `GCP_SERVICE_ACCOUNT_EMAIL`     | Videos      | Identidad de firma Vercel                           |
 | `GCP_WORKLOAD_IDENTITY_POOL_ID` | Videos      | `vercel-shoplifting`                                |
-| `GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID` | Videos | `vercel-production`                              |
+| `GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID` | Videos | `vercel-lens-production`                         |
 
 El prefijo `NEXT_PUBLIC_` expone la variable al navegador. Por eso aquí solo
 puede usarse la clave `anon`, nunca `service_role`: esta última omite las
