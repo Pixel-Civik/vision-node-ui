@@ -15,6 +15,45 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const CAMERA_ID = /^[a-zA-Z0-9_-]{1,64}$/;
 const URL_NAMESPACE = Buffer.from("6ba7b8119dad11d180b400c04fd430c8", "hex");
 
+type OidcDiagnostics = {
+  iss?: string;
+  aud?: string | string[];
+  owner_id?: string;
+  project_id?: string;
+  environment?: string;
+};
+
+class OidcExchangeError extends Error {
+  constructor(
+    message: string,
+    readonly diagnostics: OidcDiagnostics,
+  ) {
+    super(message);
+    this.name = "OidcExchangeError";
+  }
+}
+
+function oidcDiagnostics(token: string): OidcDiagnostics {
+  try {
+    const payload = JSON.parse(
+      Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8"),
+    ) as Record<string, unknown>;
+    return {
+      iss: typeof payload.iss === "string" ? payload.iss : undefined,
+      aud:
+        typeof payload.aud === "string" || Array.isArray(payload.aud)
+          ? (payload.aud as string | string[])
+          : undefined,
+      owner_id: typeof payload.owner_id === "string" ? payload.owner_id : undefined,
+      project_id: typeof payload.project_id === "string" ? payload.project_id : undefined,
+      environment:
+        typeof payload.environment === "string" ? payload.environment : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
 function response(body: object, status: number) {
   const revision = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ?? "local";
   return Response.json(body, {
@@ -64,6 +103,7 @@ async function storageClient(): Promise<Storage> {
     // entregue x-vercel-oidc-token. Además permite separar fallos OIDC de
     // errores posteriores al buscar o firmar el objeto de GCS.
     const subjectToken = await getVercelOidcToken();
+    const diagnostics = oidcDiagnostics(subjectToken);
     const authClient = ExternalAccountClient.fromJSON({
       type: "external_account",
       audience: `//iam.googleapis.com/projects/${projectNumber}/locations/global/workloadIdentityPools/${poolId}/providers/${providerId}`,
@@ -77,7 +117,14 @@ async function storageClient(): Promise<Storage> {
       subject_token_supplier: { getSubjectToken: async () => subjectToken },
     });
     if (!authClient) throw new Error("No se pudo iniciar identidad efímera GCP");
-    await authClient.getAccessToken();
+    try {
+      await authClient.getAccessToken();
+    } catch (error) {
+      throw new OidcExchangeError(
+        error instanceof Error ? error.message : "OIDC exchange failed",
+        diagnostics,
+      );
+    }
     return new Storage({ projectId, authClient });
   }
   return new Storage({ projectId });
@@ -163,6 +210,16 @@ export async function GET(
   } catch (error) {
     const code = safeErrorCode(error);
     console.error("shoplifting public video signed URL", { stage, code, error });
-    return response({ error: "No se pudo abrir el video", stage, code }, 500);
+    return response(
+      {
+        error: "No se pudo abrir el video",
+        stage,
+        code,
+        ...(error instanceof OidcExchangeError
+          ? { oidc: error.diagnostics }
+          : {}),
+      },
+      500,
+    );
   }
 }
