@@ -182,11 +182,11 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
   const uptime = useUptime(filterTs.start, filterTs.end);
 
   return (
-    <div className="px-4 md:px-6 py-5 space-y-5">
+    <div className="mx-auto min-w-0 max-w-[1800px] space-y-5 px-3 py-4 sm:px-4 sm:py-5 md:px-6">
 
       {/* ── Header ── */}
       <div>
-        <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+        <h1 className="flex items-center gap-2 text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
           <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-800">
             <Camera size={14} className="text-[#2DD4BF]" />
           </span>

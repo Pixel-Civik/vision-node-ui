@@ -22,6 +22,8 @@ export interface EdgeNode {
   service_name: string;
   status: EdgeStatus;
   service_status: string;
+  service_status_changed_at: string;
+  service_status_age_min: number;
   reported_at: string;
   last_seen_at: string;
   heartbeat_age_sec: number;
@@ -51,13 +53,26 @@ export interface EdgeNode {
   metadata: Record<string, unknown>;
 }
 
-interface EdgeFleetResponse { server_time: string; nodes: EdgeNode[] }
-const EMPTY: EdgeFleetResponse = { server_time: "", nodes: [] };
+export interface EdgeMetricSample {
+  node_id: string;
+  sampled_at: string;
+  service_status: string;
+  cpu_pct: number | null;
+  memory_pct: number | null;
+  disk_pct: number | null;
+  gpu_pct: number | null;
+  cpu_temp_c: number | null;
+  gpu_temp_c: number | null;
+  upload_pending: number;
+}
+
+interface EdgeFleetResponse { server_time: string; nodes: EdgeNode[]; history: EdgeMetricSample[] }
+const EMPTY: EdgeFleetResponse = { server_time: "", nodes: [], history: [] };
 
 export function useEdgeFleet() {
   const query = useQuery({
     queryKey: ["edge-fleet"],
-    queryFn: ({ signal }) => rpcOne<EdgeFleetResponse>("dashboard_edge_nodes", {}, signal),
+    queryFn: ({ signal }) => rpcOne<EdgeFleetResponse>("dashboard_edge_fleet", { p_hours: 24 }, signal),
     staleTime: 15_000,
     refetchInterval: 30_000,
     refetchIntervalInBackground: true,

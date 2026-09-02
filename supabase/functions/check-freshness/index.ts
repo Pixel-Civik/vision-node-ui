@@ -1,17 +1,23 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-type AlertType = "node_offline" | "tracking_stale";
+type AlertType = "node_offline" | "tracking_stale" | "service_unhealthy";
 type AlertState = {
-  node_id: string; site: string; display_name: string; alert_type: AlertType;
+  node_id: string; site: string; display_name: string; service_name: string;
+  service_status: string; alert_type: AlertType;
   active: boolean; age_min: number; last_signal_at: string;
 };
 
 const REMINDER_MIN = Math.max(15, Number(Deno.env.get("EDGE_ALERT_REMINDER_MIN") ?? "30"));
-const label = (type: AlertType) =>
-  type === "node_offline" ? "Mini-PC fuera de servicio" : "Sin Tracking ID";
+const label = (state: AlertState) => {
+  if (state.alert_type === "node_offline") return "Mini-PC fuera de servicio";
+  if (state.alert_type === "tracking_stale") return "Tracking sin IDs nuevos";
+  return state.service_name === "shoplifting"
+    ? "Shoplifting degradado o detenido"
+    : "Tracking degradado o detenido";
+};
 
 async function sendEmail(apiKey: string, from: string, to: string[], state: AlertState, reminder: boolean) {
-  const title = label(state.alert_type);
+  const title = label(state);
   const subject = `${reminder ? "🔴 RECORDATORIO" : "⚠️ ALERTA"} — ${title}: ${state.display_name}`;
   const lastSignal = new Intl.DateTimeFormat("es-PE", {
     timeZone: "America/Lima", dateStyle: "short", timeStyle: "medium",
@@ -27,7 +33,8 @@ async function sendEmail(apiKey: string, from: string, to: string[], state: Aler
         <table style="border-collapse:collapse;width:100%">
           <tr><td style="padding:8px;background:#f8fafc;font-weight:bold">Equipo</td><td style="padding:8px;background:#f8fafc">${state.display_name}</td></tr>
           <tr><td style="padding:8px;font-weight:bold">Nodo / sede</td><td style="padding:8px">${state.node_id} · ${state.site}</td></tr>
-          <tr><td style="padding:8px;background:#f8fafc;font-weight:bold">Tiempo sin señal</td><td style="padding:8px;background:#f8fafc">${state.age_min} min</td></tr>
+          <tr><td style="padding:8px;background:#f8fafc;font-weight:bold">Servicio</td><td style="padding:8px;background:#f8fafc">${state.service_name} · ${state.service_status}</td></tr>
+          <tr><td style="padding:8px;font-weight:bold">Duración del problema</td><td style="padding:8px">${state.age_min} min</td></tr>
           <tr><td style="padding:8px;font-weight:bold">Última señal</td><td style="padding:8px">${lastSignal}</td></tr>
         </table>
         <p style="font-size:12px;color:#64748b;margin-top:18px">Pixel Civik · Monitoreo automático de infraestructura</p>
