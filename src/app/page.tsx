@@ -130,7 +130,7 @@ export default function App() {
   return (
     <>
     <Toaster position="top-right" />
-    <div className="flex h-screen bg-slate-50">
+    <div className="flex h-dvh min-h-0 overflow-hidden bg-slate-50">
       {/* ── Mobile overlay ───────────────────────────────────────────────── */}
       {sidebarOpen && (
         <div
@@ -143,8 +143,8 @@ export default function App() {
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
       <aside
         id="app-sidebar"
-        className={`fixed inset-y-0 left-0 z-50 flex w-[min(18rem,86vw)] flex-col bg-[#0B1222] shadow-2xl transition-transform duration-300 ease-out
-          sm:w-64 xl:static xl:flex xl:w-56 xl:translate-x-0 xl:shadow-none ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`fixed inset-y-0 left-0 z-50 flex h-dvh max-h-dvh w-[min(18rem,86vw)] shrink-0 flex-col overflow-hidden bg-[#0B1222] shadow-2xl transition-transform duration-300 ease-out
+          sm:w-64 xl:sticky xl:inset-auto xl:top-0 xl:flex xl:h-dvh xl:w-56 xl:self-start xl:translate-x-0 xl:shadow-none ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <button
           onClick={() => setSidebarOpen(false)}
@@ -164,10 +164,10 @@ export default function App() {
       </aside>
 
       {/* ── Main content ─────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex h-dvh min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <TopBar open={sidebarOpen} onOpen={() => setSidebarOpen(true)} onClose={() => setSidebarOpen(false)} />
 
-        <main className="flex-1 overflow-y-auto overscroll-contain">
+        <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
           {data.error && (
             <div className="mx-6 mt-4 flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
               <AlertTriangle size={15} />

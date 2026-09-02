@@ -29,7 +29,7 @@ export function Sidebar({
   return (
     <>
       {/* ── Logo & brand ──────────────────────────────────────────────── */}
-      <div className="px-4 py-5 border-b border-white/10">
+      <div className="shrink-0 border-b border-white/10 px-4 py-5">
         <div className="bg-[#1C2B45] rounded-2xl px-4 py-4 flex items-center justify-center">
           {/* fill + aspect-ratio avoids the Next.js width/height mismatch warning */}
           <div className="relative w-full" style={{ aspectRatio: "160 / 110" }}>
@@ -49,7 +49,7 @@ export function Sidebar({
       </div>
 
       {/* ── Navigation ────────────────────────────────────────────────── */}
-      <nav className="flex-1 px-3 py-5 space-y-1">
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-3 py-5 [scrollbar-gutter:stable]">
         <p className="px-3 pb-3 text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
           Navegación
         </p>
@@ -57,7 +57,7 @@ export function Sidebar({
       </nav>
 
       {/* ── Footer: refresh + date range ──────────────────────────────── */}
-      <div className="px-4 py-4 border-t border-white/10">
+      <div className="shrink-0 border-t border-white/10 bg-[#0B1222] px-4 py-4">
         <button
           onClick={onRefresh}
           disabled={loading}
