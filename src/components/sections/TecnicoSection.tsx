@@ -197,10 +197,14 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
         </p>
       </div>
 
-      <EdgeFleetPanel />
-
       {/* ── Filtro de período (al tope, igual que en general) ── */}
       <FilterPanel opts={opts} values={filterValues} onChange={onFilterChange} />
+
+      <EdgeFleetPanel
+        filterValues={filterValues}
+        opts={opts}
+        onFilterChange={onFilterChange}
+      />
 
       {/* ── Indicadores del período ── */}
       <div className="space-y-4">

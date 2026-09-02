@@ -429,6 +429,29 @@ proteger `main` exigiendo Pull Request y revisión.
 
 ---
 
+## Panel técnico de equipos y cámaras
+
+La sección **Panel Técnico** consume `dashboard_edge_fleet_filtered` y muestra
+un panel independiente por N100/Jetson. El período, la sede, la cámara y el
+tipo de detección filtran tanto el estado como las gráficas. Supabase conserva
+una muestra cada cinco minutos y agrega automáticamente las ventanas largas
+para que una consulta de hasta 30 días no sobrecargue el proyecto gratuito.
+
+Cada cámara reporta FPS, videos terminados en la última hora, errores desde el
+último arranque y hora de la última imagen válida. `check-freshness` revisa cada
+cinco minutos y administra incidencias separadas para:
+
+- equipo sin heartbeat durante 30 minutos;
+- servicio de tracking/shoplifting degradado durante cinco minutos;
+- cámara sin imágenes durante cinco minutos;
+- tracking N100 sin IDs nuevos durante 30 minutos en horario operativo.
+
+La migración que habilita estos datos es
+`supabase/migrations/20260902203000_camera_technical_metrics_alerts.sql`. Las
+métricas nuevas aparecen después de reconstruir y reiniciar los contenedores
+de N100 y Jetson; los agentes anteriores siguen siendo compatibles y no generan
+falsas alertas de cámara durante el despliegue gradual.
+
 ## Seguridad
 
 - `.env.local` y todo archivo `.env*` están excluidos del control de versiones.
