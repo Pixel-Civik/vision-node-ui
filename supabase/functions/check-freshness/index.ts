@@ -9,7 +9,11 @@ type AlertState = {
 
 const REMINDER_MIN = Math.max(15, Number(Deno.env.get("EDGE_ALERT_REMINDER_MIN") ?? "30"));
 const label = (state: AlertState) => {
-  if (state.alert_type === "node_offline") return "Mini-PC fuera de servicio";
+  if (state.alert_type === "node_offline") {
+    return state.service_name === "shoplifting"
+      ? "Jetson o Shoplifting sin heartbeat"
+      : "Mini-PC o Tracking sin heartbeat";
+  }
   if (state.alert_type === "tracking_stale") return "Tracking sin IDs nuevos";
   return state.service_name === "shoplifting"
     ? "Shoplifting degradado o detenido"

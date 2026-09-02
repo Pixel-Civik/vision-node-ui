@@ -136,7 +136,7 @@ stable
 security definer
 set search_path = public, pg_temp
 as $$
-  -- 1. La máquina completa dejó de enviar heartbeat.
+  -- 1. El nodo o el proceso que publica su telemetría dejó de enviar heartbeat.
   select n.node_id, n.site, n.display_name, n.service_name, n.service_status,
     'node_offline'::text,
     now() - n.last_seen_at > make_interval(secs => n.offline_after_sec),
