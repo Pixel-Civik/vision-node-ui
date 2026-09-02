@@ -52,6 +52,10 @@ as $$
         when now() - n.last_seen_at > make_interval(secs => n.offline_after_sec) then 'offline'
         when now() - n.last_seen_at > make_interval(secs => n.heartbeat_warn_sec)
           or n.service_status in ('degraded', 'error', 'stopped')
+          or (
+            n.service_status = 'starting'
+            and now() - n.service_status_changed_at > make_interval(secs => n.service_alert_after_sec)
+          )
           or coalesce(n.cpu_pct, 0) >= 95
           or coalesce(n.memory_pct, 0) >= 95
           or coalesce(n.disk_pct, 0) >= 90
@@ -167,7 +171,7 @@ as $$
   select n.node_id, n.site, n.display_name, n.service_name, n.service_status,
     'service_unhealthy'::text,
     now() - n.last_seen_at <= make_interval(secs => n.offline_after_sec)
-      and n.service_status not in ('running', 'scheduled', 'healthy', 'starting')
+      and n.service_status not in ('running', 'scheduled', 'healthy')
       and now() - n.service_status_changed_at > make_interval(secs => n.service_alert_after_sec),
     greatest(0, extract(epoch from now() - n.service_status_changed_at) / 60)::integer,
     n.service_status_changed_at
@@ -177,4 +181,3 @@ $$;
 
 revoke all on function public.edge_node_alert_states() from public, anon, authenticated;
 grant execute on function public.edge_node_alert_states() to service_role;
-
