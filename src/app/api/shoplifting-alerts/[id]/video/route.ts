@@ -1,5 +1,6 @@
 import {
   findAlertVideo,
+  resolveAlertEvidence,
   safeGcsErrorCode,
   signReadUrl,
 } from "@/lib/server/shoplifting-gcs";
@@ -38,13 +39,30 @@ export async function GET(
       return response({ error: "Contexto de alerta inválido" }, 400);
     }
 
-    stage = "configuration";
-    stage = "gcs_lookup";
-    const file = await findAlertVideo(cameraId, occurredAt, id);
+    stage = "supabase_lookup";
+    let file = null;
+    try {
+      file = (await resolveAlertEvidence(id, cameraId, occurredAt))?.video ?? null;
+    } catch (lookupError) {
+      // Compatibilidad durante despliegues escalonados: la migración puede
+      // llegar unos minutos después del frontend. El fallback no afecta el
+      // camino normal O(1), pero mantiene accesible evidencia histórica.
+      console.warn("shoplifting evidence RPC fallback", {
+        code: safeGcsErrorCode(lookupError),
+      });
+    }
+    if (!file) {
+      stage = "gcs_legacy_lookup";
+      file = await findAlertVideo(cameraId, occurredAt, id);
+    }
     if (!file) return response({ error: "Video no encontrado o todavía subiendo" }, 404);
 
     stage = "gcs_sign";
-    const { url, expiresAt } = await signReadUrl(file);
+    const download = requestUrl.searchParams.get("download") === "1";
+    const disposition = download
+      ? `attachment; filename="alerta-${id}.mp4"`
+      : undefined;
+    const { url, expiresAt } = await signReadUrl(file, 5 * 60 * 1000, disposition);
     return response({ url, expires_at: new Date(expiresAt).toISOString() }, 200);
   } catch (error) {
     const code = safeGcsErrorCode(error);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { GenderRow, AgeRow, TIZRaw, DashboardFilters } from "@/lib/types";
 import { fetchGenderAge, fetchTIZDirect } from "@/lib/api";
 
@@ -12,41 +12,48 @@ export interface AnalyticsData {
   analyticsLoading: boolean;
 }
 
-export function useAnalytics(filters: DashboardFilters): AnalyticsData {
-  const [state, setState] = useState<Omit<AnalyticsData, "analyticsLoading">>({
-    genderEnter: [],
-    ageEnter: [],
-    genderVisitor: [],
-    tizRaw: [],
+interface AnalyticsOptions {
+  genderEnter?: boolean;
+  genderVisitor?: boolean;
+  tiz?: boolean;
+}
+
+/** Cada análisis se consulta y almacena en caché solo al abrir su pestaña. */
+export function useAnalytics(
+  filters: DashboardFilters,
+  options: AnalyticsOptions = { genderEnter: true, genderVisitor: true, tiz: true },
+): AnalyticsData {
+  const wantEnter = options.genderEnter ?? false;
+  const wantVisitor = options.genderVisitor ?? false;
+  const wantTiz = options.tiz ?? false;
+
+  const enter = useQuery({
+    queryKey: ["analytics", "gender-age", "enter", filters.startTs, filters.endTs],
+    queryFn: () => fetchGenderAge(filters.startTs, filters.endTs, ["enter"]),
+    enabled: wantEnter,
+    staleTime: 5 * 60_000,
   });
-  const [analyticsLoading, setLoading] = useState(true);
+  const visitor = useQuery({
+    queryKey: ["analytics", "gender-age", "visitor", filters.startTs, filters.endTs],
+    queryFn: () => fetchGenderAge(filters.startTs, filters.endTs, ["visitor"]),
+    enabled: wantVisitor,
+    staleTime: 5 * 60_000,
+  });
+  const tiz = useQuery({
+    queryKey: ["analytics", "tiz-raw", filters.startTs, filters.endTs],
+    queryFn: () => fetchTIZDirect(filters.startTs, filters.endTs),
+    enabled: wantTiz,
+    staleTime: 5 * 60_000,
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    Promise.all([
-      fetchGenderAge(filters.startTs, filters.endTs, ["enter"]),
-      fetchGenderAge(filters.startTs, filters.endTs, ["visitor"]),
-      fetchTIZDirect(filters.startTs, filters.endTs),
-    ])
-      .then(([enterGA, visitorGA, tizRaw]) => {
-        if (cancelled) return;
-        setState({
-          genderEnter: enterGA.gender,
-          ageEnter: enterGA.age,
-          genderVisitor: visitorGA.gender,
-          tizRaw,
-        });
-        setLoading(false);
-      })
-      .catch(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.startTs, filters.endTs]);
-
-  return { ...state, analyticsLoading };
+  return {
+    genderEnter: enter.data?.gender ?? [],
+    ageEnter: enter.data?.age ?? [],
+    genderVisitor: visitor.data?.gender ?? [],
+    tizRaw: tiz.data ?? [],
+    analyticsLoading:
+      (wantEnter && (enter.isPending || enter.isFetching)) ||
+      (wantVisitor && (visitor.isPending || visitor.isFetching)) ||
+      (wantTiz && (tiz.isPending || tiz.isFetching)),
+  };
 }

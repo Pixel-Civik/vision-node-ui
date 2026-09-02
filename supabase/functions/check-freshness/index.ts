@@ -1,251 +1,97 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const STALE_MIN = 20; // minutos sin datos para primera alerta
-const REMIND_MIN = 15; // minutos entre recordatorios mientras sigue sin datos
-const LIMA_OFFSET = 5 * 60 * 60 * 1000; // UTC-5, sin DST
+type AlertType = "node_offline" | "tracking_stale";
+type AlertState = {
+  node_id: string; site: string; display_name: string; alert_type: AlertType;
+  active: boolean; age_min: number; last_signal_at: string;
+};
 
-function limaHM() {
-  const d = new Date(Date.now() - LIMA_OFFSET);
-  return { h: d.getUTCHours(), m: d.getUTCMinutes() };
-}
+const REMINDER_MIN = Math.max(15, Number(Deno.env.get("EDGE_ALERT_REMINDER_MIN") ?? "30"));
+const label = (type: AlertType) =>
+  type === "node_offline" ? "Mini-PC fuera de servicio" : "Sin Tracking ID";
 
-function isOperatingHours(): boolean {
-  const { h } = limaHM();
-  if (h < 7)  return false; // antes de 7 AM
-  if (h >= 21) return false; // desde las 9 PM en adelante
-  return true;
-}
-
-// Retorna las 7 AM Lima de hoy en UTC (Lima = UTC-5, 7AM Lima = 12:00 UTC)
-function todayOpenUTC(): Date {
-  const limaNow = new Date(Date.now() - LIMA_OFFSET);
-  return new Date(Date.UTC(
-    limaNow.getUTCFullYear(),
-    limaNow.getUTCMonth(),
-    limaNow.getUTCDate(),
-    12, 0, 0,
-  ));
-}
-
-async function sendEmail(
-  apiKey: string,
-  from: string,
-  to: string[],
-  ageMin: number,
-  ultimoEvento: string,
-  horaLima: string,
-  isReminder: boolean,
-) {
-  const subject = isReminder
-    ? `🔴 RECORDATORIO — Pixel Civik sin datos hace ${ageMin} min`
-    : `⚠️ Pixel Civik — Sin datos hace ${ageMin} min`;
-
-  const titulo = isReminder
-    ? "🔴 Recordatorio: Siguen sin ingresar datos"
-    : "⚠️ Sin ingreso de datos recientes";
-
+async function sendEmail(apiKey: string, from: string, to: string[], state: AlertState, reminder: boolean) {
+  const title = label(state.alert_type);
+  const subject = `${reminder ? "🔴 RECORDATORIO" : "⚠️ ALERTA"} — ${title}: ${state.display_name}`;
+  const lastSignal = new Intl.DateTimeFormat("es-PE", {
+    timeZone: "America/Lima", dateStyle: "short", timeStyle: "medium",
+  }).format(new Date(state.last_signal_at));
   return fetch("https://api.resend.com/emails", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from,
-      to,
-      subject,
-      html: `
-        <div style="font-family:sans-serif;max-width:520px;margin:auto">
-          <h2 style="color:#b91c1c">${titulo}</h2>
-          <p>No se han detectado eventos en el sistema por <strong>${ageMin} minutos</strong>.</p>
-          <table style="border-collapse:collapse;width:100%">
-            <tr>
-              <td style="padding:6px 12px;background:#fef2f2;font-weight:bold">Último evento</td>
-              <td style="padding:6px 12px;background:#fef2f2">${ultimoEvento}</td>
-            </tr>
-            <tr>
-              <td style="padding:6px 12px;font-weight:bold">Hora actual Lima</td>
-              <td style="padding:6px 12px">${horaLima}</td>
-            </tr>
-            <tr>
-              <td style="padding:6px 12px;background:#fef2f2;font-weight:bold">Minutos sin datos</td>
-              <td style="padding:6px 12px;background:#fef2f2">${ageMin} min</td>
-            </tr>
-          </table>
-          <p style="margin-top:16px">Por favor verificar el estado de las cámaras y la conexión.</p>
-          <p style="color:#6b7280;font-size:12px">— Sistema de alertas Pixel Civik</p>
-        </div>
-      `,
+      from, to, subject,
+      html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#0f172a">
+        <h2 style="color:#b91c1c">${title}</h2>
+        <p>El monitor técnico detectó una condición que requiere revisión.</p>
+        <table style="border-collapse:collapse;width:100%">
+          <tr><td style="padding:8px;background:#f8fafc;font-weight:bold">Equipo</td><td style="padding:8px;background:#f8fafc">${state.display_name}</td></tr>
+          <tr><td style="padding:8px;font-weight:bold">Nodo / sede</td><td style="padding:8px">${state.node_id} · ${state.site}</td></tr>
+          <tr><td style="padding:8px;background:#f8fafc;font-weight:bold">Tiempo sin señal</td><td style="padding:8px;background:#f8fafc">${state.age_min} min</td></tr>
+          <tr><td style="padding:8px;font-weight:bold">Última señal</td><td style="padding:8px">${lastSignal}</td></tr>
+        </table>
+        <p style="font-size:12px;color:#64748b;margin-top:18px">Pixel Civik · Monitoreo automático de infraestructura</p>
+      </div>`,
     }),
   });
 }
 
 Deno.serve(async () => {
-  if (!isOperatingHours()) {
-    return new Response(JSON.stringify({ skip: "outside operating hours" }), {
-      status: 200,
-    });
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const resendKey = Deno.env.get("RESEND_API_KEY");
+  const fromEmail = Deno.env.get("ALERT_FROM_EMAIL");
+  const recipients = (Deno.env.get("ALERT_TO_EMAIL") ?? "")
+    .split(",").map((value) => value.trim()).filter(Boolean);
+  if (!supabaseUrl || !serviceKey) {
+    return Response.json({ error: "missing_supabase_secrets" }, { status: 500 });
   }
 
-  const sb = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
+  const sb = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+  const { data: states, error: statesError } = await sb.rpc("edge_node_alert_states");
+  if (statesError) return Response.json({ error: "alert_states_failed", detail: statesError.message }, { status: 500 });
+  const { data: openRows, error: openError } = await sb.from("edge_node_alerts")
+    .select("id,node_id,alert_type,last_notified_at,notification_count").is("resolved_at", null);
+  if (openError) return Response.json({ error: "open_alerts_failed", detail: openError.message }, { status: 500 });
+  const openByKey = new Map((openRows ?? []).map((row) => [`${row.node_id}:${row.alert_type}`, row]));
+  const actions: Array<Record<string, unknown>> = [];
 
-  // 1. Último evento registrado
-  const { data: lastRow } = await sb
-    .from("events")
-    .select("time")
-    .order("time", { ascending: false })
-    .limit(1)
-    .single();
-
-  if (!lastRow?.time) {
-    return new Response(JSON.stringify({ skip: "no events found" }), {
-      status: 200,
-    });
-  }
-
-  // Referencia = max(último evento, apertura de hoy a las 7 AM)
-  // Evita falsas alertas al inicio del día por datos de la noche anterior
-  const lastEventDate = new Date(lastRow.time);
-  const opStart       = todayOpenUTC();
-  const ref           = lastEventDate > opStart ? lastEventDate : opStart;
-  const ageMs         = Date.now() - ref.getTime();
-  const ageMin        = Math.round(ageMs / 60_000);
-
-  // 2. Alerta abierta (no resuelta) — incluye last_notified_at para calcular recordatorio
-  const { data: openAlert } = await sb
-    .from("alert_log")
-    .select("id, last_notified_at")
-    .eq("alert_type", "data_stale")
-    .is("resolved_at", null)
-    .order("sent_at", { ascending: false })
-    .limit(1)
-    .single();
-
-  console.log(
-    `[CHECK] Último evento hace ${ageMin} min — ${ageMin > STALE_MIN ? "STALE" : "OK"}`,
-  );
-
-  const toEmails = Deno.env
-    .get("ALERT_TO_EMAIL")!
-    .split(",")
-    .map((e) => e.trim());
-  const fromEmail = Deno.env.get("ALERT_FROM_EMAIL")!;
-  const apiKey = Deno.env.get("RESEND_API_KEY")!;
-
-  const horaLima = new Intl.DateTimeFormat("es-PE", {
-    timeZone: "America/Lima",
-    dateStyle: "short",
-    timeStyle: "medium",
-  }).format(new Date());
-
-  const ultimoEvento = new Intl.DateTimeFormat("es-PE", {
-    timeZone: "America/Lima",
-    dateStyle: "short",
-    timeStyle: "medium",
-  }).format(new Date(lastRow.time));
-
-  if (ageMin > STALE_MIN) {
-    if (openAlert) {
-      // Verificar si ya pasaron 15 min desde el último envío
-      const minsSinceNotif =
-        (Date.now() - new Date(openAlert.last_notified_at).getTime()) / 60_000;
-
-      if (minsSinceNotif < REMIND_MIN) {
-        const next = Math.round(REMIND_MIN - minsSinceNotif);
-        console.log(`[SKIP] Recordatorio en ${next} min`);
-        return new Response(
-          JSON.stringify({ action: "reminder_pending", next_in_min: next }),
-          { status: 200 },
-        );
+  for (const state of (states ?? []) as AlertState[]) {
+    const open = openByKey.get(`${state.node_id}:${state.alert_type}`);
+    if (!state.active) {
+      if (open) {
+        await sb.from("edge_node_alerts").update({ resolved_at: new Date().toISOString(), last_age_min: state.age_min }).eq("id", open.id);
+        actions.push({ node_id: state.node_id, type: state.alert_type, action: "resolved" });
       }
-
-      // Pasaron 15 min y siguen sin datos → enviar recordatorio
-      console.log(`[EMAIL] Enviando recordatorio a: ${toEmails.join(", ")}`);
-      const res = await sendEmail(
-        apiKey,
-        fromEmail,
-        toEmails,
-        ageMin,
-        ultimoEvento,
-        horaLima,
-        true,
-      );
-
-      if (!res.ok) {
-        const err = await res.text();
-        return new Response(
-          JSON.stringify({ error: "resend_failed", detail: err }),
-          { status: 500 },
-        );
-      }
-
-      await sb
-        .from("alert_log")
-        .update({ last_notified_at: new Date().toISOString() })
-        .eq("id", openAlert.id);
-
-      console.log(`[EMAIL] Recordatorio enviado — ${ageMin} min sin datos`);
-      return new Response(
-        JSON.stringify({
-          action: "reminder_sent",
-          minutes: ageMin,
-          to: toEmails,
-        }),
-        { status: 200 },
-      );
+      continue;
     }
-
-    // Primera alerta
-    console.log(`[EMAIL] Enviando primera alerta a: ${toEmails.join(", ")}`);
-    const res = await sendEmail(
-      apiKey,
-      fromEmail,
-      toEmails,
-      ageMin,
-      ultimoEvento,
-      horaLima,
-      false,
-    );
-
-    if (!res.ok) {
-      const err = await res.text();
-      return new Response(
-        JSON.stringify({ error: "resend_failed", detail: err }),
-        { status: 500 },
-      );
+    const sinceNotification = open?.last_notified_at
+      ? (Date.now() - new Date(open.last_notified_at).getTime()) / 60_000
+      : Number.POSITIVE_INFINITY;
+    if (open && sinceNotification < REMINDER_MIN) {
+      actions.push({ node_id: state.node_id, type: state.alert_type, action: "cooldown" });
+      continue;
     }
-
-    await sb.from("alert_log").insert({
-      alert_type: "data_stale",
-      minutes_stale: ageMin,
-      last_notified_at: new Date().toISOString(),
-    });
-
-    console.log(`[EMAIL] Primera alerta enviada — ${ageMin} min sin datos`);
-    return new Response(
-      JSON.stringify({ action: "alert_sent", minutes: ageMin, to: toEmails }),
-      { status: 200 },
-    );
+    if (!resendKey || !fromEmail || recipients.length === 0) {
+      actions.push({ node_id: state.node_id, type: state.alert_type, action: "email_not_configured" });
+      continue;
+    }
+    const mail = await sendEmail(resendKey, fromEmail, recipients, state, Boolean(open));
+    if (!mail.ok) {
+      actions.push({ node_id: state.node_id, type: state.alert_type, action: "email_failed", status: mail.status });
+      continue;
+    }
+    const now = new Date().toISOString();
+    if (open) {
+      await sb.from("edge_node_alerts").update({ last_notified_at: now, last_age_min: state.age_min,
+        notification_count: Number(open.notification_count ?? 0) + 1 }).eq("id", open.id);
+    } else {
+      await sb.from("edge_node_alerts").insert({ node_id: state.node_id, alert_type: state.alert_type,
+        last_notified_at: now, last_age_min: state.age_min, notification_count: 1,
+        details: { site: state.site, display_name: state.display_name } });
+    }
+    actions.push({ node_id: state.node_id, type: state.alert_type, action: open ? "reminded" : "opened" });
   }
-
-  // Datos frescos — resolver alerta abierta si existía
-  if (openAlert) {
-    await sb
-      .from("alert_log")
-      .update({ resolved_at: new Date().toISOString() })
-      .eq("id", openAlert.id);
-
-    console.log(`[OK] Alerta resuelta — datos volvieron`);
-    return new Response(JSON.stringify({ action: "alert_resolved" }), {
-      status: 200,
-    });
-  }
-
-  console.log(`[OK] Datos frescos — sin alerta`);
-  return new Response(JSON.stringify({ action: "ok", minutes: ageMin }), {
-    status: 200,
-  });
+  await sb.rpc("prune_edge_node_metrics", { p_keep_days: 30 });
+  return Response.json({ checked: (states ?? []).length, actions });
 });

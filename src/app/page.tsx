@@ -107,7 +107,11 @@ export default function App() {
   const dashboardReady = !opts.loading && !!dr;
 
   const data      = useDashboard(filters, { enabled: dashboardReady });
-  const analytics = useAnalytics(filters);
+  const analytics = useAnalytics(filters, {
+    genderEnter: dashboardReady && section === "entradas",
+    genderVisitor: dashboardReady && section === "visitantes",
+    tiz: dashboardReady && section === "tiz",
+  });
 
   // useDataFreshnessAlert();  // desactivada — ver nota en el import
 

@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, Camera, CheckCircle2, Clock3, Eye, Filter,
-  ChevronLeft, ChevronRight, Film, LoaderCircle, Play, RefreshCw,
+  ChevronLeft, ChevronRight, Download, Film, LoaderCircle, Play, RefreshCw,
   ShieldAlert, ShieldCheck, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -110,6 +110,7 @@ export function AlertasSection() {
   const [saving, setSaving] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoLoading, setVideoLoading] = useState(false);
+  const [videoDownloading, setVideoDownloading] = useState(false);
   const [videoPlaybackError, setVideoPlaybackError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const videoRequestId = useRef(0);
@@ -175,6 +176,33 @@ export function AlertasSection() {
     }
   }
 
+  async function downloadVideo() {
+    if (!selected || selected.video_status !== "ready") return;
+    setVideoDownloading(true);
+    try {
+      const url = await getShopliftingVideoUrl(
+        selected.id,
+        selected.camera_id,
+        selected.occurred_at,
+        true,
+      );
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.rel = "noopener noreferrer";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+    } catch (downloadError) {
+      toast.error(
+        downloadError instanceof Error
+          ? downloadError.message
+          : "No se pudo descargar el video"
+      );
+    } finally {
+      setVideoDownloading(false);
+    }
+  }
+
   function selectAlert(alert: ShopliftingAlert) {
     videoRequestId.current += 1;
     setSelected(alert);
@@ -189,6 +217,7 @@ export function AlertasSection() {
     setSelected(null);
     setVideoUrl(null);
     setVideoLoading(false);
+    setVideoDownloading(false);
     setVideoPlaybackError(null);
   }
 
@@ -528,11 +557,25 @@ export function AlertasSection() {
                           : "Esta alerta aún no tiene video cloud"}
                       </p>
                     </div>
-                    {selected.video_status === "ready" && !videoUrl && (
-                      <Button size="sm" disabled={videoLoading} onClick={() => void openVideo()} className="bg-slate-900 text-white hover:bg-slate-800">
-                        {videoLoading ? <LoaderCircle className="animate-spin" /> : <Play />}
-                        {videoLoading ? "Cargando video" : "Reintentar"}
-                      </Button>
+                    {selected.video_status === "ready" && (
+                      <div className="flex flex-wrap gap-2">
+                        {!videoUrl && (
+                          <Button size="sm" disabled={videoLoading} onClick={() => void openVideo()} className="bg-slate-900 text-white hover:bg-slate-800">
+                            {videoLoading ? <LoaderCircle className="animate-spin" /> : <Play />}
+                            {videoLoading ? "Cargando video" : "Reintentar"}
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={videoDownloading}
+                          onClick={() => void downloadVideo()}
+                          className="border-slate-300 bg-white text-slate-700"
+                        >
+                          {videoDownloading ? <LoaderCircle className="animate-spin" /> : <Download />}
+                          {videoDownloading ? "Preparando" : "Descargar MP4"}
+                        </Button>
+                      </div>
                     )}
                   </div>
                   <p className="mt-3 border-t border-slate-200 pt-3 text-[11px] text-slate-500">

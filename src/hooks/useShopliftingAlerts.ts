@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import type { ShopliftingAlert, ShopliftingAlertStatus } from "@/lib/types";
@@ -84,8 +84,10 @@ export async function getShopliftingVideoUrl(
   id: string,
   cameraId: string,
   occurredAt: string,
+  download = false,
 ): Promise<string> {
   const params = new URLSearchParams({ camera_id: cameraId, occurred_at: occurredAt });
+  if (download) params.set("download", "1");
   const result = await fetch(`/api/shoplifting-alerts/${encodeURIComponent(id)}/video?${params}`, {
     cache: "no-store",
   });
@@ -131,6 +133,7 @@ export async function updateShopliftingAlert(
 
 function useAlertsRealtime(channelName: string) {
   const queryClient = useQueryClient();
+  const invalidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const channel = supabase
       .channel(channelName)
@@ -138,12 +141,22 @@ function useAlertsRealtime(channelName: string) {
         "postgres_changes",
         { event: "*", schema: "public", table: "shoplifting_alerts" },
         () => {
-          void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
-          void queryClient.invalidateQueries({ queryKey: COUNT_KEY });
+          // Una alerta suele producir varias escrituras seguidas (pending,
+          // ready y metadata). Agruparlas evita descargar hasta 5.000 filas
+          // varias veces por el mismo video.
+          if (invalidateTimer.current) clearTimeout(invalidateTimer.current);
+          invalidateTimer.current = setTimeout(() => {
+            void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+            void queryClient.invalidateQueries({ queryKey: COUNT_KEY });
+          }, 900);
         }
       )
       .subscribe();
-    return () => { void supabase.removeChannel(channel); };
+    return () => {
+      if (invalidateTimer.current) clearTimeout(invalidateTimer.current);
+      invalidateTimer.current = null;
+      void supabase.removeChannel(channel);
+    };
   }, [channelName, queryClient]);
 }
 
@@ -153,7 +166,9 @@ export function useShopliftingAlerts() {
     queryKey: QUERY_KEY,
     queryFn: fetchAlerts,
     staleTime: 20_000,
-    refetchInterval: 60_000,
+    // Realtime actualiza al instante; este sondeo pesado es solo respaldo.
+    // Con 1.030 alertas baja de ~1,48 M a ~98.880 filas/día por pestaña.
+    refetchInterval: 15 * 60_000,
   });
 }
 
@@ -163,6 +178,7 @@ export function useShopliftingAlertCount() {
     queryKey: COUNT_KEY,
     queryFn: fetchNewCount,
     staleTime: 20_000,
-    refetchInterval: 60_000,
+    // Reduce de 1.440 a 288 lecturas/día por pestaña siempre abierta.
+    refetchInterval: 5 * 60_000,
   });
 }

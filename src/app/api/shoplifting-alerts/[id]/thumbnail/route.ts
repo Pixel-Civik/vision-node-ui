@@ -1,6 +1,7 @@
 import {
   findAlertThumbnail,
   findAlertVideo,
+  resolveAlertEvidence,
   safeGcsErrorCode,
   signReadUrl,
 } from "@/lib/server/shoplifting-gcs";
@@ -37,10 +38,22 @@ export async function GET(
       return json({ error: "Contexto de alerta inválido" }, 400);
     }
 
-    stage = "gcs_lookup";
-    const video = await findAlertVideo(cameraId, occurredAt, id);
+    stage = "supabase_lookup";
+    let resolved = null;
+    try {
+      resolved = await resolveAlertEvidence(id, cameraId, occurredAt);
+    } catch (lookupError) {
+      console.warn("shoplifting thumbnail RPC fallback", {
+        code: safeGcsErrorCode(lookupError),
+      });
+    }
+    let video = resolved?.video ?? null;
+    if (!video) {
+      stage = "gcs_legacy_lookup";
+      video = await findAlertVideo(cameraId, occurredAt, id);
+    }
     if (!video) return json({ error: "Evidencia no encontrada" }, 404);
-    const thumbnail = await findAlertThumbnail(video);
+    const thumbnail = resolved?.thumbnail ?? await findAlertThumbnail(video);
     if (!thumbnail) return json({ error: "Vista previa todavía no disponible" }, 404);
 
     stage = "gcs_sign";

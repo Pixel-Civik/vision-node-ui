@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useMemo } from "react";
 import { Wifi, WifiOff, AlertTriangle, Camera, Clock, Activity } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -9,13 +9,12 @@ import {
 import { useUptime } from "@/hooks/useUptime";
 import { useAvailability } from "@/hooks/useAvailability";
 import { useCameraLastEvents } from "@/hooks/useCameraLastEvents";
-import { supabase } from "@/lib/supabase";
-import { fetchHourly } from "@/lib/api";
 import { KPICards } from "@/components/dashboard/KPICards";
 import { KPIStrip } from "@/components/sections/KPIStrip";
 import { FilterPanel, type FilterValues } from "@/components/filters/FilterPanel";
-import type { DashboardFilters, KPIResult } from "@/lib/types";
+import type { KPIResult } from "@/lib/types";
 import type { FilterOptions } from "@/hooks/useFilterOptions";
+import { EdgeFleetPanel } from "@/components/technical/EdgeFleetPanel";
 
 const WIN_START = 7;
 const WIN_END   = 23;
@@ -119,50 +118,45 @@ function PctBadge({ pct }: { pct: number }) {
 export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFilterChange }: Props) {
   const todayStr = limaToday();
 
-  // ── Estado actual (real-time, last 2h) ────────────────────────────────────
-  const [liveLoading, setLiveLoading] = useState(true);
-  const [liveTs, setLiveTs] = useState<string | null>(null);
-
-  useEffect(() => {
-    const since = new Date(Date.now() - 2 * 3_600_000).toISOString();
-    supabase
-      .from("tracking_logs_view")
-      .select("time")
-      .gte("time", since)
-      .order("time", { ascending: false })
-      .limit(1)
-      .then(({ data }) => { setLiveTs(data?.[0]?.time ?? null); setLiveLoading(false); });
-  }, []);
-
-  // ── Último evento por cámara (sin filtro de período, siempre al día) ─────
+  // ── Últimos eventos y estado actual (RPC indexada, respuesta pequeña) ─────
   const lastEvents = useCameraLastEvents();
+  const liveLoading = lastEvents.loading;
+  const liveTs = useMemo(() => {
+    let latest: string | null = null;
+    for (const camera of lastEvents.cameras) {
+      if (!latest || camera.last.time > latest) latest = camera.last.time;
+    }
+    return latest;
+  }, [lastEvents.cameras]);
 
   const liveMinutesAgo = useMemo(() => {
-    if (!liveTs) return null;
-    return Math.floor((Date.now() - new Date(liveTs).getTime()) / 60000);
-  }, [liveTs]);
+    if (lastEvents.cameras.length === 0) return null;
+    return Math.min(...lastEvents.cameras.map((camera) => camera.minutesSince));
+  }, [lastEvents.cameras]);
   const isLive = liveMinutesAgo !== null && liveMinutesAgo < 30;
 
-  // ── Actividad de hoy (RPC pre-agregado, sin límite de filas) ─────────────
-  const [todayLoading, setTodayLoading] = useState(true);
-  const [todayHourMap, setTodayHourMap] = useState<Map<number, number>>(new Map());
+  const lastMinutesByCamera = useMemo(
+    () => new Map(lastEvents.cameras.map((camera) => [camera.channel, camera.minutesSince])),
+    [lastEvents.cameras],
+  );
 
-  useEffect(() => {
-    const { start, end } = limaDayBounds(todayStr);
-    const f: DashboardFilters = {
-      startTs: start, endTs: end,
-      sites: null, channels: null, zones: null,
-      hourMin: 0, hourMax: 23, dows: null,
-    };
-    fetchHourly(f).then((rows) => {
-      const map = new Map<number, number>();
-      for (const r of rows) map.set(r.hour, (map.get(r.hour) ?? 0) + r.count);
-      setTodayHourMap(map);
-      setTodayLoading(false);
-    });
+  // ── Disponibilidad última semana (overview fijo) ──────────────────────────
+  const weekRange = useMemo(() => ({
+    start: limaDayBounds(addDays(todayStr, -6)).start,
+    end:   limaDayBounds(todayStr).end,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }), []);
+  const weekAvail = useAvailability(weekRange.start, weekRange.end);
 
+  // La misma RPC semanal trae la actividad horaria; se elimina otra consulta.
+  const todayHourMap = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const row of weekAvail.hourly) {
+      if (row.date === todayStr) map.set(row.hour, row.count);
+    }
+    return map;
+  }, [todayStr, weekAvail.hourly]);
+  const todayLoading = weekAvail.loading;
   const limaHour = limaCurrentHour();
 
   const todayChartData = useMemo(() =>
@@ -177,22 +171,13 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
       .filter((h) => h < limaHour && (todayHourMap.get(h) ?? 0) === 0),
   [todayHourMap, limaHour]);
 
-  // ── Disponibilidad última semana (overview fijo) ──────────────────────────
-  const weekRange = useMemo(() => ({
-    start: limaDayBounds(addDays(todayStr, -6)).start,
-    end:   limaDayBounds(todayStr).end,
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), []);
-  const weekAvail = useAvailability(weekRange.start, weekRange.end);
-
   // ── Período filtrado (desde FilterPanel global) ───────────────────────────
   const filterTs = useMemo(() => ({
     start: limaDayBounds(filterValues.startDate).start,
     end:   limaDayBounds(filterValues.endDate).end,
   }), [filterValues.startDate, filterValues.endDate]);
 
-  // useAvailability: availability % charts (no row-limit issues, uses RPC)
-  // useUptime: gap detection table + camera stats (needs raw event timestamps)
+  // Ambas vistas comparten la misma clave y una sola respuesta agregada.
   const avail  = useAvailability(filterTs.start, filterTs.end);
   const uptime = useUptime(filterTs.start, filterTs.end);
 
@@ -205,12 +190,14 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
           <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-800">
             <Camera size={14} className="text-[#2DD4BF]" />
           </span>
-          Panel Técnico — Disponibilidad del Sistema
+          Panel Técnico — Infraestructura y Actividad
         </h1>
         <p className="text-xs text-slate-500 mt-0.5">
-          Ventana operativa 07:00–23:00 · cortes = horas sin eventos
+          Salud de mini-PC/Jetson por heartbeat · actividad analítica 07:00–23:00
         </p>
       </div>
+
+      <EdgeFleetPanel />
 
       {/* ── Filtro de período (al tope, igual que en general) ── */}
       <FilterPanel opts={opts} values={filterValues} onChange={onFilterChange} />
@@ -234,7 +221,7 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
         />
       </div>
 
-      {/* ── Estado actual ── */}
+      {/* Actividad analítica; no se usa para decidir si el equipo está online. */}
       <div className={`rounded-2xl border shadow-sm p-5 flex items-center gap-4 ${
         liveLoading     ? "bg-white border-slate-100" :
         isLive          ? "bg-emerald-50 border-emerald-200" :
@@ -258,15 +245,15 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
               liveLoading ? "text-slate-400" : isLive ? "text-emerald-700" :
               liveTs !== null ? "text-red-700" : "text-slate-500"
             }`}>
-              {liveLoading ? "Verificando…" : isLive ? "Sistema activo" :
-               liveTs !== null ? "Sistema inactivo" : "Sin actividad reciente"}
+              {liveLoading ? "Verificando…" : isLive ? "Tracking reciente" :
+               liveTs !== null ? "Sin Tracking ID reciente" : "Sin actividad reciente"}
             </span>
             {!liveLoading && (
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full tracking-wide ${
                 isLive ? "bg-emerald-100 text-emerald-700" :
                 liveTs !== null ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-500"
               }`}>
-                {isLive ? "EN LÍNEA" : "FUERA DE LÍNEA"}
+                {isLive ? "CON ACTIVIDAD" : "SIN TRACKING"}
               </span>
             )}
           </div>
@@ -277,7 +264,7 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
             {liveLoading ? "Consultando última actividad…" :
              liveTs === null ? "Sin eventos en las últimas 2 horas" :
              isLive ? `Último evento ${fmtRelative(liveTs)}` :
-             `Sin actividad en los últimos ${liveMinutesAgo} min — posible corte`}
+             `Sin Tracking ID en los últimos ${liveMinutesAgo} min; revisa arriba si el equipo sigue en línea`}
           </p>
         </div>
         {!liveLoading && !isLive && liveTs !== null && (
@@ -618,7 +605,7 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
                 </thead>
                 <tbody>
                   {uptime.cameras.map((cam) => {
-                    const isRecent = Date.now() - new Date(cam.lastSeen).getTime() < 2 * 3_600_000;
+                    const isRecent = (lastMinutesByCamera.get(cam.channel) ?? Infinity) < 120;
                     const pasantes = cam.pasanteEvents ?? 0;
                     const enters   = cam.enterEvents   ?? 0;
                     const missingType = pasantes === 0 || enters === 0;
