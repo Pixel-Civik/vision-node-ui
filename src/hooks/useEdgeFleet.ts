@@ -25,6 +25,7 @@ export interface EdgeCameraState {
   forced_reconnects?: number;
   last_error?: string;
   last_error_at?: string | null;
+  unhealthy_since?: string | null;
 }
 
 export interface EdgeNode {

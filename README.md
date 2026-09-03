@@ -441,10 +441,15 @@ Cada cámara reporta FPS, videos terminados en la última hora, errores desde el
 último arranque y hora de la última imagen válida. `check-freshness` revisa cada
 cinco minutos y administra incidencias separadas para:
 
-- equipo sin heartbeat durante 30 minutos;
-- servicio de tracking/shoplifting degradado durante cinco minutos;
-- cámara sin imágenes durante cinco minutos;
-- tracking N100 sin IDs nuevos durante 30 minutos en horario operativo.
+- equipo sin heartbeat durante 30 minutos operativos;
+- servicio de tracking/shoplifting degradado durante cinco minutos operativos;
+- cámara sin imágenes durante cinco minutos operativos;
+- tracking N100 sin IDs nuevos durante 30 minutos operativos.
+
+Para Miraflores la ventana es 07:00–23:30 (hora de Lima). Fuera de esa ventana
+no se abre ni se recuerda ninguna incidencia. Al iniciar un nuevo día, el
+contador comienza a las 07:00: una señal de la noche anterior nunca provoca un
+correo inmediato al abrir.
 
 La migración que habilita estos datos es
 `supabase/migrations/20260902203000_camera_technical_metrics_alerts.sql`. Las
