@@ -457,6 +457,12 @@ métricas nuevas aparecen después de reconstruir y reiniciar los contenedores
 de N100 y Jetson; los agentes anteriores siguen siendo compatibles y no generan
 falsas alertas de cámara durante el despliegue gradual.
 
+La retención operativa se ejecuta cada hora mediante
+`pixel-civik-operational-retention-3-months`. Elimina en lotes eventos de
+tracking, alertas/revisiones de shoplifting, telemetría antigua, incidencias ya
+resueltas, keepalives y el registro histórico de correos que superen tres meses.
+Las incidencias aún abiertas y los catálogos de sedes/cámaras nunca se borran.
+
 ## Seguridad
 
 - `.env.local` y todo archivo `.env*` están excluidos del control de versiones.
