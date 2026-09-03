@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { fetchFilterOptions, fetchDataDays, fetchDefaultRange } from "@/lib/api";
+import { fetchDashboardBootstrap } from "@/lib/api";
 import type { DefaultRange } from "@/lib/types";
 
 export interface FilterOptions {
@@ -40,39 +40,29 @@ const EMPTY: Omit<FilterOptions, "loading"> = {
  *    podía servir datos rancios indefinidamente dentro de una sesión.
  */
 export function useFilterOptions(): FilterOptions {
-  const opts = useQuery({
-    queryKey: ["filter-options"],
-    queryFn: ({ signal }) => fetchFilterOptions(signal),
-    staleTime: 10 * 60_000,   // catálogos: cambian poco
-  });
-
-  const range = useQuery({
-    queryKey: ["default-range"],
-    queryFn: ({ signal }) => fetchDefaultRange(signal),
-    staleTime: 5 * 60_000,
-  });
-
-  const days = useQuery({
-    queryKey: ["data-days"],
-    queryFn: ({ signal }) => fetchDataDays(undefined, undefined, signal),
+  const bootstrap = useQuery({
+    queryKey: ["dashboard-bootstrap"],
+    queryFn: ({ signal }) => fetchDashboardBootstrap(signal),
     staleTime: 10 * 60_000,
   });
 
-  if (!opts.data) {
-    return { ...EMPTY, defaultRange: range.data ?? null, loading: opts.isPending };
+  if (!bootstrap.data) {
+    return { ...EMPTY, loading: bootstrap.isPending };
   }
 
+  const data = bootstrap.data;
+
   return {
-    sites:          opts.data.sites,
-    channels:       opts.data.channels,
-    zones:          opts.data.zones,
-    minDate:        opts.data.minDate,
-    maxDate:        opts.data.maxDate,
-    availableDates: new Set(days.data ?? []),
-    defaultRange:   range.data ?? null,
+    sites:          data.sites ?? [],
+    channels:       data.channels ?? [],
+    zones:          data.zones ?? [],
+    minDate:        data.min_date ?? TODAY,
+    maxDate:        data.max_date ?? TODAY,
+    availableDates: new Set(data.available_dates ?? []),
+    defaultRange:   data.default_range ?? null,
     // El rango de apertura es obligatorio antes de consultar: sin él page.tsx
     // dispararía una consulta con fechas provisionales y luego otra con las
     // reales — la doble carga que ya existía antes.
-    loading:        opts.isPending || range.isPending,
+    loading:        bootstrap.isPending,
   };
 }

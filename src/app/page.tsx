@@ -219,7 +219,7 @@ export default function App() {
 
           <div className={section !== "tiz"        ? "hidden" : undefined}>
             <TIZView
-              tizKpis={data.tizKpis} tizRaw={analytics.tizRaw}
+              tizKpis={data.tizKpis} tizDistribution={analytics.tizDistribution}
               loading={data.loading} analyticsLoading={analytics.analyticsLoading} filters={filters}
             />
           </div>

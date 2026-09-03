@@ -130,6 +130,19 @@ export interface OverviewResult {
   tiz:        TIZKpiRow[];
 }
 
+export interface TIZDistributionBucket {
+  range: string;
+  count: number;
+}
+
+export interface TIZDistributionResult {
+  total: number;
+  avg_s: number;
+  median_s: number;
+  p90_s: number;
+  buckets: TIZDistributionBucket[];
+}
+
 /** Rango con el que abre el dashboard, decidido por la BD. */
 export interface DefaultRange {
   start_date:       string;   // YYYY-MM-DD
@@ -138,6 +151,16 @@ export interface DefaultRange {
   last_data_date:   string;
   has_today:        boolean;
   is_current_month: boolean;
+}
+
+export interface DashboardBootstrap {
+  sites: string[];
+  channels: string[];
+  zones: string[];
+  min_date: string | null;
+  max_date: string | null;
+  default_range: DefaultRange | null;
+  available_dates: string[];
 }
 
 /** Período de referencia ya resuelto saltando huecos de datos. */

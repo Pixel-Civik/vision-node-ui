@@ -463,6 +463,20 @@ tracking, alertas/revisiones de shoplifting, telemetría antigua, incidencias ya
 resueltas, keepalives y el registro histórico de correos que superen tres meses.
 Las incidencias aún abiertas y los catálogos de sedes/cámaras nunca se borran.
 
+### Presupuesto de Disk I/O
+
+El frontend evita lecturas amplificadas sobre Supabase:
+
+- las alertas se paginan en la base de datos (24 filas por página, no hasta
+  5.000 filas por pestaña);
+- la distribución de tiempo en zona se calcula en PostgreSQL y vuelve como un
+  solo agregado, sin descargar eventos crudos;
+- filtros, rango inicial y días disponibles se obtienen mediante un único RPC;
+- las comparaciones esperan al resumen principal y permanecen en caché 15 min;
+- el panel técnico consulta cada 60 s únicamente con la pestaña visible;
+- no se reintentan automáticamente consultas fallidas, evitando triplicar la
+  carga cuando la instancia está degradada.
+
 ## Seguridad
 
 - `.env.local` y todo archivo `.env*` están excluidos del control de versiones.

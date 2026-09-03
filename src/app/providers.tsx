@@ -30,8 +30,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
             // cada cambio de sección mientras se sigue notando "en vivo".
             staleTime: 60_000,
             gcTime: 15 * 60_000,
-            retry: 2,
-            retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
+            // Un dashboard abierto no debe multiplicar consultas cuando la
+            // instancia ya está sin presupuesto de I/O. Los sondeos y el botón
+            // Actualizar proporcionan recuperación sin una tormenta de retries.
+            retry: false,
             refetchOnWindowFocus: false,
             // Al cambiar de filtro mantiene los datos previos en pantalla en
             // vez de vaciarla: se acabó el parpadeo a "sin datos".

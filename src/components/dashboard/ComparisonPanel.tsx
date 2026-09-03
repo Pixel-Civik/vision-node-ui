@@ -175,7 +175,10 @@ export function ComparisonPanel({
 
   const {
     refHourly, siteRank, loading: compLoading, deltas, curPasantes, refPeriod,
-  } = useComparisonData(filters, mode, kpis, hourly, allSites);
+  } = useComparisonData(
+    filters, mode, kpis, hourly, allSites,
+    { enabled: !parentLoading && kpis !== null },
+  );
 
   const loading = parentLoading || compLoading;
 
@@ -188,7 +191,6 @@ export function ComparisonPanel({
 
   const chartData = useMemo(
     () => buildChartData(hourly, refHourly, chartMaxHour),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [hourly, refHourly, chartMaxHour],
   );
 

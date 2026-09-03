@@ -54,6 +54,7 @@ export function useComparisonData(
   _curKpis?: KPIResult | null,
   _curHourly?: HourlyRow[],
   _allSites?: string[],
+  { enabled = true }: { enabled?: boolean } = {},
 ): ComparisonData {
   const { data, isPending, isFetching } = useQuery({
     queryKey: [
@@ -66,12 +67,14 @@ export function useComparisonData(
       filters.dows?.join(",") ?? "*",
     ],
     queryFn: ({ signal }) => fetchCompare(filters, mode, signal),
+    enabled,
+    staleTime: 15 * 60_000,
   });
 
   if (!data) {
     return {
       refKpis: null, refHourly: [], siteRank: null,
-      loading: isPending || isFetching,
+      loading: enabled && (isPending || isFetching),
       deltas: EMPTY_DELTAS,
       curPasantes: 0, refPasantes: 0, refPeriod: null,
     };

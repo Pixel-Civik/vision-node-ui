@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { fetchDailyTrends, type DailyTrendRow } from "@/lib/api";
 import type { DashboardFilters } from "@/lib/types";
 
@@ -63,19 +64,19 @@ const DOWS_ES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 // ── hook ──────────────────────────────────────────────────────────────────────
 
 export function useTrendData(filters: DashboardFilters) {
-  const [raw,     setRaw]     = useState<DailyTrendRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setRaw([]);
-    fetchDailyTrends(filters)
-      .then((data) => { if (!cancelled) { setRaw(data); setLoading(false); } })
-      .catch(()    => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.startTs, filters.endTs, JSON.stringify(filters.sites), JSON.stringify(filters.channels), JSON.stringify(filters.zones), filters.hourMin, filters.hourMax, JSON.stringify(filters.dows)]);
+  const query = useQuery({
+    queryKey: [
+      "daily-trends", filters.startTs, filters.endTs,
+      filters.sites?.join(",") ?? "*",
+      filters.channels?.join(",") ?? "*",
+      filters.zones?.join(",") ?? "*",
+      filters.hourMin, filters.hourMax,
+      filters.dows?.join(",") ?? "*",
+    ],
+    queryFn: ({ signal }) => fetchDailyTrends(filters, signal),
+    staleTime: 15 * 60_000,
+  });
+  const raw = useMemo<DailyTrendRow[]>(() => query.data ?? [], [query.data]);
 
   const daily = useMemo<TrendRow[]>(() => {
     const enters    = raw.map((r) => r.enters);
@@ -129,5 +130,11 @@ export function useTrendData(filters: DashboardFilters) {
     return [...hist, ...future];
   }, [raw]);
 
-  return { daily, dowData, projection, loading, hasEnoughData: raw.length >= 2 };
+  return {
+    daily,
+    dowData,
+    projection,
+    loading: query.isPending || query.isFetching,
+    hasEnoughData: raw.length >= 2,
+  };
 }

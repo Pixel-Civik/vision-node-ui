@@ -1,14 +1,14 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import type { GenderRow, AgeRow, TIZRaw, DashboardFilters } from "@/lib/types";
-import { fetchGenderAge, fetchTIZDirect } from "@/lib/api";
+import type { GenderRow, AgeRow, TIZDistributionResult, DashboardFilters } from "@/lib/types";
+import { fetchGenderAge, fetchTIZDistribution } from "@/lib/api";
 
 export interface AnalyticsData {
   genderEnter: GenderRow[];
   ageEnter: AgeRow[];
   genderVisitor: GenderRow[];
-  tizRaw: TIZRaw[];
+  tizDistribution: TIZDistributionResult | null;
   analyticsLoading: boolean;
 }
 
@@ -40,8 +40,8 @@ export function useAnalytics(
     staleTime: 5 * 60_000,
   });
   const tiz = useQuery({
-    queryKey: ["analytics", "tiz-raw", filters.startTs, filters.endTs],
-    queryFn: () => fetchTIZDirect(filters.startTs, filters.endTs),
+    queryKey: ["analytics", "tiz-distribution", filters.startTs, filters.endTs],
+    queryFn: ({ signal }) => fetchTIZDistribution(filters.startTs, filters.endTs, signal),
     enabled: wantTiz,
     staleTime: 5 * 60_000,
   });
@@ -50,7 +50,7 @@ export function useAnalytics(
     genderEnter: enter.data?.gender ?? [],
     ageEnter: enter.data?.age ?? [],
     genderVisitor: visitor.data?.gender ?? [],
-    tizRaw: tiz.data ?? [],
+    tizDistribution: tiz.data ?? null,
     analyticsLoading:
       (wantEnter && (enter.isPending || enter.isFetching)) ||
       (wantVisitor && (visitor.isPending || visitor.isFetching)) ||

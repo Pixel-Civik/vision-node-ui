@@ -1,5 +1,5 @@
-import type { DashboardFilters, KPIResult, HourlyRow, ZoneBreakdownRow, ChannelBreakdownRow, HeatmapRow, TIZKpiRow, ConversionHourRow, GenderRow, AgeRow, TIZRaw, DailyRow, OverviewResult, CompareResult, DefaultRange } from "./types";
-import { rpc, rpcOne, supabase } from "./supabase";
+import type { DashboardFilters, KPIResult, HourlyRow, ZoneBreakdownRow, ChannelBreakdownRow, HeatmapRow, TIZKpiRow, ConversionHourRow, GenderRow, AgeRow, DailyRow, OverviewResult, CompareResult, DefaultRange, DashboardBootstrap, TIZDistributionResult } from "./types";
+import { rpc, rpcOne } from "./supabase";
 
 function buildPayload(f: DashboardFilters) {
   return {
@@ -137,16 +137,22 @@ export async function fetchGenderAge(
   };
 }
 
-export async function fetchTIZDirect(startTs: string, endTs: string): Promise<TIZRaw[]> {
-  const { data } = await supabase
-    .from("tracking_logs_view")
-    .select("time, dwell_sec, zone")
-    .eq("event", "visit")
-    .gte("time", startTs)
-    .lte("time", endTs)
-    .not("dwell_sec", "is", null)
-    .limit(5000);
-  return (data as TIZRaw[]) ?? [];
+export async function fetchTIZDistribution(
+  startTs: string,
+  endTs: string,
+  signal?: AbortSignal,
+): Promise<TIZDistributionResult> {
+  return rpcOne<TIZDistributionResult>(
+    "dashboard_tiz_distribution",
+    { p_start_ts: startTs, p_end_ts: endTs },
+    signal,
+  );
+}
+
+export async function fetchDashboardBootstrap(
+  signal?: AbortSignal,
+): Promise<DashboardBootstrap> {
+  return rpcOne<DashboardBootstrap>("dashboard_bootstrap", {}, signal);
 }
 
 export async function fetchDailyTotals(f: DashboardFilters): Promise<DailyRow[]> {
@@ -160,8 +166,11 @@ export interface DailyTrendRow {
   conv:     number;
 }
 
-export async function fetchDailyTrends(f: DashboardFilters): Promise<DailyTrendRow[]> {
-  return rpc<DailyTrendRow>("dashboard_daily_trend", buildPayload(f));
+export async function fetchDailyTrends(
+  f: DashboardFilters,
+  signal?: AbortSignal,
+): Promise<DailyTrendRow[]> {
+  return rpc<DailyTrendRow>("dashboard_daily_trend", buildPayload(f), signal);
 }
 
 export async function fetchFilterOptions(signal?: AbortSignal): Promise<{
