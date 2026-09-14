@@ -1,38 +1,51 @@
 # Migración de Lens · COMPLETADA el 2026-09-13
 
-## Estado
+## Estado — MIGRACIÓN COMPLETA (2026-09-14)
 
-El proyecto nuevo existe, tiene el esquema y tiene los datos.
+Todo el sistema opera contra el proyecto nuevo. Nada depende ya del proyecto de
+Daniel.
 
 | | |
 |---|---|
 | Proyecto | `jtdnfockogskhuoturht` "lens" |
-| Organización | `qxeffkpuadchbeekigte` "signal Org" (cuenta `juan.barbaran@utec.edu.pe`) |
-| Región | us-east-1 · Postgres 17 |
-| URL | `https://jtdnfockogskhuoturht.supabase.co` |
-| Migraciones | 21 de 21 aplicadas, 0 errores |
-| Eventos | 260,088 (13/06 → 13/09) |
-| Alertas | 3,258 · 18 revisadas · 2,727 con objeto GCS (4.58 GB) |
-| Catálogos | sites 2, cameras 6, event_types 8, person_classes 9 |
+| Organización | `qxeffkpuadchbeekigte` "signal Org" (`juan.barbaran@utec.edu.pe`) |
+| Migraciones | 21 de 21, 0 errores |
+| Eventos | 260,597 · 14/06 → 14/09 |
+| Alertas | 3,339 · 2,727 con objeto GCS |
+| Dashboard | lens.pixelcivik.com, 0 peticiones al proyecto viejo |
+| N100 | Ingestando con `service_role`, `pending=0` |
+| Jetson | Alertas al proyecto nuevo, evidencia a GCS |
+| Monitoreo | cron cada 5 min, HTTP 200 verificado |
 
-**Validación byte a byte.** Las mismas RPC sobre la ventana 01–11/09 devuelven
-valores idénticos en producción y en el proyecto nuevo:
+### Verificaciones de punta a punta
 
-```
-enters 9186 · exits 6699 · net 2487 · unique_tracks 15103 · days 11
-enters_per_day 835.0909 · exits_per_day 609.0
-zonas: out_zone/pasante 37816 · in_zone/visitor 9266 · in_zone/enter 9186 · out_zone/exit 6699
-```
+- **Paridad de datos**: las mismas RPC devuelven valores idénticos en ambos
+  proyectos para 01–11/09 (enters 9186, exits 6699, unique_tracks 15103).
+- **N100**: `insert OK ... total=66 pending=0` en logs; eventos visibles en la
+  base a los pocos segundos.
+- **Jetson**: alerta `2026-09-14T15:51:11` cam1101 escrita en el proyecto nuevo,
+  video subido a GCS, `resolve_shoplifting_evidence` la resuelve.
+- **Monitoreo**: `cron.job_run_details` = `succeeded`, y
+  `net._http_response` = `200 {"checked":5,"actions":[]}`. El cron dispara y la
+  función responde; no solo "encolado".
 
-Eso valida a la vez el esquema reconstruido, la reconstrucción de
-`dashboard_event_norm`, las 4 RPC escritas desde cero, el manejo de zona horaria
-y la integridad de la importación.
+### Dos errores cometidos y corregidos, por si se repiten
 
-**El problema del §0 NO se heredó.** El proyecto nuevo no expone ninguna
-mutación a `anon` (`mutationType` vacío en GraphQL). `events` y los catálogos
-devuelven `200 []`: RLS activa sin policy. Y el dashboard funciona igual, porque
-las RPC son SECURITY DEFINER — comprobado con la anon key del proyecto nuevo.
-Es decir, se puede operar sin exponer las 260k filas de tracking.
+1. **Clave enmascarada.** `supabase projects api-keys` censura el valor de
+   `sb_secret_` salvo que se pase `--reveal`. Escribí el placeholder en el N100
+   y el equipo arrancó con `HTTP 401` encolando eventos. Se detectó en los logs
+   y se corrigió. **Verificar siempre que la clave tenga sus 41 caracteres
+   alfanuméricos antes de reiniciar**; el contenedor reporta `healthy` igual.
+2. **`alter database ... set app.settings.*` no funciona en Supabase**: el rol
+   `postgres` no puede definir parámetros propios. El secreto del cron va en
+   **Supabase Vault**.
+
+### Storage: no se usaba
+
+`SUPABASE_ALERTS_BUCKET` es vestigial. Comprobado por cuatro vías: `GCS_BUCKET`
+apunta a `lens-506116-shoplifting-evidence`, `SUPABASE_ALERT_THUMBNAILS=0`, la
+subida está bajo `if job.include_thumbnail:`, y las alertas reales tienen
+`thumbnail_path = NULL`. No hay bucket que migrar.
 
 ## Lo que falta
 

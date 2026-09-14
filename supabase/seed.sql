@@ -10,13 +10,15 @@
 -- ============================================================================
 
 -- ─── event_groups ──────────────────────────────────────────────────────────
--- ATENCIÓN: la fila id=1 TIENE que existir porque los 8 event_types la
--- referencian por FK. Pero sus valores reales NO se pudieron leer: con la anon
--- key la tabla devuelve 0 filas (RLS o falta de grant la oculta).
--- El `code` de abajo es un relleno. CORREGIR con el valor real en cuanto se
--- tenga acceso: select * from public.event_groups;
+-- La fila id=1 TIENE que existir porque los 8 event_types la referencian por
+-- FK. Sus valores originales nunca se pudieron leer del proyecto de origen (RLS
+-- los ocultaba a la anon key), pero tampoco hacía falta: se comprobó que NADIE
+-- consume el contenido de esta tabla — ni el UI ni ninguna otra migración. Solo
+-- existe como destino de la FK. Así que se nombra aquí de forma descriptiva, y
+-- estos SON los valores canónicos de ahora en adelante.
 insert into public.event_groups (id, code, label, description) values
-  (1, 'grupo_1', 'Grupo 1', 'RELLENO: valores reales no legibles con anon key — corregir')
+  (1, 'conteo_personas', 'Conteo de personas',
+   'Eventos del pipeline de tracking peatonal: entradas, salidas, visitantes, pasantes y permanencia en zona.')
 on conflict (id) do nothing;
 
 -- ─── sites ─────────────────────────────────────────────────────────────────

@@ -1,16 +1,28 @@
 -- ============================================================================
--- OPCIONAL · Job de pg_cron que dispara la Edge Function check-freshness
+-- Job de pg_cron que dispara la Edge Function check-freshness
 -- ============================================================================
 -- Reemplaza a functions/cron_setup.sql, que traía la clave JWT escrita en el
--- archivo y versionada en GitHub. Aquí se lee de la configuración de la base
--- en lugar de estar incrustada.
+-- archivo y versionada en GitHub.
 --
--- Requisitos previos (Dashboard → Database → Extensions): pg_cron y pg_net.
--- Y desplegar la función: supabase functions deploy check-freshness
+-- El secreto se guarda en Supabase Vault, no en el archivo ni en la definición
+-- del job. `alter database ... set app.settings.*` NO sirve en Supabase: el rol
+-- postgres no tiene permiso para definir parámetros propios (probado el
+-- 2026-09-14: "permission denied to set parameter").
 --
--- Guardar antes el secreto, una sola vez, fuera del control de versiones:
---   alter database postgres set app.settings.freshness_token = '<service_role o key dedicada>';
---   alter database postgres set app.settings.project_url     = 'https://<ref>.supabase.co';
+-- Requisitos: extensiones pg_cron y pg_net (las habilita
+-- 20260101005000_extensions.sql) y la función desplegada:
+--     supabase functions deploy check-freshness
+--
+-- El token solo autoriza INVOCAR la función. La función usa internamente su
+-- propio SUPABASE_SERVICE_ROLE_KEY, que la plataforma le inyecta, así que aquí
+-- basta la anon key.
+--
+-- Guardar el secreto una vez (no versionar el valor):
+--     select vault.create_secret('<anon key>', 'freshness_token', 'Invoca check-freshness');
+--
+-- Para enviar correos hay que cargar además, en Edge Functions -> Secrets:
+--     RESEND_API_KEY, ALERT_FROM_EMAIL, ALERT_TO_EMAIL
+-- Sin ellos la función corre igual y registra 'email_not_configured'; no falla.
 -- ============================================================================
 
 create extension if not exists pg_cron;
@@ -24,10 +36,13 @@ select cron.schedule(
   '*/5 * * * *',
   $job$
   select net.http_post(
-    url     := current_setting('app.settings.project_url') || '/functions/v1/check-freshness',
+    url     := 'https://jtdnfockogskhuoturht.supabase.co/functions/v1/check-freshness',
     headers := jsonb_build_object(
       'Content-Type',  'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.settings.freshness_token')
+      'Authorization', 'Bearer ' || (
+        select decrypted_secret from vault.decrypted_secrets
+        where name = 'freshness_token'
+      )
     ),
     body    := '{}'::jsonb
   );
