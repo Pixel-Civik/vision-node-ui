@@ -10,6 +10,8 @@ el conteo y la publicación de eventos viven en
 
 ---
 
+> **Arquitectura del sistema:** [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md) — qué hace cada equipo, dónde queda cada dato y cuáles son los puntos frágiles.
+
 ## Índice
 
 1. [Arquitectura](#arquitectura)
