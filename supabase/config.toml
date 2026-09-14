@@ -1,0 +1,41 @@
+# Configuración del CLI de Supabase para Lens.
+# Sin este archivo no se puede `supabase link` ni `supabase db push`: era la
+# razón por la que el repo no tenía forma de aplicar sus propias migraciones.
+
+project_id = "lens"
+
+[api]
+enabled = true
+port = 54321
+# `public` es donde vive todo el modelo. graphql_public va por defecto.
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+# 17 = versión de los proyectos de la organización PixelCivik (Crashguard
+# Dev/Prod corren 17.6.1). La del proyecto origen no se pudo leer porque
+# get_project está denegado; confirmar al hacer el link si se transfiere.
+major_version = 17
+
+[db.migrations]
+enabled = true
+schema_paths = []
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+# Ajustar al dominio real antes de usar Auth en el proyecto nuevo.
+site_url = "http://127.0.0.1:3000"
+
+[storage]
+enabled = true
