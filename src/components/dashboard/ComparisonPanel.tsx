@@ -49,13 +49,25 @@ function DeltaPill({ value, suffix = "%" }: { value: number | null; suffix?: str
 
 const LIMA_OFFSET_MS = 5 * 60 * 60 * 1000;
 
+/** Primera y última hora que muestra el gráfico (horario comercial). */
+const CHART_FIRST_HOUR = 7;
+const CHART_LAST_HOUR = 22;
+
 function currentLimaHour(): number {
   return new Date(Date.now() - LIMA_OFFSET_MS).getUTCHours();
 }
 
+/** Día calendario en Lima, como "2026-09-14", para comparar fechas sin zona. */
+function limaDayKey(d: Date): string {
+  return new Date(d.getTime() - LIMA_OFFSET_MS).toISOString().slice(0, 10);
+}
+
 function buildChartData(curHourly: HourlyRow[], refHourly: HourlyRow[], maxHour: number) {
   const map = new Map<number, { hour: number; actual: number; referencia: number }>();
-  for (let h = 7; h <= maxHour; h++) map.set(h, { hour: h, actual: 0, referencia: 0 });
+  // El rango nunca puede quedar vacío: si lo hiciera, el `every` del render
+  // devolvería true por vacuidad y el panel diría "sin datos" habiendo datos.
+  const last = Math.max(maxHour, CHART_FIRST_HOUR);
+  for (let h = CHART_FIRST_HOUR; h <= last; h++) map.set(h, { hour: h, actual: 0, referencia: 0 });
   for (const r of curHourly) {
     if (r.event_type !== "enter") continue;
     if (!map.has(r.hour)) continue;
@@ -181,14 +193,20 @@ export function ComparisonPanel({
 
   const curEnters = kpis?.enters ?? 0;
 
-  // When the filter period end is still in the future (today is selected),
-  // only show hours up to now so future empty bars don't distort the comparison.
-  const periodIncludesToday = new Date(filters.endTs) > new Date();
-  const chartMaxHour = periodIncludesToday ? currentLimaHour() : 22;
+  // Recortar las horas a "ahora" evita barras futuras vacías, pero solo tiene
+  // sentido cuando el período seleccionado es únicamente el día de hoy. Con un
+  // rango de varios días descartaba las horas ya transcurridas de los días
+  // anteriores, y entre las 00:00 y las 07:00 de Lima dejaba el rango vacío
+  // (`for (h = 7; h <= 1; h++)`), lo que hacía que el panel se declarara sin
+  // datos todas las madrugadas.
+  const ahora = new Date();
+  const soloHoy =
+    limaDayKey(new Date(filters.startTs)) === limaDayKey(ahora) &&
+    limaDayKey(new Date(filters.endTs))   === limaDayKey(ahora);
+  const chartMaxHour = soloHoy ? currentLimaHour() : CHART_LAST_HOUR;
 
   const chartData = useMemo(
     () => buildChartData(hourly, refHourly, chartMaxHour),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [hourly, refHourly, chartMaxHour],
   );
 
