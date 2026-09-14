@@ -1,5 +1,5 @@
 import type { DashboardFilters, KPIResult, HourlyRow, ZoneBreakdownRow, ChannelBreakdownRow, HeatmapRow, TIZKpiRow, ConversionHourRow, GenderRow, AgeRow, TIZRaw, DailyRow, OverviewResult, CompareResult, DefaultRange } from "./types";
-import { rpc, rpcOne, supabase } from "./supabase";
+import { rpc, rpcOne } from "./supabase";
 
 function buildPayload(f: DashboardFilters) {
   return {
@@ -137,16 +137,20 @@ export async function fetchGenderAge(
   };
 }
 
+/**
+ * Filas crudas de permanencia en zona, para el histograma de distribución.
+ *
+ * Antes leía tracking_logs_view directamente. La vista ahora respeta la RLS
+ * del invocador, así que con la anon key devolvía 0 filas — y como dwell_sec
+ * es 100% NULL en producción, el histograma salía vacío igual y el fallo
+ * habría pasado inadvertido hasta encender la permanencia en zona.
+ */
 export async function fetchTIZDirect(startTs: string, endTs: string): Promise<TIZRaw[]> {
-  const { data } = await supabase
-    .from("tracking_logs_view")
-    .select("time, dwell_sec, zone")
-    .eq("event", "visit")
-    .gte("time", startTs)
-    .lte("time", endTs)
-    .not("dwell_sec", "is", null)
-    .limit(5000);
-  return (data as TIZRaw[]) ?? [];
+  return rpc<TIZRaw>("dashboard_tiz_raw", {
+    p_start_ts: startTs,
+    p_end_ts: endTs,
+    p_limit: 5000,
+  });
 }
 
 export async function fetchDailyTotals(f: DashboardFilters): Promise<DailyRow[]> {
