@@ -211,7 +211,8 @@ resultado sin importar la zona horaria del navegador.
 
 ## Funciones RPC
 
-Definidas en [`supabase/functions/dashboard_v7_server_logic.sql`](supabase/functions/dashboard_v7_server_logic.sql).
+Definidas en [`supabase/migrations/`](supabase/migrations/). Se aplican con
+`supabase db push`, igual que el resto del esquema.
 
 | Función                    | Devuelve | Propósito                                                     |
 | -------------------------- | -------- | ------------------------------------------------------------- |
@@ -265,11 +266,11 @@ Materializar las filas crudas excedía `work_mem` y provocaba escritura en disco
 Avisa por correo cuando el sistema deja de recibir eventos, lo que en la
 práctica indica una caída de cámaras, de red o del nodo de visión.
 
-| Componente        | Ubicación                                 |
-| ----------------- | ----------------------------------------- |
-| Edge Function     | `supabase/functions/check-freshness/`     |
-| Tabla de registro | `supabase/functions/alert_log.sql`        |
-| Programación      | `supabase/functions/cron_setup.sql`       |
+| Componente        | Ubicación                                                  |
+| ----------------- | ---------------------------------------------------------- |
+| Edge Function     | `supabase/functions/check-freshness/`                       |
+| Tabla de registro | `supabase/migrations/20260101010000_alert_log.sql`          |
+| Programación      | `supabase/optional/cron_check_freshness.sql`                |
 
 ### Comportamiento
 
@@ -328,10 +329,23 @@ Las variables públicas de Supabase y las seis variables GCP de la tabla deben
 estar definidas en Vercel. La confianza OIDC de producción se restringe al ID
 inmutable del proyecto Vercel y al entorno `production`.
 
-Las funciones SQL **no se despliegan junto con la aplicación**. Al incorporar
-cambios en `supabase/functions/*.sql` hay que aplicarlos manualmente en el
-editor SQL de Supabase; conviene hacerlo antes de fusionar el Pull Request que
-depende de ellos.
+### Cambios de esquema
+
+Todo el esquema —tablas, vistas, funciones RPC y policies— vive en
+`supabase/migrations/` y se aplica con:
+
+```bash
+supabase db push
+```
+
+**No aplicar SQL a mano en el editor de Supabase.** Ese era el procedimiento
+anterior y es la causa directa de que durante meses el modelo de datos existiera
+únicamente en la base de producción: el repositorio no podía reconstruir el
+sistema. Si una función se edita en la consola y no en una migración, ese cambio
+se pierde en el próximo proyecto que se levante desde el repo.
+
+Las Edge Functions sí se despliegan aparte, con
+`supabase functions deploy <nombre>`.
 
 ---
 

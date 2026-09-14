@@ -23,7 +23,6 @@ const Toaster = dynamic(
 );
 // Alerta de frescura desactivada: el stream de Supabase está cortado y solo hay
 // data histórica, por lo que esta alerta dispararía permanentemente.
-// import { useDataFreshnessAlert } from "@/hooks/useDataFreshnessAlert";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { type Section } from "@/components/layout/nav";
@@ -113,7 +112,6 @@ export default function App() {
     tiz: dashboardReady && section === "tiz",
   });
 
-  // useDataFreshnessAlert();  // desactivada — ver nota en el import
 
   const hasConversion = data.conversion.some((r) => r.pasantes > 0);
   const hasTIZ        = data.tizKpis.length > 0;

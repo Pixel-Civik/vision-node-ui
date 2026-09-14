@@ -1,4 +1,4 @@
-import type { DashboardFilters, KPIResult, HourlyRow, ZoneBreakdownRow, ChannelBreakdownRow, HeatmapRow, TIZKpiRow, ConversionHourRow, GenderRow, AgeRow, TIZRaw, DailyRow, OverviewResult, CompareResult, DefaultRange } from "./types";
+import type { DashboardFilters, KPIResult, HourlyRow, GenderRow, AgeRow, TIZRaw, DailyRow, OverviewResult, CompareResult, DefaultRange } from "./types";
 import { rpc, rpcOne } from "./supabase";
 
 function buildPayload(f: DashboardFilters) {
@@ -26,10 +26,9 @@ export const EMPTY_OVERVIEW: OverviewResult = {
 // ── RPCs v7 — la lógica vive en la BD ────────────────────────────────────────
 
 /**
- * Un solo round-trip para todo el dashboard. Sustituye la cadena en serie de
- * fetchKPIs → fetchHourly → fetchZoneBreakdown → fetchChannelBreakdown →
- * fetchHeatmap → fetchTIZKpis, y trae ya calculados totals, hourly_avg y
- * conversion, que antes se derivaban en JS.
+ * Un solo round-trip para todo el dashboard. Sustituyó a una cadena en serie de
+ * seis llamadas y trae ya calculados totals, hourly_avg y conversion, que antes
+ * se derivaban en JS. Aquellas funciones se eliminaron al quedar sin uso.
  */
 export async function fetchOverview(f: DashboardFilters, signal?: AbortSignal): Promise<OverviewResult> {
   const data = await rpcOne<OverviewResult | null>("dashboard_overview", buildPayload(f), signal);
@@ -76,51 +75,12 @@ export async function fetchHourly(f: DashboardFilters): Promise<HourlyRow[]> {
   return rpc<HourlyRow>("dashboard_hourly_totals", buildPayload(f));
 }
 
-export async function fetchHourlyAvg(f: DashboardFilters): Promise<HourlyRow[]> {
-  return rpc<HourlyRow>("dashboard_hourly_avg", buildPayload(f));
-}
 
-export async function fetchZoneBreakdown(f: DashboardFilters): Promise<ZoneBreakdownRow[]> {
-  return rpc<ZoneBreakdownRow>("dashboard_breakdown_zone", buildPayload(f));
-}
 
-export async function fetchChannelBreakdown(f: DashboardFilters): Promise<ChannelBreakdownRow[]> {
-  return rpc<ChannelBreakdownRow>("dashboard_breakdown_channel", buildPayload(f));
-}
 
-export async function fetchHeatmap(f: DashboardFilters): Promise<HeatmapRow[]> {
-  return rpc<HeatmapRow>("dashboard_heatmap_dow_hour", buildPayload(f));
-}
 
-export async function fetchTIZKpis(f: DashboardFilters): Promise<TIZKpiRow[]> {
-  return rpc<TIZKpiRow>("dashboard_tiz_zone_stats", buildPayload(f));
-}
 
-export function computeConversionFromHourly(rows: HourlyRow[]): ConversionHourRow[] {
-  const map = new Map<number, { pasantes: number; visitors: number; enters: number }>();
-  for (const r of rows) {
-    if (!["pasante", "visitor", "enter"].includes(r.event_type)) continue;
-    const cur = map.get(r.hour) ?? { pasantes: 0, visitors: 0, enters: 0 };
-    if (r.event_type === "pasante") cur.pasantes += r.count;
-    if (r.event_type === "visitor") cur.visitors += r.count;
-    if (r.event_type === "enter") cur.enters += r.count;
-    map.set(r.hour, cur);
-  }
-  return Array.from(map.entries())
-    .sort((a, b) => a[0] - b[0])
-    .map(([hour, d]) => ({
-      hour,
-      pasantes: d.pasantes,
-      visitors: d.visitors,
-      enters: d.enters,
-      conv_enter_pct: d.pasantes > 0 ? Math.round((d.enters / d.pasantes) * 1000) / 10 : 0,
-      conv_visitor_pct: d.pasantes > 0 ? Math.round((d.visitors / d.pasantes) * 1000) / 10 : 0,
-    }));
-}
 
-export async function fetchConversionByHour(f: DashboardFilters): Promise<ConversionHourRow[]> {
-  return computeConversionFromHourly(await fetchHourly(f));
-}
 
 export async function fetchGenderAge(
   startTs: string,

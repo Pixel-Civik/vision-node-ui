@@ -124,7 +124,6 @@ export async function exportExcelReporte(params: {
   // ── KPI summary ──────────────────────────────────────────────────────────────
   if (inc.kpi && kpis) {
     const d = Math.max(1, kpis.days);
-    const exitRate = kpis.enters > 0 ? ((kpis.exits / kpis.enters) * 100).toFixed(1) + "%" : "—";
     sheets.push({
       name: "Resumen KPI",
       headers: ["Parámetro", "Valor"],
