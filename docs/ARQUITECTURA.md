@@ -100,3 +100,45 @@ revocadas; el archivo se sirve siempre por URL firmada.
   `git pull`, pero nada lo dispara solo.
 - **El 95% del conteo depende de la cámara 101.** Si se cae, el sistema sigue
   "vivo" pero pierde casi todo su volumen.
+
+## Accesos
+
+Estado al 14/09/2026, tras la recuperación de propiedad.
+
+| Sistema | Quién entra | Nota |
+|---|---|---|
+| Supabase `jtdnfockogskhuoturht` | Cuenta UTEC (`signal Org`) | Proyecto propio desde la migración |
+| GCP `lens-506116` | `contacto@pixelcivik.com` (owner) | Único acceso humano |
+| GitHub `Pixel-Civik` | `jucarBM`, `sebastianov77` (admin) · `danielyatacoblas` (write) · `josetipula` | Sin cambios, decisión abierta |
+| Vercel | equipo `juan-carlos-projects-dd4a5652` | Proyecto `prj_nCerToyb…` |
+
+### Revocado el 14/09/2026
+
+Daniel Yataco (`ingyatacoblas@gmail.com`) tenía acceso directo al proyecto GCP
+con `editor`, `storage.admin`, `iam.serviceAccountAdmin` e
+`iam.workloadIdentityPoolAdmin`. Ese último es el que importaba: le permitía
+**recrear cualquier acceso que se le quitara**, así que eliminar solo el
+provider WIF habría sido teatro.
+
+Se revocaron los cuatro roles, más dos bindings sobre la cuenta de servicio
+`shoplifting-vercel` (`workloadIdentityUser` y `serviceAccountTokenCreator` —
+tenía más permisos que el propio proyecto de PixelCivik), y se eliminó el
+provider `vercel-production`, que confiaba en el issuer
+`danielyatacoblas-projects`.
+
+Alcance de lo que ese acceso permitía: `roles/storage.objectViewer` sobre el
+bucket de evidencia — leer todos los videos, no escribir ni borrar. La
+eliminación del provider es soft-delete: recuperable durante 30 días.
+
+Verificado después de revocar: la firma de URLs de video sigue devolviendo 200,
+el N100 sigue insertando y el Jetson sigue subiendo a GCS.
+
+### Pendiente
+
+- **Provider WIF duplicado.** `vercel-lens-production` y `vercel-production-main`
+  tienen issuer, proyecto y condición idénticos; sobra uno. No se eliminó porque
+  no se pudo determinar cuál usa el deployment: los intercambios STS no se
+  auditan por defecto. Para resolverlo, mirar
+  `GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID` en las variables de Vercel y borrar
+  el otro.
+- **Acceso `write` de `danielyatacoblas` a los repos.** Decisión abierta.
