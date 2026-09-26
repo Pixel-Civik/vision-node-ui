@@ -1,6 +1,6 @@
 "use client";
 
-import type { TIZKpiRow, TIZRaw, DashboardFilters } from "@/lib/types";
+import type { TIZKpiRow, TIZDistribution, DashboardFilters } from "@/lib/types";
 import { TIZPanel } from "@/components/dashboard/TIZPanel";
 import { TIZDistributionChart } from "@/components/charts/TIZDistributionChart";
 import { ExportDialog } from "@/components/export/ExportDialog";
@@ -9,26 +9,10 @@ import { FileText, Clock, BarChart2, Activity } from "lucide-react";
 
 interface Props {
   tizKpis: TIZKpiRow[];
-  tizRaw: TIZRaw[];
+  tizDistribution: TIZDistribution | null;
   loading: boolean;
   analyticsLoading: boolean;
   filters: DashboardFilters;
-}
-
-function median(arr: number[]): number {
-  if (arr.length === 0) return 0;
-  const sorted = arr.slice().sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0
-    ? (sorted[mid - 1] + sorted[mid]) / 2
-    : sorted[mid];
-}
-
-function pct(arr: number[], p: number): number {
-  if (arr.length === 0) return 0;
-  const sorted = arr.slice().sort((a, b) => a - b);
-  const idx = Math.ceil((p / 100) * sorted.length) - 1;
-  return sorted[Math.max(0, idx)];
 }
 
 function fmtSecs(s: number): string {
@@ -77,12 +61,11 @@ function InlineKPI({ label, value, sub, borderColor, Icon, loading }: InlineKPIP
   );
 }
 
-export function TIZView({ tizKpis, tizRaw, loading, analyticsLoading, filters }: Props) {
-  const durations = tizRaw.map((r) => r.dwell_sec);
-  const totalVisitas = tizRaw.length;
-  const medianVal = median(durations);
-  const avgVal = durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0;
-  const p90Val = pct(durations, 90);
+export function TIZView({ tizKpis, tizDistribution, loading, analyticsLoading, filters }: Props) {
+  const totalVisitas = tizDistribution?.count ?? 0;
+  const medianVal = tizDistribution?.median_s ?? 0;
+  const avgVal = tizDistribution?.avg_s ?? 0;
+  const p90Val = tizDistribution?.p90_s ?? 0;
 
   function handlePDF() {
     exportPDF({
@@ -94,7 +77,7 @@ export function TIZView({ tizKpis, tizRaw, loading, analyticsLoading, filters }:
         {
           title: "KPIs de Permanencia",
           rows: [
-            ["Total visitas (raw)", totalVisitas.toLocaleString()],
+            ["Total visitas", totalVisitas.toLocaleString()],
             ["Mediana de permanencia", fmtSecs(medianVal)],
             ["Promedio de permanencia", fmtSecs(avgVal)],
             ["P90 (visitas largas)", fmtSecs(p90Val)],
@@ -183,7 +166,7 @@ export function TIZView({ tizKpis, tizRaw, loading, analyticsLoading, filters }:
           <p className="text-xs text-slate-400 mt-0.5 mb-4">
             Cantidad de visitas por rango de duración
           </p>
-          <TIZDistributionChart tizRaw={tizRaw} loading={analyticsLoading} />
+          <TIZDistributionChart buckets={tizDistribution?.buckets ?? []} loading={analyticsLoading} />
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">

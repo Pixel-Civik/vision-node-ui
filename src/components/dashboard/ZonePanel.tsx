@@ -12,7 +12,7 @@ const COLORS: Record<string, string> = {
   visit: "#7C3AED",
 };
 
-function HBar({ data, label }: { data: { name: string; value: number; type: string }[]; label: string }) {
+function HBar({ data }: { data: { name: string; value: number; type: string }[]; label: string }) {
   if (!data.length) return <p className="text-xs text-gray-400 py-4 text-center">Sin datos</p>;
   return (
     <ResponsiveContainer width="100%" height={Math.max(120, data.length * 28)}>

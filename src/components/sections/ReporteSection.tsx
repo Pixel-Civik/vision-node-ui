@@ -58,7 +58,6 @@ export function ReporteSection({
   channelBreakdown,
   conversion,
   tizKpis,
-  totals,
   filters,
   filterValues,
   opts,

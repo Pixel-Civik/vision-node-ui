@@ -70,10 +70,10 @@ export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, st
   const [tab, setTab] = useState<"graficos" | "tablas">("graficos");
 
   function toggleChart(id: string) {
-    setSelCharts((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setSelCharts((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   }
   function toggleTable(id: string) {
-    setSelTables((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setSelTables((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   }
 
   async function handleGenerate() {

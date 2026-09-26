@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, SlidersHorizontal } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
@@ -40,8 +40,10 @@ interface Props {
 }
 
 export function FilterPanel({ opts, values, onChange }: Props) {
-  const today     = isoDate(new Date());
-  const yesterday = isoDate(new Date(Date.now() - 86_400_000));
+  const [referenceNow, setReferenceNow] = useState(() => Date.now());
+  useEffect(() => { const timer = setInterval(() => setReferenceNow(Date.now()), 60_000); return () => clearInterval(timer); }, []);
+  const today = isoDate(new Date(referenceNow));
+  const yesterday = isoDate(new Date(referenceNow - 86_400_000));
 
   const [datePickerMode, setDatePickerMode] = useState<DateMode>(
     values.startDate === values.endDate ? "single" : "range",
@@ -56,18 +58,17 @@ export function FilterPanel({ opts, values, onChange }: Props) {
     if (forcedPersonalizado) return "personalizado";
     const { startDate, endDate } = values;
     if (startDate === today && endDate === today) return "hoy";
-    const ago7 = isoDate(new Date(Date.now() - 7 * 86_400_000));
+    const ago7 = isoDate(new Date(referenceNow - 7 * 86_400_000));
     if (startDate === ago7 && endDate === yesterday) return "7dias";
-    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const monthStart = new Date(new Date(referenceNow).getFullYear(), new Date(referenceNow).getMonth(), 1);
     if (startDate === isoDate(monthStart) && endDate === yesterday) return "mensual";
     if (!opts.loading && opts.minDate < today && startDate === opts.minDate && endDate === yesterday)
       return "promedio";
     return "personalizado";
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [forcedPersonalizado, values.startDate, values.endDate, opts.loading, opts.minDate]);
+  }, [forcedPersonalizado, values, opts.loading, opts.minDate, referenceNow, today, yesterday]);
 
   function applyMode(m: QuickMode) {
-    const now = new Date();
+    const now = new Date(referenceNow);
     if (m === "personalizado") {
       setForcedPersonalizado(true);
       return;
@@ -77,10 +78,10 @@ export function FilterPanel({ opts, values, onChange }: Props) {
       const min = opts.minDate < today ? opts.minDate : yesterday;
       onChange({ startDate: min, endDate: yesterday, hourMin: 0, hourMax: 23, dows: [0,1,2,3,4,5,6] });
     } else if (m === "hoy") {
-      const limaHour = new Date(Date.now() - 5 * 3_600_000).getUTCHours();
+      const limaHour = new Date(referenceNow - 5 * 3_600_000).getUTCHours();
       onChange({ startDate: today, endDate: today, hourMin: 0, hourMax: limaHour });
     } else if (m === "7dias") {
-      const start = isoDate(new Date(Date.now() - 7 * 86_400_000));
+      const start = isoDate(new Date(referenceNow - 7 * 86_400_000));
       onChange({ startDate: start, endDate: yesterday, hourMin: 0, hourMax: 23, dows: [0,1,2,3,4,5,6] });
     } else if (m === "mensual") {
       const start = isoDate(new Date(now.getFullYear(), now.getMonth(), 1));
@@ -88,7 +89,7 @@ export function FilterPanel({ opts, values, onChange }: Props) {
     }
   }
 
-  const now = new Date();
+  const now = new Date(referenceNow);
   const firstOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
   const minDate = opts.minDate < today ? opts.minDate : firstOfMonth;
   const maxDate = today;
@@ -113,8 +114,7 @@ export function FilterPanel({ opts, values, onChange }: Props) {
     if (e >= today)
       return { type: "info", msg: "Los datos de hoy están incompletos (día en curso)" };
     return null;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, values.startDate, values.endDate, opts.loading, opts.minDate]);
+  }, [mode, values.startDate, values.endDate, opts.loading, opts.minDate, today]);
 
   const MODES: { id: QuickMode; label: string }[] = [
     { id: "promedio",      label: "Promedio"     },

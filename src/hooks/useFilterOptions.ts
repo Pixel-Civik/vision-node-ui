@@ -13,11 +13,13 @@ export interface FilterOptions {
   availableDates: Set<string>;  // días que REALMENTE tienen datos
   defaultRange: DefaultRange | null;  // rango de apertura decidido por la BD
   loading: boolean;
+  error: string | null;
+  retry: () => void;
 }
 
 const TODAY = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima" }).format(new Date());
 
-const EMPTY: Omit<FilterOptions, "loading"> = {
+const EMPTY: Omit<FilterOptions, "loading" | "error" | "retry"> = {
   sites: [], channels: [], zones: [],
   minDate: TODAY, maxDate: TODAY,
   availableDates: new Set<string>(),
@@ -58,8 +60,10 @@ export function useFilterOptions(): FilterOptions {
     staleTime: 10 * 60_000,
   });
 
+  const error = opts.error || range.error || days.error ? "No se pudieron cargar el rango y los filtros del dashboard." : null;
+  const retry = () => { void opts.refetch(); void range.refetch(); void days.refetch(); };
   if (!opts.data) {
-    return { ...EMPTY, defaultRange: range.data ?? null, loading: opts.isPending };
+    return { ...EMPTY, defaultRange: range.data ?? null, loading: opts.isPending || range.isPending, error, retry };
   }
 
   return {
@@ -74,5 +78,6 @@ export function useFilterOptions(): FilterOptions {
     // dispararía una consulta con fechas provisionales y luego otra con las
     // reales — la doble carga que ya existía antes.
     loading:        opts.isPending || range.isPending,
+    error, retry,
   };
 }
