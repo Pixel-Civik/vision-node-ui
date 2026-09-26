@@ -102,7 +102,7 @@ async function fetchNewCount(): Promise<number> {
     .select("id", { count: "exact", head: true })
     .contains("metadata", { evidence_generation: EVIDENCE_GENERATION })
     .eq("status", "new");
-  if (error) return 0;
+  if (error) throw new Error("No se pudo consultar el contador de alertas");
   return count ?? 0;
 }
 

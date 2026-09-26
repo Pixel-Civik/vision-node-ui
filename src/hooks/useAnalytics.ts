@@ -1,14 +1,16 @@
 "use client";
 
+import { filterKey } from "@/lib/dashboard-filters";
 import { useQuery } from "@tanstack/react-query";
-import type { GenderRow, AgeRow, TIZRaw, DashboardFilters } from "@/lib/types";
-import { fetchGenderAge, fetchTIZDirect } from "@/lib/api";
+import type { GenderRow, AgeRow, TIZDistribution, DashboardFilters } from "@/lib/types";
+import { fetchGenderAge, fetchTIZDistribution } from "@/lib/api";
 
 export interface AnalyticsData {
   genderEnter: GenderRow[];
   ageEnter: AgeRow[];
   genderVisitor: GenderRow[];
-  tizRaw: TIZRaw[];
+  tizDistribution: TIZDistribution | null;
+  analyticsError: string | null;
   analyticsLoading: boolean;
 }
 
@@ -28,20 +30,20 @@ export function useAnalytics(
   const wantTiz = options.tiz ?? false;
 
   const enter = useQuery({
-    queryKey: ["analytics", "gender-age", "enter", filters.startTs, filters.endTs],
-    queryFn: () => fetchGenderAge(filters.startTs, filters.endTs, ["enter"]),
+    queryKey: ["analytics", "gender-age", "enter", ...filterKey(filters)],
+    queryFn: ({ signal }) => fetchGenderAge(filters, ["enter"], signal),
     enabled: wantEnter,
     staleTime: 5 * 60_000,
   });
   const visitor = useQuery({
-    queryKey: ["analytics", "gender-age", "visitor", filters.startTs, filters.endTs],
-    queryFn: () => fetchGenderAge(filters.startTs, filters.endTs, ["visitor"]),
+    queryKey: ["analytics", "gender-age", "visitor", ...filterKey(filters)],
+    queryFn: ({ signal }) => fetchGenderAge(filters, ["visitor"], signal),
     enabled: wantVisitor,
     staleTime: 5 * 60_000,
   });
   const tiz = useQuery({
-    queryKey: ["analytics", "tiz-raw", filters.startTs, filters.endTs],
-    queryFn: () => fetchTIZDirect(filters.startTs, filters.endTs),
+    queryKey: ["analytics", "tiz-raw", ...filterKey(filters)],
+    queryFn: ({ signal }) => fetchTIZDistribution(filters, signal),
     enabled: wantTiz,
     staleTime: 5 * 60_000,
   });
@@ -50,7 +52,9 @@ export function useAnalytics(
     genderEnter: enter.data?.gender ?? [],
     ageEnter: enter.data?.age ?? [],
     genderVisitor: visitor.data?.gender ?? [],
-    tizRaw: tiz.data ?? [],
+    tizDistribution: tiz.data ?? null,
+    analyticsError: (wantEnter && enter.error) || (wantVisitor && visitor.error) || (wantTiz && tiz.error)
+      ? "No se pudo cargar el análisis de la selección. Reintenta actualizar." : null,
     analyticsLoading:
       (wantEnter && (enter.isPending || enter.isFetching)) ||
       (wantVisitor && (visitor.isPending || visitor.isFetching)) ||

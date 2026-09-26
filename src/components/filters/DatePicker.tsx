@@ -122,10 +122,13 @@ export function DatePicker({
     setInputWarn(null)
   }
 
-  useEffect(() => { setStartInput(isoToDisplay(startDate)); setStartOk(true) }, [startDate])
-  useEffect(() => { setEndInput(isoToDisplay(endDate));     setEndOk(true)   }, [endDate])
-  // Limpia el aviso de entrada cuando llega un aviso del filtro
-  useEffect(() => { if (filterWarning) clearWarn() }, [filterWarning])
+  const [syncedDates, setSyncedDates] = useState({ startDate, endDate });
+  if (syncedDates.startDate !== startDate || syncedDates.endDate !== endDate) {
+    setSyncedDates({ startDate, endDate });
+    setStartInput(isoToDisplay(startDate)); setEndInput(isoToDisplay(endDate));
+    setStartOk(true); setEndOk(true); setInputWarn(null);
+  }
+  useEffect(() => () => clearTimeout(warnTimer.current), []);
 
   const minD = isoToLocal(minDate)
   const maxD = isoToLocal(maxDate)

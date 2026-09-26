@@ -13,6 +13,8 @@
  */
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { fetchFreshness } from "@/lib/api";
 import { useState, useMemo } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -21,8 +23,6 @@ const Toaster = dynamic(
   () => import("@/components/ui/sonner").then((m) => ({ default: m.Toaster })),
   { ssr: false }
 );
-// Alerta de frescura desactivada: el stream de Supabase está cortado y solo hay
-// data histórica, por lo que esta alerta dispararía permanentemente.
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { type Section } from "@/components/layout/nav";
@@ -54,7 +54,7 @@ function limaToUtc(date: string, h: number, m: number, s: number): string {
 export default function App() {
   const [section, setSection]       = useState<Section>("reporte");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { data: shopliftingAlertCount = 0 } = useShopliftingAlertCount();
+  const { data: shopliftingAlertCount, error: alertCountError } = useShopliftingAlertCount();
 
   const opts = useFilterOptions();
 
@@ -103,7 +103,8 @@ export default function App() {
 
   // No consultar hasta conocer el rango de apertura: si no, se dispararía una
   // consulta con fechas provisionales y otra con las definitivas.
-  const dashboardReady = !opts.loading && !!dr;
+  const dashboardReady = !!(fvRaw.startDate && fvRaw.endDate) || (!opts.loading && !opts.error);
+  const freshness = useQuery({ queryKey: ["freshness"], queryFn: ({ signal }) => fetchFreshness(signal), staleTime: 60_000, refetchInterval: 60_000 });
 
   const data      = useDashboard(filters, { enabled: dashboardReady });
   const analytics = useAnalytics(filters, {
@@ -166,10 +167,20 @@ export default function App() {
         <TopBar open={sidebarOpen} onOpen={() => setSidebarOpen(true)} onClose={() => setSidebarOpen(false)} />
 
         <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
-          {data.error && (
+          {alertCountError && <p role="status" className="mx-6 mt-3 text-xs text-amber-700">Contador de alertas no disponible.</p>}
+          {opts.error && (
+            <div role="alert" className="mx-6 mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-700">
+              {opts.error} <button onClick={opts.retry} className="ml-3 underline">Reintentar</button>
+            </div>
+          )}
+          {freshness.data && <p className="mx-6 mt-3 text-xs text-slate-500">
+            Último evento: {freshness.data.last_event_at ? new Date(freshness.data.last_event_at).toLocaleString("es-PE", { timeZone: "America/Lima" }) : "sin eventos"} · Consulta: {new Date(freshness.data.queried_at).toLocaleString("es-PE", { timeZone: "America/Lima" })} (hora Lima). El período seleccionado puede ser histórico.
+          </p>}
+          {freshness.error && <p role="status" className="mx-6 mt-3 text-xs text-amber-700">Frescura de datos no disponible.</p>}
+          {(data.error || analytics.analyticsError) && (
             <div className="mx-6 mt-4 flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
               <AlertTriangle size={15} />
-              {data.error}
+              {data.error || analytics.analyticsError}
             </div>
           )}
 
@@ -217,7 +228,7 @@ export default function App() {
 
           <div className={section !== "tiz"        ? "hidden" : undefined}>
             <TIZView
-              tizKpis={data.tizKpis} tizRaw={analytics.tizRaw}
+              tizKpis={data.tizKpis} tizDistribution={analytics.tizDistribution}
               loading={data.loading} analyticsLoading={analytics.analyticsLoading} filters={filters}
             />
           </div>

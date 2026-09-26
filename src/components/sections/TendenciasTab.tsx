@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
-  ComposedChart, BarChart, LineChart, AreaChart,
+  ComposedChart, BarChart, AreaChart,
   Bar, Line, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, ReferenceLine, Cell,
@@ -10,9 +10,11 @@ import {
 import { TrendingUp, TrendingDown, Minus, Trophy, AlertTriangle, Calendar } from "lucide-react";
 import { useTrendData } from "@/hooks/useTrendData";
 import { useComparisonData, type CompareMode } from "@/hooks/useComparisonData";
+import { useQuery } from "@tanstack/react-query";
+import { filterKey } from "@/lib/dashboard-filters";
 import { fetchKPIs, fetchHourly } from "@/lib/api";
 import { DatePicker, type DateMode } from "@/components/filters/DatePicker";
-import type { DashboardFilters, KPIResult, HourlyRow } from "@/lib/types";
+import type { DashboardFilters, HourlyRow } from "@/lib/types";
 import { fmtHour } from "@/lib/fmt";
 
 // ── date helpers ──────────────────────────────────────────────────────────────
@@ -45,23 +47,8 @@ function prevMonthRange(): { start: string; end: string } {
 // ── local KPI fetch ───────────────────────────────────────────────────────────
 
 function useLocalKPIs(filters: DashboardFilters) {
-  const [kpis,   setKpis]   = useState<KPIResult | null>(null);
-  const [hourly, setHourly] = useState<HourlyRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    Promise.all([fetchKPIs(filters), fetchHourly(filters)])
-      .then(([k, h]) => {
-        if (!cancelled) { setKpis(k); setHourly(h); setLoading(false); }
-      })
-      .catch(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.startTs, filters.endTs, JSON.stringify(filters.sites), JSON.stringify(filters.channels), JSON.stringify(filters.zones), filters.hourMin, filters.hourMax, JSON.stringify(filters.dows)]);
-
-  return { kpis, hourly, loading };
+  const query = useQuery({ queryKey: ["local-kpis", ...filterKey(filters)], queryFn: () => Promise.all([fetchKPIs(filters), fetchHourly(filters)]) });
+  return { kpis: query.data?.[0] ?? null, hourly: query.data?.[1] ?? [], loading: query.isPending || query.isFetching, error: query.error };
 }
 
 // ── chart helpers ─────────────────────────────────────────────────────────────
@@ -285,9 +272,8 @@ function IntradayChart({ hourly, loading }: { hourly: HourlyRow[]; loading: bool
     }
     const sorted = Array.from(byHour.entries()).sort((a, b) => a[0] - b[0]);
     const total  = sorted.reduce((s, [, v]) => s + v, 0);
-    let cum = 0;
-    return sorted.map(([hour, count]) => {
-      cum += count;
+    return sorted.map(([hour], index) => {
+      const cum = sorted.slice(0, index + 1).reduce((sum, [, count]) => sum + count, 0);
       return { hour, cumPct: total > 0 ? +(((cum / total) * 100).toFixed(1)) : 0 };
     });
   }, [hourly]);
@@ -412,14 +398,14 @@ export function TendenciasTab({
   }
 
   // Fetch kpis + hourly for local period (for KPI cards + intraday chart)
-  const { kpis: localKpis, hourly: localHourly, loading: kpiLoading } = useLocalKPIs(localFilters);
+  const { kpis: localKpis, hourly: localHourly, loading: kpiLoading, error: kpiError } = useLocalKPIs(localFilters);
 
   // Comparison data (REQ 1 + REQ 2)
-  const { refKpis, refHourly, siteRank, loading: compLoading, deltas, curPasantes } =
+  const { refHourly, siteRank, loading: compLoading, deltas, curPasantes } =
     useComparisonData(localFilters, compareMode, localKpis, localHourly, allSites);
 
   // Trend data for charts
-  const { daily, dowData, projection, loading: trendLoading, hasEnoughData } = useTrendData(localFilters);
+  const { daily, dowData, projection, loading: trendLoading, hasEnoughData, error: trendError } = useTrendData(localFilters);
 
   const loading       = parentLoading || kpiLoading || trendLoading;
   const compareLoading = loading || compLoading;
@@ -453,6 +439,7 @@ export function TendenciasTab({
 
   return (
     <div className="space-y-5">
+      {(kpiError || trendError) && <p role="alert" className="text-sm text-red-700">No se pudieron cargar las tendencias. Actualiza para reintentar.</p>}
 
       {/* ── Period filter ── */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">

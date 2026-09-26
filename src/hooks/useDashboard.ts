@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { filterKey } from "@/lib/dashboard-filters";
 import { useCallback } from "react";
 import type {
   DashboardFilters, KPIResult, HourlyRow, ZoneBreakdownRow,
@@ -28,15 +29,7 @@ export interface DashboardData {
  * deben producir la misma clave o la caché nunca acierta.
  */
 export function dashboardKey(f: DashboardFilters) {
-  return [
-    "overview",
-    f.startTs, f.endTs,
-    f.sites?.join(",") ?? "*",
-    f.channels?.join(",") ?? "*",
-    f.zones?.join(",") ?? "*",
-    f.hourMin, f.hourMax,
-    f.dows?.join(",") ?? "*",
-  ] as const;
+  return ["overview", ...filterKey(f)] as const;
 }
 
 /**
@@ -63,7 +56,9 @@ export function useDashboard(
   });
 
   const refresh = useCallback(() => {
-    qc.invalidateQueries({ queryKey: ["overview"] });
+    for (const key of ["overview", "analytics", "filter-options", "default-range", "data-days", "freshness", "shoplifting-alerts", "daily-trends", "local-kpis", "compare"]) {
+      void qc.invalidateQueries({ queryKey: [key] });
+    }
   }, [qc]);
 
   const o = data ?? EMPTY_OVERVIEW;

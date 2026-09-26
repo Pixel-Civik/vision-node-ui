@@ -1,18 +1,7 @@
-import type { DashboardFilters, KPIResult, HourlyRow, GenderRow, AgeRow, TIZRaw, DailyRow, OverviewResult, CompareResult, DefaultRange } from "./types";
+import type { DashboardFilters, KPIResult, HourlyRow, GenderRow, AgeRow, TIZDistribution, DailyRow, OverviewResult, CompareResult, DefaultRange } from "./types";
 import { rpc, rpcOne } from "./supabase";
 
-function buildPayload(f: DashboardFilters) {
-  return {
-    p_start_ts: f.startTs,
-    p_end_ts: f.endTs,
-    p_sites: f.sites,
-    p_channels: f.channels,
-    p_zones: f.zones,
-    p_hour_min: f.hourMin,
-    p_hour_max: f.hourMax,
-    p_dows: f.dows,
-  };
-}
+import { filterPayload as buildPayload } from "./dashboard-filters";
 
 const EMPTY_KPI: KPIResult = { enters: 0, exits: 0, net: 0, unique_tracks: 0, days: 0, enters_per_day: 0, exits_per_day: 0 };
 
@@ -83,13 +72,13 @@ export async function fetchHourly(f: DashboardFilters): Promise<HourlyRow[]> {
 
 
 export async function fetchGenderAge(
-  startTs: string,
-  endTs: string,
-  eventTypes: string[]
+  filters: DashboardFilters,
+  eventTypes: string[],
+  signal?: AbortSignal
 ): Promise<{ gender: GenderRow[]; age: AgeRow[] }> {
   const rows = await rpc<{ dimension: string; value: string; count: number }>(
-    "dashboard_gender_age",
-    { p_start_ts: startTs, p_end_ts: endTs, p_event_types: eventTypes }
+    "dashboard_gender_age_filtered",
+    { ...buildPayload(filters), p_event_types: eventTypes }, signal
   );
   return {
     gender: rows.filter((r) => r.dimension === "gender").map(({ value: gender, count }) => ({ gender, count })),
@@ -97,20 +86,13 @@ export async function fetchGenderAge(
   };
 }
 
-/**
- * Filas crudas de permanencia en zona, para el histograma de distribución.
- *
- * Antes leía tracking_logs_view directamente. La vista ahora respeta la RLS
- * del invocador, así que con la anon key devolvía 0 filas — y como dwell_sec
- * es 100% NULL en producción, el histograma salía vacío igual y el fallo
- * habría pasado inadvertido hasta encender la permanencia en zona.
- */
-export async function fetchTIZDirect(startTs: string, endTs: string): Promise<TIZRaw[]> {
-  return rpc<TIZRaw>("dashboard_tiz_raw", {
-    p_start_ts: startTs,
-    p_end_ts: endTs,
-    p_limit: 5000,
-  });
+/** Exact aggregate distribution, including every matching dwell event. */
+export async function fetchTIZDistribution(filters: DashboardFilters, signal?: AbortSignal): Promise<TIZDistribution> {
+  return rpcOne<TIZDistribution>("dashboard_tiz_distribution", buildPayload(filters), signal);
+}
+
+export async function fetchFreshness(signal?: AbortSignal): Promise<{ last_event_at: string | null; queried_at: string }> {
+  return rpcOne("dashboard_freshness", {}, signal);
 }
 
 export async function fetchDailyTotals(f: DashboardFilters): Promise<DailyRow[]> {

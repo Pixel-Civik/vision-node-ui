@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
+/* Exact shadcn 4.7.0 stylesheet, MIT license in src/styles/vendor. */
+@import "../styles/vendor/shadcn-tailwind.css";
 @import "react-day-picker/style.css";
 
 /* react-day-picker — teal theme */
