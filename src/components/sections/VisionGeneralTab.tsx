@@ -31,7 +31,7 @@ function ChartCard({ id, title, subtitle, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <div id={id} className="panel p-6">
+    <div id={id} className="panel p-5">
       <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
       <p className="text-xs text-slate-400 mt-0.5 mb-4">{subtitle}</p>
       {children}
@@ -46,7 +46,7 @@ export function VisionGeneralTab({ hourly, hourlyAvg, heatmap, conversion, loadi
     : "Barras: Entradas (teal) · Líneas: Visitantes (celeste) / Pasantes (gris)";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Row 1: Combined traffic — data from server-averaged RPC */}
       <ChartCard
         id="export-chart-combined"
@@ -62,7 +62,7 @@ export function VisionGeneralTab({ hourly, hourlyAvg, heatmap, conversion, loadi
       </ChartCard>
 
       {/* Últimas 3 gráficas — cuadrícula 2×2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ChartCard id="export-chart-conversion" title="Conversión por hora" subtitle="% de pasantes que ingresaron al local, hora a hora">
           <LazyChart height={200}><ConversionChart rows={conversion} loading={loading} /></LazyChart>
         </ChartCard>

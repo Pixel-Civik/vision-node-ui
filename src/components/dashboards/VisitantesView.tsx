@@ -6,13 +6,16 @@ import type {
   GenderRow,
   DashboardFilters,
 } from "@/lib/types";
+import { useState } from "react";
 import { ConversionChart } from "@/components/dashboard/ConversionChart";
+import { StatCard } from "@/components/dashboard/StatCard";
 import { ExportDialog } from "@/components/export/ExportDialog";
 import { GenderAgePanel } from "@/components/charts/GenderAgePanel";
 import { VisitorFlowChart } from "@/components/charts/VisitorFlowChart";
 import { exportPDF } from "@/lib/exportPDF";
-import { PageHeader } from "@/components/ui/page-header";
-import { FileText, Users, ArrowRight, Clock } from "lucide-react";
+import { PageHeader, PanelTitle } from "@/components/ui/page-header";
+import { SectionTabs } from "@/components/ui/section-tabs";
+import { FileText, Users, ArrowRight, Clock, TrendingUp } from "lucide-react";
 
 interface Props {
   hourly: HourlyRow[];
@@ -61,47 +64,6 @@ function computeKPIs(hourly: HourlyRow[]): LocalKPIs {
   return { totalVisitors, totalPasantes, conversionPct, peakHour };
 }
 
-interface InlineKPIProps {
-  label: string;
-  value: string;
-  sub: string;
-  borderColor: string;
-  Icon: React.ElementType;
-  loading: boolean;
-}
-
-function InlineKPI({ label, value, sub, borderColor, Icon, loading }: InlineKPIProps) {
-  if (loading) {
-    return (
-      <div className="panel p-6 animate-pulse">
-        <div className="h-3 bg-slate-100 rounded w-1/2 mb-3" />
-        <div className="h-8 bg-slate-100 rounded w-2/3 mb-2" />
-        <div className="h-3 bg-slate-100 rounded w-1/3" />
-      </div>
-    );
-  }
-  return (
-    <div
-      className="panel p-6 overflow-hidden flex"
-      style={{ borderLeftWidth: 4, borderLeftColor: borderColor }}
-    >
-      <div className="flex-1">
-        <div className="flex items-start justify-between">
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">{label}</p>
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ backgroundColor: `${borderColor}18` }}
-          >
-            <Icon size={16} style={{ color: borderColor }} />
-          </div>
-        </div>
-        <p className="text-3xl font-bold text-slate-900 mt-3 leading-none tracking-tight">{value}</p>
-        <p className="text-xs text-slate-400 mt-2">{sub}</p>
-      </div>
-    </div>
-  );
-}
-
 export function VisitantesView({
   hourly,
   conversion,
@@ -137,9 +99,10 @@ export function VisitantesView({
   }
 
   const hasConversion = conversion.some((r) => r.pasantes > 0);
+  const [tab, setTab] = useState("resumen");
 
   return (
-    <section className="px-4 md:px-6 py-5 space-y-6">
+    <section className="px-4 md:px-6 py-5 space-y-5">
       {/* Header */}
       <PageHeader
         title="Visitantes y Pasantes"
@@ -174,66 +137,82 @@ export function VisitantesView({
       />
 
       {/* 4 inline KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        <InlineKPI
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
+        <StatCard
           label="Total visitantes"
           value={loading ? "—" : kpis.totalVisitors.toLocaleString()}
           sub="con intención de ingreso"
-          borderColor="#3b82f6"
+          accent="#0D9488"
           Icon={Users}
           loading={loading}
         />
-        <InlineKPI
+        <StatCard
           label="Total pasantes"
           value={loading ? "—" : kpis.totalPasantes.toLocaleString()}
           sub="transeúntes detectados"
-          borderColor="#94a3b8"
+          accent="#64748B"
           Icon={ArrowRight}
           loading={loading}
         />
-        <InlineKPI
+        <StatCard
           label="Conversión"
           value={loading ? "—" : `${kpis.conversionPct}%`}
           sub="visitantes / pasantes"
-          borderColor="#10b981"
+          accent="#14B8A6"
           Icon={ArrowRight}
           loading={loading}
         />
-        <InlineKPI
+        <StatCard
           label="Hora pico"
           value={loading || kpis.peakHour === null ? "—" : `${kpis.peakHour}:00`}
           sub="mayor flujo de visitantes"
-          borderColor="#f59e0b"
+          accent="#0B1222"
           Icon={Clock}
           loading={loading}
         />
       </div>
 
-      {/* Visitor flow + Gender */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="md:col-span-2 panel p-6">
-          <h3 className="text-sm font-semibold text-slate-700">Flujo por hora</h3>
-          <p className="text-xs text-slate-400 mt-0.5 mb-4">Visitantes y pasantes detectados hora a hora</p>
-          <VisitorFlowChart rows={hourly} loading={loading} />
-        </div>
-
-        <div className="panel p-6">
-          <h3 className="text-sm font-semibold text-slate-700 mb-1">Género visitantes</h3>
-          <p className="text-xs text-slate-400 mb-4">Distribución de género entre visitantes</p>
-          <GenderAgePanel gender={genderVisitor} age={[]} loading={analyticsLoading} />
-        </div>
-      </div>
-
-      {/* Conversion chart */}
-      {hasConversion && (
-        <div className="panel p-6">
-          <h3 className="text-sm font-semibold text-slate-700">Conversión Pasantes → Ingreso</h3>
-          <p className="text-xs text-slate-400 mt-0.5 mb-4">
-            % de transeúntes que ingresaron al local, por hora del día
-          </p>
-          <ConversionChart rows={conversion} loading={loading} />
-        </div>
-      )}
+      <SectionTabs
+        value={tab}
+        onValueChange={setTab}
+        tabs={[
+          {
+            value: "resumen",
+            label: "Flujo y género",
+            icon: TrendingUp,
+            content: (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2 panel p-5">
+                  <PanelTitle title="Flujo por hora" hint="Visitantes y pasantes detectados hora a hora" />
+                  <VisitorFlowChart rows={hourly} loading={loading} />
+                </div>
+                <div className="panel p-5">
+                  <PanelTitle title="Género visitantes" hint="Distribución de género entre visitantes" />
+                  <GenderAgePanel gender={genderVisitor} age={[]} loading={analyticsLoading} />
+                </div>
+              </div>
+            ),
+          },
+          ...(hasConversion
+            ? [
+                {
+                  value: "conversion",
+                  label: "Conversión",
+                  icon: ArrowRight,
+                  content: (
+                    <div className="panel p-5">
+                      <PanelTitle
+                        title="Conversión Pasantes → Ingreso"
+                        hint="% de transeúntes que ingresaron al local, por hora del día"
+                      />
+                      <ConversionChart rows={conversion} loading={loading} />
+                    </div>
+                  ),
+                },
+              ]
+            : []),
+        ]}
+      />
     </section>
   );
 }

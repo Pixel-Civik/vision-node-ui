@@ -13,32 +13,32 @@ interface CardProps {
 
 function KPICard({ label, value, total, accent, Icon }: CardProps) {
   return (
-    <div className="panel panel-interactive relative overflow-hidden p-5">
+    <div className="panel panel-interactive relative overflow-hidden p-4">
       <span aria-hidden className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: accent }} />
       <div className="flex items-start justify-between gap-3">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{label}</p>
         <span
-          className="flex size-8 shrink-0 items-center justify-center rounded-lg"
+          className="flex size-7 shrink-0 items-center justify-center rounded-lg"
           style={{ backgroundColor: `${accent}14`, color: accent }}
         >
-          <Icon size={16} />
+          <Icon size={15} />
         </span>
       </div>
-      <p className="tnum mt-3 text-3xl font-semibold leading-none tracking-tight text-slate-900">{value}</p>
-      <p className="mt-2 text-xs text-slate-400">{total}</p>
+      <p className="tnum mt-2 text-2xl font-semibold leading-none tracking-tight text-slate-900">{value}</p>
+      <p className="mt-1.5 text-xs text-slate-400">{total}</p>
     </div>
   );
 }
 
 function SkeletonCard() {
   return (
-    <div className="panel animate-pulse p-5">
+    <div className="panel animate-pulse p-4">
       <div className="flex items-start justify-between">
         <div className="h-3 w-1/2 rounded bg-slate-100" />
-        <div className="size-8 rounded-lg bg-slate-100" />
+        <div className="size-7 rounded-lg bg-slate-100" />
       </div>
-      <div className="mt-3 h-9 w-2/3 rounded bg-slate-100" />
-      <div className="mt-3 h-3 w-1/3 rounded bg-slate-100" />
+      <div className="mt-2 h-7 w-2/3 rounded bg-slate-100" />
+      <div className="mt-2 h-3 w-1/3 rounded bg-slate-100" />
     </div>
   );
 }

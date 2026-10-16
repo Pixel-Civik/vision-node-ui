@@ -78,7 +78,7 @@ export function ReporteSection({
     filterValues.endDate === today;
 
   return (
-    <div className="px-4 md:px-6 py-5 space-y-6">
+    <div className="px-4 md:px-6 py-5 space-y-5">
       {/* ── Header ── */}
       <PageHeader
         title="Reporte de Tráfico"
@@ -121,14 +121,14 @@ export function ReporteSection({
       />
 
       {/* Embudo de conversión reemplaza los KPI cards */}
-      <div className="panel p-6">
+      <div className="panel p-5">
         <PanelTitle title="Embudo de conversión" hint="Pasantes → Visitantes → Entradas · período filtrado" />
         <TrafficFunnel rows={hourlyAvg.length > 0 ? hourlyAvg : hourly} loading={loading} kpis={kpis} />
       </div>
 
       {/* Contexto comparativo — oculto en modo Promedio */}
       {!isPromedioMode && (
-        <div className="panel p-6">
+        <div className="panel p-5">
           <ComparisonPanel
             filters={filters}
             kpis={kpis}
@@ -143,30 +143,30 @@ export function ReporteSection({
 
       {/* ── Tabs ── */}
       <Tabs defaultValue="combinado" onValueChange={setActiveTab}>
-        <TabsList className="bg-slate-100 p-1 rounded-xl">
+        <TabsList className="h-auto! w-full flex-wrap justify-start gap-1 overflow-hidden rounded-2xl border border-border bg-muted/60 p-1.5 shadow-sm">
           <TabsTrigger
             value="combinado"
-            className="rounded-lg text-xs font-medium"
+            className="h-9 flex-none cursor-pointer whitespace-nowrap rounded-xl px-4 text-[13px] font-medium text-slate-500 transition-colors hover:bg-background hover:text-slate-800 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40 data-active:bg-navy data-active:text-white data-active:shadow-sm"
           >
             Visión general
           </TabsTrigger>
           <TabsTrigger
             value="resumen"
-            className="rounded-lg text-xs font-medium"
+            className="h-9 flex-none cursor-pointer whitespace-nowrap rounded-xl px-4 text-[13px] font-medium text-slate-500 transition-colors hover:bg-background hover:text-slate-800 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40 data-active:bg-navy data-active:text-white data-active:shadow-sm"
           >
             Entradas
           </TabsTrigger>
           {(hasConversion || hasTIZ) && (
             <TabsTrigger
               value="visitantes"
-              className="rounded-lg text-xs font-medium"
+              className="h-9 flex-none cursor-pointer whitespace-nowrap rounded-xl px-4 text-[13px] font-medium text-slate-500 transition-colors hover:bg-background hover:text-slate-800 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40 data-active:bg-navy data-active:text-white data-active:shadow-sm"
             >
               Visitantes y Zonas
             </TabsTrigger>
           )}
           <TabsTrigger
             value="tendencias"
-            className="rounded-lg text-xs font-medium"
+            className="h-9 flex-none cursor-pointer whitespace-nowrap rounded-xl px-4 text-[13px] font-medium text-slate-500 transition-colors hover:bg-background hover:text-slate-800 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40 data-active:bg-navy data-active:text-white data-active:shadow-sm"
           >
             Tendencias históricas
           </TabsTrigger>
@@ -185,11 +185,11 @@ export function ReporteSection({
         </TabsContent>
 
         {/* Tab 2: entries & exits detail */}
-        <TabsContent value="resumen" className="mt-5 space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <TabsContent value="resumen" className="mt-5 space-y-5">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div
               id="export-chart-behavior"
-              className="lg:col-span-2 panel p-6"
+              className="lg:col-span-2 panel p-5"
             >
               <h3 className="text-sm font-semibold text-slate-700">
                 Entradas por hora
@@ -199,7 +199,7 @@ export function ReporteSection({
               </p>
               <BehaviorChart rows={hourly} loading={loading} />
             </div>
-            <div className="panel p-6">
+            <div className="panel p-5">
               <h3 className="text-sm font-semibold text-slate-700 mb-1">
                 Franja horaria
               </h3>
@@ -209,7 +209,7 @@ export function ReporteSection({
               <TrafficPeriodChart rows={hourly} loading={loading} />
             </div>
           </div>
-          <div className="panel p-6">
+          <div className="panel p-5">
             <h3 className="text-sm font-semibold text-slate-700 mb-1">
               Desglose por zona y cámara
             </h3>
@@ -225,9 +225,9 @@ export function ReporteSection({
         </TabsContent>
 
         {/* Tab 3: visitors & zones (conditional) */}
-        <TabsContent value="visitantes" className="mt-5 space-y-6">
+        <TabsContent value="visitantes" className="mt-5 space-y-5">
           {hasConversion && (
-            <div className="panel p-6">
+            <div className="panel p-5">
               <h3 className="text-sm font-semibold text-slate-700">
                 Conversión Pasantes → Ingreso
               </h3>
@@ -238,7 +238,7 @@ export function ReporteSection({
             </div>
           )}
           {hasTIZ && (
-            <div className="panel p-6">
+            <div className="panel p-5">
               <h3 className="text-sm font-semibold text-slate-700">
                 Tiempo en Zona
               </h3>

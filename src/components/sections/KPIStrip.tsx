@@ -34,7 +34,7 @@ export function KPIStrip({ visitors, pasantes, conv, uniqueTracks, days = 1, loa
       label: "Visitantes / día",
       value: (visitors / d).toFixed(1),
       sub: `${visitors.toLocaleString("es-PE")} total · ${d} día(s)`,
-      accent: "#0EA5E9",
+      accent: "#0D9488",
       Icon: Users,
     },
     {
@@ -60,26 +60,26 @@ export function KPIStrip({ visitors, pasantes, conv, uniqueTracks, days = 1, loa
     },
   ];
 
-  const pad = compact ? "p-3.5" : "p-4";
-  const numSize = compact ? "text-xl" : "text-2xl";
+  const pad = compact ? "p-3" : "p-3.5";
+  const numSize = compact ? "text-lg" : "text-xl";
 
   return (
     <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
       {cards.map(({ label, value, sub, accent, Icon }) => (
         <div key={label} className={`panel panel-interactive ${pad}`}>
           <div className="flex items-start justify-between gap-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
               {label}
             </p>
             <span
-              className="flex size-7 shrink-0 items-center justify-center rounded-lg"
+              className="flex size-6 shrink-0 items-center justify-center rounded-lg"
               style={{ backgroundColor: `${accent}14`, color: accent }}
             >
-              <Icon size={15} />
+              <Icon size={14} />
             </span>
           </div>
           {loading ? (
-            <div className="mt-3 h-7 w-20 animate-pulse rounded bg-slate-100" />
+            <div className="mt-2 h-6 w-20 animate-pulse rounded bg-slate-100" />
           ) : (
             <p className={`tnum mt-2 font-semibold leading-none tracking-tight text-slate-900 ${numSize}`}>
               {value}

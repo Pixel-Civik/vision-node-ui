@@ -83,7 +83,7 @@ export function Sidebar({ opts, filters, onChange, onRefresh, loading }: Props) 
         <p className="text-xs text-gray-400 mt-0.5">Dashboard de tráfico</p>
       </div>
 
-      <div className="flex-1 px-4 py-4 space-y-6 overflow-y-auto">
+      <div className="flex-1 px-4 py-4 space-y-5 overflow-y-auto">
         {/* Período */}
         <div className="space-y-2">
           <label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Período</label>

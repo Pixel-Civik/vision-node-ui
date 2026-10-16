@@ -13,8 +13,8 @@
  */
 "use client";
 
-import { useState, useMemo } from "react";
-import { AlertTriangle, X } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { AlertTriangle } from "lucide-react";
 import dynamic from "next/dynamic";
 
 const Toaster = dynamic(
@@ -24,8 +24,10 @@ const Toaster = dynamic(
 // Alerta de frescura desactivada: el stream de Supabase está cortado y solo hay
 // data histórica, por lo que esta alerta dispararía permanentemente.
 // import { useDataFreshnessAlert } from "@/hooks/useDataFreshnessAlert";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { TopBar } from "@/components/layout/TopBar";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/layout/AppSidebar";
+import { AppTopbar } from "@/components/layout/AppTopbar";
+import { CommandPalette } from "@/components/layout/CommandPalette";
 import { type Section } from "@/components/layout/nav";
 import { InicioSection } from "@/components/sections/InicioSection";
 import { ReporteSection } from "@/components/sections/ReporteSection";
@@ -53,8 +55,8 @@ function limaToUtc(date: string, h: number, m: number, s: number): string {
 }
 
 export default function App() {
-  const [section, setSection]       = useState<Section>("reporte");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [section, setSection] = useState<Section>("reporte");
+  const [commandOpen, setCommandOpen] = useState(false);
   const { data: shopliftingAlertCount = 0 } = useShopliftingAlertCount();
 
   const opts = useFilterOptions();
@@ -129,36 +131,25 @@ export default function App() {
 
   function navigate(id: Section) {
     setSection(id);
-    setSidebarOpen(false);
   }
+
+  // Atajo ⌘K / Ctrl+K para el buscador (paleta de comandos).
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandOpen((v) => !v);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <>
-    <Toaster position="top-right" />
-    <div className="flex h-dvh min-h-0 overflow-hidden bg-surface">
-      {/* ── Mobile overlay ───────────────────────────────────────────────── */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-[2px] xl:hidden"
-          onClick={() => setSidebarOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* ── Sidebar ──────────────────────────────────────────────────────── */}
-      <aside
-        id="app-sidebar"
-        className={`fixed inset-y-0 left-0 z-50 flex h-dvh max-h-dvh w-[min(18rem,86vw)] shrink-0 flex-col overflow-hidden bg-navy shadow-2xl transition-transform duration-300 ease-out
-          sm:w-64 xl:sticky xl:inset-auto xl:top-0 xl:flex xl:h-dvh xl:w-56 xl:self-start xl:translate-x-0 xl:shadow-none ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
-      >
-        <button
-          onClick={() => setSidebarOpen(false)}
-          className="absolute right-3 top-3 z-10 flex size-9 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-slate-300 transition hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 xl:hidden"
-          aria-label="Cerrar menú"
-        >
-          <X size={18} />
-        </button>
-        <Sidebar
+      <Toaster position="top-right" />
+      <SidebarProvider className="h-dvh">
+        <AppSidebar
           section={section}
           onNavigate={navigate}
           loading={loading || data.refreshing}
@@ -166,13 +157,15 @@ export default function App() {
           dateRange={{ start: fv.startDate, end: fv.endDate }}
           alertCount={shopliftingAlertCount}
         />
-      </aside>
 
-      {/* ── Main content ─────────────────────────────────────────────────── */}
-      <div className="flex h-dvh min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <TopBar open={sidebarOpen} onOpen={() => setSidebarOpen(true)} onClose={() => setSidebarOpen(false)} />
+        <SidebarInset className="flex h-dvh min-h-0 flex-col overflow-hidden bg-surface">
+          <AppTopbar
+            section={section}
+            onRefresh={data.refresh}
+            refreshing={data.refreshing}
+          />
 
-        <main className="scroll-slim min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
+          <div className="scroll-slim min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
           {/* Barra de progreso sutil al revalidar con datos ya en pantalla */}
           {data.refreshing && (
             <div className="sticky top-0 z-20 h-0.5 w-full overflow-hidden bg-transparent">
@@ -255,9 +248,16 @@ export default function App() {
               onFilterChange={(patch) => setFv((prev) => ({ ...prev, ...patch }))}
             />
           )}
-        </main>
-      </div>
-    </div>
+          </div>
+        </SidebarInset>
+
+        <CommandPalette
+          open={commandOpen}
+          onOpenChange={setCommandOpen}
+          onNavigate={navigate}
+          onRefresh={data.refresh}
+        />
+      </SidebarProvider>
     </>
   );
 }

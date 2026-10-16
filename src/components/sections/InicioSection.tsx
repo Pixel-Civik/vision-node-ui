@@ -31,7 +31,7 @@ export function InicioSection({
   filters, loading, dateRange, onNavigateToReporte,
 }: InicioSectionProps) {
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-6 py-7 md:px-8">
+    <div className="mx-auto max-w-6xl space-y-5 px-6 py-7 md:px-8">
       {/* ── Header ── */}
       <PageHeader
         title="Panel de Inicio"
@@ -59,13 +59,13 @@ export function InicioSection({
       />
 
       {/* ── Embudo de conversión (reemplaza KPIs) ── */}
-      <div className="panel cv-auto p-6">
+      <div className="panel cv-auto p-5">
         <PanelTitle title="Embudo de conversión" hint="Pasantes → Visitantes → Entradas · período seleccionado" />
         <TrafficFunnel rows={hourlyAvg.length > 0 ? hourlyAvg : hourly} loading={loading} kpis={kpis} />
       </div>
 
       {/* ── Gráficas de tráfico ── */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="panel cv-auto p-5 lg:col-span-2">
           <PanelTitle title="Tráfico combinado por hora" hint="Entradas · Salidas · Visitantes · Pasantes" />
           <CombinedTrafficChart rows={hourlyAvg.length > 0 ? hourlyAvg : hourly} loading={loading} />

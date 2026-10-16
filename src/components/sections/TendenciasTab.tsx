@@ -57,7 +57,7 @@ function ChartCard({ title, subtitle, children }: {
   title: string; subtitle: string; children: React.ReactNode;
 }) {
   return (
-    <div className="panel p-6">
+    <div className="panel p-5">
       <PanelTitle title={title} hint={subtitle} />
       {children}
     </div>
@@ -102,7 +102,7 @@ function KPICompareCard({
   siteRank: { rank: number; total: number } | null; showRank: boolean; loading: boolean;
 }) {
   return (
-    <div className="relative panel p-6 overflow-hidden">
+    <div className="relative panel p-5 overflow-hidden">
       <div className="absolute top-0 left-0 right-0 h-1 bg-brand rounded-t-2xl" />
       <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">{label}</p>
       {loading ? (
@@ -441,7 +441,7 @@ export function TendenciasTab({
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
 
       {/* ── Period filter ── */}
       <div className="panel p-5">
@@ -504,7 +504,7 @@ export function TendenciasTab({
       )}
 
       {/* ── REQ 2: KPI cards + REQ 1: toggle comparación ── */}
-      <div className="panel p-6">
+      <div className="panel p-5">
         {/* Header + toggle (REQ 1) */}
         <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
           <div>
@@ -594,7 +594,7 @@ export function TendenciasTab({
       </ChartCard>
 
       {/* ── Charts 2 + 3 ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ChartCard title="Pasantes vs Entradas diario"
           subtitle="Teal = entradas (eje izq.) · Gris punteado = pasantes (eje der.)">
           <PasantesVsEntradasChart daily={daily} loading={loading} />
@@ -606,7 +606,7 @@ export function TendenciasTab({
       </div>
 
       {/* ── Charts 4 + 5 ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ChartCard title="Acumulado intradiario de entradas"
           subtitle="% de entradas acumuladas hora a hora · Marcadores al 50% y 80%">
           <IntradayChart hourly={localHourly} loading={loading} />

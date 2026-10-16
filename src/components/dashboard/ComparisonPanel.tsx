@@ -90,7 +90,7 @@ function KPICompareCard({
   loading:   boolean;
 }) {
   return (
-    <div className="relative panel p-6 overflow-hidden">
+    <div className="relative panel p-5 overflow-hidden">
       {/* teal top bar */}
       <div className="absolute top-0 left-0 right-0 h-1 bg-brand rounded-t-2xl" />
 
@@ -256,7 +256,7 @@ export function ComparisonPanel({
       </div>
 
       {/* ── REQ 1: comparison chart ── */}
-      <div className="panel p-6">
+      <div className="panel p-5">
         <h4 className="text-xs font-semibold text-slate-600 mb-0.5">
           Entradas por hora — período actual vs referencia
         </h4>

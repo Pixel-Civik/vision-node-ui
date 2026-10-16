@@ -143,7 +143,7 @@ export function FilterPanel({ opts, values, onChange }: Props) {
       </div>
 
       {/* Controls row */}
-      <div className="flex flex-wrap items-end gap-5 px-5 py-4">
+      <div className="flex flex-wrap items-end gap-4 px-5 py-4">
 
         {/* Promedio: muestra período y filtro por día */}
         {mode === "promedio" && (
@@ -216,7 +216,7 @@ export function FilterPanel({ opts, values, onChange }: Props) {
 
       {/* Filtros de dimensión — solo en Personalizado */}
       {mode === "personalizado" && expanded && (
-        <div className="grid grid-cols-1 gap-5 border-t border-slate-100 bg-slate-50/70 px-5 py-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 border-t border-slate-100 bg-slate-50/70 px-5 py-4 sm:grid-cols-3">
           {opts.sites.length > 0 && (
             <MultiSelect
               label="Sede"

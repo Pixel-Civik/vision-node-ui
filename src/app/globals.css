@@ -63,9 +63,9 @@
   --color-navy-line: var(--navy-line);
   /* ── Superficies y profundidad ─────────────────────────────────────── */
   --color-surface: var(--surface);
-  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04);
-  --shadow-card-hover: 0 2px 8px -2px rgb(15 23 42 / 0.10);
-  --shadow-panel: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 12px 32px -20px rgb(15 23 42 / 0.14);
+  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.05), 0 1px 3px 0 rgb(15 23 42 / 0.04);
+  --shadow-card-hover: 0 4px 12px -2px rgb(15 23 42 / 0.10), 0 2px 4px -2px rgb(15 23 42 / 0.06);
+  --shadow-panel: 0 1px 2px 0 rgb(15 23 42 / 0.05), 0 16px 40px -24px rgb(15 23 42 / 0.18);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -136,16 +136,17 @@
   --navy: #0B1222;
   --navy-raised: #1C2B45;
   --navy-line: rgb(255 255 255 / 0.10);
-  --surface: #F6F8FB;
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --surface: #EEF2F8;
+  --radius: 0.75rem;
+  /* Sidebar sobre navy de marca (tema oscuro dentro de la app clara) */
+  --sidebar: var(--navy);
+  --sidebar-foreground: #CBD5E1;
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: var(--brand-foreground);
+  --sidebar-accent: rgb(255 255 255 / 0.07);
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: rgb(255 255 255 / 0.08);
+  --sidebar-ring: var(--brand);
 }
 
 .dark {
@@ -219,7 +220,7 @@
   .panel {
     background-color: var(--card);
     border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-xl);
     box-shadow: var(--shadow-card);
   }
   .panel-interactive {

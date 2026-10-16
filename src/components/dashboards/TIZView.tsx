@@ -2,10 +2,11 @@
 
 import type { TIZKpiRow, TIZDistributionResult, DashboardFilters } from "@/lib/types";
 import { TIZPanel } from "@/components/dashboard/TIZPanel";
+import { StatCard } from "@/components/dashboard/StatCard";
 import { TIZDistributionChart } from "@/components/charts/TIZDistributionChart";
 import { ExportDialog } from "@/components/export/ExportDialog";
 import { exportPDF } from "@/lib/exportPDF";
-import { PageHeader } from "@/components/ui/page-header";
+import { PageHeader, PanelTitle } from "@/components/ui/page-header";
 import { FileText, Clock, BarChart2, Activity } from "lucide-react";
 
 interface Props {
@@ -19,47 +20,6 @@ interface Props {
 function fmtSecs(s: number): string {
   if (s < 60) return `${Math.round(s)}s`;
   return `${(s / 60).toFixed(1)}min`;
-}
-
-interface InlineKPIProps {
-  label: string;
-  value: string;
-  sub: string;
-  borderColor: string;
-  Icon: React.ElementType;
-  loading: boolean;
-}
-
-function InlineKPI({ label, value, sub, borderColor, Icon, loading }: InlineKPIProps) {
-  if (loading) {
-    return (
-      <div className="panel p-6 animate-pulse">
-        <div className="h-3 bg-slate-100 rounded w-1/2 mb-3" />
-        <div className="h-8 bg-slate-100 rounded w-2/3 mb-2" />
-        <div className="h-3 bg-slate-100 rounded w-1/3" />
-      </div>
-    );
-  }
-  return (
-    <div
-      className="panel p-6 overflow-hidden flex"
-      style={{ borderLeftWidth: 4, borderLeftColor: borderColor }}
-    >
-      <div className="flex-1">
-        <div className="flex items-start justify-between">
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">{label}</p>
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ backgroundColor: `${borderColor}18` }}
-          >
-            <Icon size={16} style={{ color: borderColor }} />
-          </div>
-        </div>
-        <p className="text-3xl font-bold text-slate-900 mt-3 leading-none tracking-tight">{value}</p>
-        <p className="text-xs text-slate-400 mt-2">{sub}</p>
-      </div>
-    </div>
-  );
 }
 
 export function TIZView({ tizKpis, tizDistribution, loading, analyticsLoading, filters }: Props) {
@@ -93,7 +53,7 @@ export function TIZView({ tizKpis, tizDistribution, loading, analyticsLoading, f
   }
 
   return (
-    <section className="px-4 md:px-6 py-5 space-y-6">
+    <section className="px-4 md:px-6 py-5 space-y-5">
       {/* Header */}
       <PageHeader
         title="Tiempo en Zona"
@@ -128,54 +88,53 @@ export function TIZView({ tizKpis, tizDistribution, loading, analyticsLoading, f
       />
 
       {/* 4 inline KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        <InlineKPI
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
+        <StatCard
           label="Total visitas"
           value={analyticsLoading ? "—" : totalVisitas.toLocaleString()}
           sub="registros con duración"
-          borderColor="#7c3aed"
+          accent="#0D9488"
           Icon={Activity}
           loading={analyticsLoading}
         />
-        <InlineKPI
+        <StatCard
           label="Mediana"
           value={analyticsLoading ? "—" : fmtSecs(medianVal)}
           sub="visitante típico"
-          borderColor="#6d28d9"
+          accent="#14B8A6"
           Icon={Clock}
           loading={analyticsLoading}
         />
-        <InlineKPI
+        <StatCard
           label="Promedio"
           value={analyticsLoading ? "—" : fmtSecs(avgVal)}
           sub="duración media"
-          borderColor="#8b5cf6"
+          accent="#0B1222"
           Icon={BarChart2}
           loading={analyticsLoading}
         />
-        <InlineKPI
+        <StatCard
           label="P90"
           value={analyticsLoading ? "—" : fmtSecs(p90Val)}
           sub="visitas largas"
-          borderColor="#a78bfa"
+          accent="#64748B"
           Icon={Clock}
           loading={analyticsLoading}
         />
       </div>
 
       {/* Distribution + By zone */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="md:col-span-2 panel p-6">
-          <h3 className="text-sm font-semibold text-slate-700">Distribución de permanencia</h3>
-          <p className="text-xs text-slate-400 mt-0.5 mb-4">
-            Cantidad de visitas por rango de duración
-          </p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="md:col-span-2 panel p-5">
+          <PanelTitle
+            title="Distribución de permanencia"
+            hint="Cantidad de visitas por rango de duración"
+          />
           <TIZDistributionChart data={tizDistribution?.buckets ?? []} loading={analyticsLoading} />
         </div>
 
-        <div className="panel p-6">
-          <h3 className="text-sm font-semibold text-slate-700 mb-1">Por zona</h3>
-          <p className="text-xs text-slate-400 mb-4">Mediana y totales por zona monitorizada</p>
+        <div className="panel p-5">
+          <PanelTitle title="Por zona" hint="Mediana y totales por zona monitorizada" />
           <TIZPanel rows={tizKpis} loading={loading} />
         </div>
       </div>

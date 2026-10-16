@@ -183,7 +183,7 @@ export function ExportDialog(props: Props) {
         </div>
 
         {tab === "opciones" && (
-          <div className="space-y-6">
+          <div className="space-y-5">
             <div>
               <p className="text-sm font-medium text-slate-700 mb-3">Secciones a incluir</p>
               <div className="space-y-2.5">

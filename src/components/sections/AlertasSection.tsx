@@ -219,7 +219,7 @@ export function AlertasSection() {
   }
 
   return (
-    <div className="px-4 py-5 md:px-8 md:py-7 space-y-6 max-w-7xl mx-auto">
+    <div className="px-4 py-5 md:px-8 md:py-7 space-y-5 max-w-7xl mx-auto">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="flex items-center gap-2.5">
@@ -352,7 +352,7 @@ export function AlertasSection() {
       </div>
 
       {isLoading ? (
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {[1, 2, 3, 4, 5, 6].map((item) => <div key={item} className="h-72 animate-pulse rounded-xl bg-slate-100" />)}
         </div>
       ) : error ? (
@@ -367,7 +367,7 @@ export function AlertasSection() {
           <p className="mt-1 text-sm text-slate-400">Las nuevas detecciones aparecerán aquí automáticamente.</p>
         </div>
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {displayed.map((alert) => {
             const statusMeta = STATUS_META[alert.status];
             return (

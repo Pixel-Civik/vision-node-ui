@@ -17,6 +17,7 @@
 
 import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   // useState (no una constante de módulo) para que cada montaje del árbol tenga
@@ -46,5 +47,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       })
   );
 
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={client}>
+      <TooltipProvider delay={0}>{children}</TooltipProvider>
+    </QueryClientProvider>
+  );
 }

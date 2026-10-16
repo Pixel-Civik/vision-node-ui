@@ -78,7 +78,7 @@ export function GenderAgePanel({ gender, age, loading, title }: Props) {
   const barData = topAge.map((r) => ({ age: r.age, count: r.count }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {title && <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{title}</p>}
 
       {/* Gender donut */}

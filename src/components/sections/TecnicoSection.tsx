@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Wifi, WifiOff, AlertTriangle, Camera, Clock, Activity } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -8,6 +8,7 @@ import {
 } from "recharts";
 import { CHART, AXIS_TICK, GRID_PROPS, TOOLTIP_STYLE, CHART_SKELETON_CLASS } from "@/lib/chartTheme";
 import { PageHeader } from "@/components/ui/page-header";
+import { SectionTabs } from "@/components/ui/section-tabs";
 import { useUptime } from "@/hooks/useUptime";
 import { useAvailability } from "@/hooks/useAvailability";
 import { useCameraLastEvents } from "@/hooks/useCameraLastEvents";
@@ -118,6 +119,7 @@ function PctBadge({ pct }: { pct: number }) {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFilterChange }: Props) {
+  const [tab, setTab] = useState("equipos");
   const todayStr = limaToday();
 
   // ── Últimos eventos y estado actual (RPC indexada, respuesta pequeña) ─────
@@ -183,44 +185,39 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
   const avail  = useAvailability(filterTs.start, filterTs.end);
   const uptime = useUptime(filterTs.start, filterTs.end);
 
-  return (
-    <div className="mx-auto min-w-0 max-w-[1800px] space-y-6 px-3 py-4 sm:px-4 sm:py-5 md:px-6">
-
-      {/* ── Header ── */}
-      <PageHeader
-        title="Panel Técnico — Infraestructura y Actividad"
-        icon={<Camera size={19} />}
-        subtitle="Salud de mini-PC/Jetson por heartbeat · actividad analítica 07:00–23:00"
-      />
-
-      {/* ── Filtro de período (al tope, igual que en general) ── */}
-      <FilterPanel opts={opts} values={filterValues} onChange={onFilterChange} />
-
-      <EdgeFleetPanel
-        filterValues={filterValues}
-        opts={opts}
-        onFilterChange={onFilterChange}
-      />
-
-      {/* ── Indicadores del período ── */}
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-widest mb-3">
-            Indicadores del período seleccionado
-          </h2>
-          <KPICards kpis={kpis} loading={loading} />
-        </div>
-        <KPIStrip
-          visitors={totals.visitors}
-          pasantes={totals.pasantes}
-          conv={totals.conv}
-          uniqueTracks={kpis?.unique_tracks ?? 0}
-          days={kpis?.days ?? 1}
-          loading={loading}
-          compact
-        />
+  // ── Indicadores del período ───────────────────────────────────────────────
+  const indicadores = (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-widest mb-3">
+          Indicadores del período seleccionado
+        </h2>
+        <KPICards kpis={kpis} loading={loading} />
       </div>
+      <KPIStrip
+        visitors={totals.visitors}
+        pasantes={totals.pasantes}
+        conv={totals.conv}
+        uniqueTracks={kpis?.unique_tracks ?? 0}
+        days={kpis?.days ?? 1}
+        loading={loading}
+        compact
+      />
+    </div>
+  );
 
+  // ── Equipos (salud de mini-PC/Jetson por heartbeat) ────────────────────────
+  const equipos = (
+    <EdgeFleetPanel
+      filterValues={filterValues}
+      opts={opts}
+      onFilterChange={onFilterChange}
+    />
+  );
+
+  // ── Señal de cámaras (última actividad registrada por cámara) ──────────────
+  const senal = (
+    <div className="space-y-5">
       {/* Actividad analítica; no se usa para decidir si el equipo está online. */}
       <div className={`rounded-xl border shadow-sm p-5 flex items-center gap-4 ${
         liveLoading     ? "bg-white border-slate-100" :
@@ -276,7 +273,7 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
       </div>
 
       {/* ── Última señal por cámara ── */}
-      <div className="panel p-6">
+      <div className="panel p-5">
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
             <Camera size={14} className="text-brand" />
@@ -318,7 +315,6 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
                   const rowCls    = isOnline ? "" : isWarning ? "bg-amber-50/40" : "bg-red-50/40";
                   return (
                     <tr key={cam.channel} className={`border-b border-slate-50 transition-colors ${rowCls}`}>
-                      {/* Cámara */}
                       <td className="py-2.5 font-medium text-slate-700">
                         <div className="flex items-center gap-1.5">
                           <Camera size={11} className="text-slate-400 shrink-0" />
@@ -327,7 +323,6 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
                         <span className="text-[10px] text-slate-400 font-normal ml-4">ch {cam.channel}</span>
                       </td>
 
-                      {/* Último evento */}
                       <td className="py-2.5">
                         <div className="flex items-center gap-1.5">
                           <TypeBadge type={cam.last.type} />
@@ -336,7 +331,6 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
                         <span className="text-[10px] text-slate-400 ml-0.5">{fmtRelative(cam.last.time)}</span>
                       </td>
 
-                      {/* Penúltimo evento */}
                       <td className="py-2.5">
                         {cam.prev ? (
                           <>
@@ -351,7 +345,6 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
                         )}
                       </td>
 
-                      {/* Estado */}
                       <td className="py-2.5 text-right align-top pt-3">
                         {isOnline ? (
                           <span className="inline-flex items-center gap-1 text-emerald-600 font-medium">
@@ -376,214 +369,9 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
         )}
       </div>
 
-      {/* ── Actividad de hoy ── */}
-      <div className="panel p-6">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-            <Activity size={14} className="text-brand" />
-            Actividad de hoy — {todayStr}
-          </h3>
-          {!todayLoading && todayGaps.length > 0 && (
-            <span className="text-[11px] font-semibold bg-red-100 text-red-700 px-2 py-0.5 rounded-full flex items-center gap-1">
-              <AlertTriangle size={10} /> {todayGaps.length} hora(s) sin eventos
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-4 mb-4 flex-wrap text-[11px] text-slate-500">
-          <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-brand" /> Con eventos</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: CHART.rose }} /> Sin eventos (hora pasada)</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: CHART.amber }} /> Hora actual</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: CHART.slateSoft }} /> Hora futura</span>
-        </div>
-
-        {todayLoading ? (
-          <div className={`h-48 ${CHART_SKELETON_CLASS}`} />
-        ) : (
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={todayChartData} barSize={22} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-              <CartesianGrid {...GRID_PROPS} />
-              <XAxis dataKey="hour" tick={AXIS_TICK} tickFormatter={(h: number) => `${h}h`} axisLine={false} tickLine={false} />
-              <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} />
-              <Tooltip formatter={(v) => [v, "Eventos"]} labelFormatter={(l) => `${l}:00 – ${l}:59`} contentStyle={TOOLTIP_STYLE} />
-              <Bar dataKey="count" radius={[3, 3, 0, 0]}>
-                {todayChartData.map((d, i) => (
-                  <Cell key={i} fill={d.count > 0 ? CHART.brand : d.isFuture ? CHART.slateSoft : d.isCurrent ? CHART.amber : CHART.rose} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-
-        {!todayLoading && todayGaps.length > 0 && (
-          <div className="mt-4 space-y-1.5">
-            <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2">Horas sin eventos hoy</p>
-            {todayGaps.map((h, i) => (
-              <div key={i} className="flex items-center gap-3 rounded-lg px-3 py-2 text-xs bg-red-50 border border-red-100">
-                <AlertTriangle size={12} className="text-red-500" />
-                <span className="text-slate-700">Sin eventos en la hora <strong>{h}:00 – {h}:59</strong></span>
-              </div>
-            ))}
-          </div>
-        )}
-        {!todayLoading && todayGaps.length === 0 && todayHourMap.size > 0 && (
-          <div className="mt-3 flex items-center gap-2 text-xs text-emerald-600">
-            <Wifi size={13} /> Sin cortes detectados hoy hasta el momento
-          </div>
-        )}
-        {!todayLoading && todayHourMap.size === 0 && (
-          <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
-            <AlertTriangle size={13} /> Sin eventos registrados hoy aún
-          </div>
-        )}
-      </div>
-
-      {/* ── Disponibilidad últimos 7 días (overview fijo) ── */}
-      <div className="panel p-6">
-        <div className="flex items-start justify-between mb-0.5">
-          <h3 className="text-sm font-semibold text-slate-700">Disponibilidad — últimos 7 días</h3>
-          {!weekAvail.loading && weekAvail.daily.length > 0 && (
-            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-              weekAvail.avgPct >= 90 ? "bg-emerald-100 text-emerald-700" :
-              weekAvail.avgPct >= 70 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
-            }`}>
-              Prom {weekAvail.avgPct}%
-            </span>
-          )}
-        </div>
-        <p className="text-xs text-slate-400 mb-4">% de horas 07–23 con eventos por día</p>
-
-        {weekAvail.loading ? (
-          <div className="h-44 bg-slate-50 animate-pulse rounded-xl" />
-        ) : weekAvail.daily.length === 0 ? (
-          <div className="h-44 flex items-center justify-center text-sm text-slate-400">Sin datos</div>
-        ) : (
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={weekAvail.daily} barSize={36} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-              <CartesianGrid {...GRID_PROPS} />
-              <XAxis dataKey="date" tick={AXIS_TICK} tickFormatter={fmtShortDate} axisLine={false} tickLine={false} />
-              <YAxis domain={[0, 100]} tick={AXIS_TICK} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
-              <Tooltip formatter={(v) => [`${v}%`, "Disponibilidad"]} labelFormatter={(l) => fmtShortDate(String(l))} contentStyle={TOOLTIP_STYLE} />
-              {weekAvail.daily.length > 1 && (
-                <ReferenceLine y={weekAvail.avgPct} stroke={CHART.slate} strokeDasharray="4 2"
-                  label={{ value: `Prom ${weekAvail.avgPct}%`, fill: CHART.slate, fontSize: 10, position: "insideTopRight" }} />
-              )}
-              <Bar dataKey="pct" radius={[4, 4, 0, 0]}>
-                {weekAvail.daily.map((d, i) => (
-                  <Cell key={i} fill={d.pct >= 90 ? "#34d399" : d.pct >= 70 ? "#fbbf24" : "#f87171"} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-
-      {/* ── Cortes en el período filtrado ── */}
-      <div className="panel p-6">
-        <h3 className="text-sm font-semibold text-slate-700 mb-1 flex items-center gap-2">
-          <Clock size={14} className="text-amber-500" />
-          Cortes en el período
-          <span className="text-xs font-normal text-slate-400 ml-1">
-            {filterValues.startDate === filterValues.endDate
-              ? fmtShortDate(filterValues.startDate)
-              : `${fmtShortDate(filterValues.startDate)} – ${fmtShortDate(filterValues.endDate)}`}
-          </span>
-        </h3>
-        <p className="text-xs text-slate-400 mb-4">Intervalos ≥30 min sin eventos · 07:00–23:00</p>
-
-        {uptime.loading ? (
-          <div className="space-y-2">
-            {[1,2,3].map((i) => <div key={i} className="h-9 bg-slate-50 animate-pulse rounded-lg" />)}
-          </div>
-        ) : uptime.gaps.length === 0 ? (
-          <div className="flex items-center gap-2 text-sm text-emerald-600 py-2">
-            <Wifi size={14} /> Sin interrupciones de más de 30 min en el período
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-slate-100">
-                    {["Fecha","Desde","Hasta","Duración","Severidad"].map((h, i) => (
-                      <th key={h} className={`pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px] ${i === 0 || i === 4 ? "text-left" : "text-center"}`}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {uptime.gaps
-                    .sort((a, b) => b.durationMin - a.durationMin)
-                    .map((g, i) => {
-                      const sev    = g.durationMin >= 120 ? "Alta" : g.durationMin >= 60 ? "Media" : "Baja";
-                      const sevCls = g.durationMin >= 120 ? "bg-red-100 text-red-700" : g.durationMin >= 60 ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600";
-                      return (
-                        <tr key={i} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                          <td className="py-2.5 font-medium text-slate-700">{fmtShortDate(g.date)}</td>
-                          <td className="py-2.5 text-center font-mono text-slate-700">{g.fromLabel}</td>
-                          <td className="py-2.5 text-center font-mono text-slate-700">{g.toLabel}</td>
-                          <td className="py-2.5 text-center">
-                            <span className={`font-semibold px-2 py-0.5 rounded-full text-[11px] ${g.durationMin >= 60 ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
-                              {fmtDuration(g.durationMin)}
-                            </span>
-                          </td>
-                          <td className="py-2.5">
-                            <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full ${sevCls}`}>{sev}</span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </div>
-            <div className="flex items-start gap-2 mt-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[11px] text-amber-800">
-              <AlertTriangle size={12} className="mt-0.5 shrink-0" />
-              {uptime.gaps.length} corte(s) · {fmtDuration(uptime.totalGapMin)} sin señal en el período
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* ── Disponibilidad diaria (período filtrado) ── */}
-      {(avail.loading || avail.daily.length > 0) && (
-        <div className="panel p-6">
-          <div className="flex items-start justify-between mb-0.5">
-            <h3 className="text-sm font-semibold text-slate-700">Disponibilidad diaria</h3>
-            {!avail.loading && avail.daily.length > 0 && (
-              <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-                avail.avgPct >= 90 ? "bg-emerald-100 text-emerald-700" :
-                avail.avgPct >= 70 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
-              }`}>
-                Prom {avail.avgPct}%
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-slate-400 mt-0.5 mb-4">% de horas 07–23 con eventos por día</p>
-          {avail.loading ? (
-            <div className={`h-44 ${CHART_SKELETON_CLASS}`} />
-          ) : (
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={avail.daily} barSize={28} margin={{ top: 10, right: 8, left: -20, bottom: 0 }}>
-                <CartesianGrid {...GRID_PROPS} />
-                <XAxis dataKey="date" tick={AXIS_TICK} tickFormatter={fmtShortDate} axisLine={false} tickLine={false} />
-                <YAxis domain={[0, 100]} tick={AXIS_TICK} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(v) => [`${v}%`, "Disponibilidad"]} labelFormatter={(l) => fmtShortDate(String(l))} contentStyle={TOOLTIP_STYLE} />
-                {avail.daily.length > 1 && (
-                  <ReferenceLine y={avail.avgPct} stroke={CHART.slate} strokeDasharray="4 2"
-                    label={{ value: `Prom ${avail.avgPct}%`, fill: CHART.slate, fontSize: 10, position: "insideTopRight" }} />
-                )}
-                <Bar dataKey="pct" radius={[4, 4, 0, 0]}>
-                  {avail.daily.map((d, i) => (
-                    <Cell key={i} fill={d.pct >= 90 ? CHART.emerald : d.pct >= 70 ? CHART.amber : CHART.rose} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-      )}
-
-      {/* ── Cámaras ── */}
+      {/* ── Estado por cámara (período filtrado) ── */}
       {(uptime.loading || uptime.cameras.length > 0) && (
-        <div className="panel p-6">
+        <div className="panel p-5">
           <h3 className="text-sm font-semibold text-slate-700 mb-1">Estado por cámara</h3>
           <p className="text-xs text-slate-400 mb-4">Disponibilidad individual en ventana 07–23</p>
           {uptime.loading ? (
@@ -646,6 +434,253 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
           )}
         </div>
       )}
+    </div>
+  );
+
+  // ── Actividad ─────────────────────────────────────────────────────────────
+  const actividad = (
+    <div className="space-y-5">
+      {indicadores}
+
+      {/* ── Actividad de hoy ── */}
+      <div className="panel p-5">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+            <Activity size={14} className="text-brand" />
+            Actividad de hoy — {todayStr}
+          </h3>
+          {!todayLoading && todayGaps.length > 0 && (
+            <span className="text-[11px] font-semibold bg-red-100 text-red-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <AlertTriangle size={10} /> {todayGaps.length} hora(s) sin eventos
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-4 mb-4 flex-wrap text-[11px] text-slate-500">
+          <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-brand" /> Con eventos</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: CHART.rose }} /> Sin eventos (hora pasada)</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: CHART.amber }} /> Hora actual</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: CHART.slateSoft }} /> Hora futura</span>
+        </div>
+
+        {todayLoading ? (
+          <div className={`h-48 ${CHART_SKELETON_CLASS}`} />
+        ) : (
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={todayChartData} barSize={22} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+              <CartesianGrid {...GRID_PROPS} />
+              <XAxis dataKey="hour" tick={AXIS_TICK} tickFormatter={(h: number) => `${h}h`} axisLine={false} tickLine={false} />
+              <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} />
+              <Tooltip formatter={(v) => [v, "Eventos"]} labelFormatter={(l) => `${l}:00 – ${l}:59`} contentStyle={TOOLTIP_STYLE} />
+              <Bar dataKey="count" radius={[3, 3, 0, 0]}>
+                {todayChartData.map((d, i) => (
+                  <Cell key={i} fill={d.count > 0 ? CHART.brand : d.isFuture ? CHART.slateSoft : d.isCurrent ? CHART.amber : CHART.rose} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+
+        {!todayLoading && todayGaps.length > 0 && (
+          <div className="mt-4 space-y-1.5">
+            <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2">Horas sin eventos hoy</p>
+            {todayGaps.map((h, i) => (
+              <div key={i} className="flex items-center gap-3 rounded-lg px-3 py-2 text-xs bg-red-50 border border-red-100">
+                <AlertTriangle size={12} className="text-red-500" />
+                <span className="text-slate-700">Sin eventos en la hora <strong>{h}:00 – {h}:59</strong></span>
+              </div>
+            ))}
+          </div>
+        )}
+        {!todayLoading && todayGaps.length === 0 && todayHourMap.size > 0 && (
+          <div className="mt-3 flex items-center gap-2 text-xs text-emerald-600">
+            <Wifi size={13} /> Sin cortes detectados hoy hasta el momento
+          </div>
+        )}
+        {!todayLoading && todayHourMap.size === 0 && (
+          <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+            <AlertTriangle size={13} /> Sin eventos registrados hoy aún
+          </div>
+        )}
+      </div>
+
+    </div>
+  );
+
+  // ── Cortes en el período ──────────────────────────────────────────────────
+  const cortes = (
+    <div className="panel p-5">
+        <h3 className="text-sm font-semibold text-slate-700 mb-1 flex items-center gap-2">
+          <Clock size={14} className="text-amber-500" />
+          Cortes en el período
+          <span className="text-xs font-normal text-slate-400 ml-1">
+            {filterValues.startDate === filterValues.endDate
+              ? fmtShortDate(filterValues.startDate)
+              : `${fmtShortDate(filterValues.startDate)} – ${fmtShortDate(filterValues.endDate)}`}
+          </span>
+        </h3>
+        <p className="text-xs text-slate-400 mb-4">Intervalos ≥30 min sin eventos · 07:00–23:00</p>
+
+        {uptime.loading ? (
+          <div className="space-y-2">
+            {[1,2,3].map((i) => <div key={i} className="h-9 bg-slate-50 animate-pulse rounded-lg" />)}
+          </div>
+        ) : uptime.gaps.length === 0 ? (
+          <div className="flex items-center gap-2 text-sm text-emerald-600 py-2">
+            <Wifi size={14} /> Sin interrupciones de más de 30 min en el período
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    {["Fecha","Desde","Hasta","Duración","Severidad"].map((h, i) => (
+                      <th key={h} className={`pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px] ${i === 0 || i === 4 ? "text-left" : "text-center"}`}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {uptime.gaps
+                    .sort((a, b) => b.durationMin - a.durationMin)
+                    .map((g, i) => {
+                      const sev    = g.durationMin >= 120 ? "Alta" : g.durationMin >= 60 ? "Media" : "Baja";
+                      const sevCls = g.durationMin >= 120 ? "bg-red-100 text-red-700" : g.durationMin >= 60 ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600";
+                      return (
+                        <tr key={i} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                          <td className="py-2.5 font-medium text-slate-700">{fmtShortDate(g.date)}</td>
+                          <td className="py-2.5 text-center font-mono text-slate-700">{g.fromLabel}</td>
+                          <td className="py-2.5 text-center font-mono text-slate-700">{g.toLabel}</td>
+                          <td className="py-2.5 text-center">
+                            <span className={`font-semibold px-2 py-0.5 rounded-full text-[11px] ${g.durationMin >= 60 ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                              {fmtDuration(g.durationMin)}
+                            </span>
+                          </td>
+                          <td className="py-2.5">
+                            <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full ${sevCls}`}>{sev}</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex items-start gap-2 mt-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[11px] text-amber-800">
+              <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+              {uptime.gaps.length} corte(s) · {fmtDuration(uptime.totalGapMin)} sin señal en el período
+            </div>
+          </>
+        )}
+      </div>
+  );
+
+  // ── Disponibilidad ────────────────────────────────────────────────────────
+  const disponibilidad = (
+    <div className="space-y-5">
+      {/* ── Disponibilidad últimos 7 días (overview fijo) ── */}
+      <div className="panel p-5">
+        <div className="flex items-start justify-between mb-0.5">
+          <h3 className="text-sm font-semibold text-slate-700">Disponibilidad — últimos 7 días</h3>
+          {!weekAvail.loading && weekAvail.daily.length > 0 && (
+            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+              weekAvail.avgPct >= 90 ? "bg-emerald-100 text-emerald-700" :
+              weekAvail.avgPct >= 70 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
+            }`}>
+              Prom {weekAvail.avgPct}%
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-slate-400 mb-4">% de horas 07–23 con eventos por día</p>
+
+        {weekAvail.loading ? (
+          <div className="h-44 bg-slate-50 animate-pulse rounded-xl" />
+        ) : weekAvail.daily.length === 0 ? (
+          <div className="h-44 flex items-center justify-center text-sm text-slate-400">Sin datos</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={weekAvail.daily} barSize={36} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+              <CartesianGrid {...GRID_PROPS} />
+              <XAxis dataKey="date" tick={AXIS_TICK} tickFormatter={fmtShortDate} axisLine={false} tickLine={false} />
+              <YAxis domain={[0, 100]} tick={AXIS_TICK} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
+              <Tooltip formatter={(v) => [`${v}%`, "Disponibilidad"]} labelFormatter={(l) => fmtShortDate(String(l))} contentStyle={TOOLTIP_STYLE} />
+              {weekAvail.daily.length > 1 && (
+                <ReferenceLine y={weekAvail.avgPct} stroke={CHART.slate} strokeDasharray="4 2"
+                  label={{ value: `Prom ${weekAvail.avgPct}%`, fill: CHART.slate, fontSize: 10, position: "insideTopRight" }} />
+              )}
+              <Bar dataKey="pct" radius={[4, 4, 0, 0]}>
+                {weekAvail.daily.map((d, i) => (
+                  <Cell key={i} fill={d.pct >= 90 ? "#34d399" : d.pct >= 70 ? "#fbbf24" : "#f87171"} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* ── Disponibilidad diaria (período filtrado) ── */}
+      {(avail.loading || avail.daily.length > 0) && (
+        <div className="panel p-5">
+          <div className="flex items-start justify-between mb-0.5">
+            <h3 className="text-sm font-semibold text-slate-700">Disponibilidad diaria</h3>
+            {!avail.loading && avail.daily.length > 0 && (
+              <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                avail.avgPct >= 90 ? "bg-emerald-100 text-emerald-700" :
+                avail.avgPct >= 70 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
+              }`}>
+                Prom {avail.avgPct}%
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-400 mt-0.5 mb-4">% de horas 07–23 con eventos por día</p>
+          {avail.loading ? (
+            <div className={`h-44 ${CHART_SKELETON_CLASS}`} />
+          ) : (
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={avail.daily} barSize={28} margin={{ top: 10, right: 8, left: -20, bottom: 0 }}>
+                <CartesianGrid {...GRID_PROPS} />
+                <XAxis dataKey="date" tick={AXIS_TICK} tickFormatter={fmtShortDate} axisLine={false} tickLine={false} />
+                <YAxis domain={[0, 100]} tick={AXIS_TICK} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
+                <Tooltip formatter={(v) => [`${v}%`, "Disponibilidad"]} labelFormatter={(l) => fmtShortDate(String(l))} contentStyle={TOOLTIP_STYLE} />
+                {avail.daily.length > 1 && (
+                  <ReferenceLine y={avail.avgPct} stroke={CHART.slate} strokeDasharray="4 2"
+                    label={{ value: `Prom ${avail.avgPct}%`, fill: CHART.slate, fontSize: 10, position: "insideTopRight" }} />
+                )}
+                <Bar dataKey="pct" radius={[4, 4, 0, 0]}>
+                  {avail.daily.map((d, i) => (
+                    <Cell key={i} fill={d.pct >= 90 ? CHART.emerald : d.pct >= 70 ? CHART.amber : CHART.rose} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="mx-auto min-w-0 max-w-[1800px] space-y-5 px-3 py-4 sm:px-4 sm:py-5 md:px-6">
+
+      {/* ── Header ── */}
+      <PageHeader
+        title="Panel Técnico — Infraestructura y Actividad"
+        icon={<Camera size={19} />}
+        subtitle="Salud de mini-PC/Jetson por heartbeat · actividad analítica 07:00–23:00"
+      />
+
+      {/* ── Filtro de período (compartido por todas las sub-pestañas) ── */}
+      <FilterPanel opts={opts} values={filterValues} onChange={onFilterChange} />
+
+      <SectionTabs
+        value={tab}
+        onValueChange={setTab}
+        tabs={[
+          { value: "equipos",        label: "Equipos",         icon: Wifi,     content: equipos },
+          { value: "senal",          label: "Señal de cámaras", icon: Camera,   content: senal },
+          { value: "actividad",      label: "Actividad",        icon: Activity, content: actividad },
+          { value: "cortes",         label: "Cortes",           icon: Clock,    content: cortes },
+          { value: "disponibilidad", label: "Disponibilidad",   icon: Clock,    content: disponibilidad },
+        ]}
+      />
     </div>
   );
 }
