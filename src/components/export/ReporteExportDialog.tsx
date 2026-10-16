@@ -215,7 +215,7 @@ export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, st
                 onClick={() => setTab(t)}
                 className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
                   tab === t
-                    ? "border-brand text-brand"
+                    ? "border-[#2DD4BF] text-[#2DD4BF]"
                     : "border-transparent text-slate-500 hover:text-slate-700"
                 }`}
               >
@@ -233,7 +233,7 @@ export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, st
               Tablas a exportar ({selTables.size})
             </p>
             <div className="flex gap-2">
-              <button onClick={() => setSelTables(new Set(TABLE_OPTIONS.map(t => t.id)))} className="text-xs text-brand hover:underline font-medium">Todas</button>
+              <button onClick={() => setSelTables(new Set(TABLE_OPTIONS.map(t => t.id)))} className="text-xs text-[#2DD4BF] hover:underline font-medium">Todas</button>
               <span className="text-slate-200">|</span>
               <button onClick={() => setSelTables(new Set())} className="text-xs text-slate-400 hover:underline font-medium">Ninguna</button>
             </div>
@@ -247,7 +247,7 @@ export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, st
               Los gráficos se capturan tal como aparecen en la pantalla. Asegúrate de que estén visibles.
             </p>
             <div className="flex gap-2 pt-1">
-              <button onClick={() => setSelCharts(new Set(CHART_OPTIONS.map(c => c.id)))} className="text-xs text-brand hover:underline font-medium">Todos</button>
+              <button onClick={() => setSelCharts(new Set(CHART_OPTIONS.map(c => c.id)))} className="text-xs text-[#2DD4BF] hover:underline font-medium">Todos</button>
               <span className="text-slate-200">|</span>
               <button onClick={() => setSelCharts(new Set())} className="text-xs text-slate-400 hover:underline font-medium">Ninguno</button>
             </div>
@@ -257,7 +257,7 @@ export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, st
                 <label
                   key={id}
                   className={`flex items-start gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-all ${
-                    checked ? "border-brand/40 bg-brand/5" : "border-slate-100 hover:bg-slate-50"
+                    checked ? "border-[#2DD4BF]/40 bg-[#2DD4BF]/5" : "border-slate-100 hover:bg-slate-50"
                   }`}
                 >
                   <Checkbox checked={checked} onCheckedChange={() => toggleChart(id)} className="mt-0.5 shrink-0" />
@@ -276,7 +276,7 @@ export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, st
           <div className="space-y-1.5 max-h-[52vh] overflow-y-auto pr-0.5">
             {format === "pdf" && (
               <div className="flex gap-2">
-                <button onClick={() => setSelTables(new Set(TABLE_OPTIONS.map(t => t.id)))} className="text-xs text-brand hover:underline font-medium">Todos</button>
+                <button onClick={() => setSelTables(new Set(TABLE_OPTIONS.map(t => t.id)))} className="text-xs text-[#2DD4BF] hover:underline font-medium">Todos</button>
                 <span className="text-slate-200">|</span>
                 <button onClick={() => setSelTables(new Set())} className="text-xs text-slate-400 hover:underline font-medium">Ninguno</button>
               </div>
@@ -287,7 +287,7 @@ export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, st
                 <label
                   key={id}
                   className={`flex items-start gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-all ${
-                    checked ? "border-brand/40 bg-brand/5" : "border-slate-100 hover:bg-slate-50"
+                    checked ? "border-[#2DD4BF]/40 bg-[#2DD4BF]/5" : "border-slate-100 hover:bg-slate-50"
                   }`}
                 >
                   <Checkbox checked={checked} onCheckedChange={() => toggleTable(id)} className="mt-0.5 shrink-0" />
@@ -310,7 +310,7 @@ export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, st
             <Button variant="outline" size="sm" onClick={() => setOpen(false)} disabled={generating}>Cancelar</Button>
             <Button
               size="sm"
-              className="gap-1.5 bg-brand hover:bg-brand-strong text-brand-foreground border-0 min-w-[140px]"
+              className="gap-1.5 bg-[#2DD4BF] hover:bg-[#14B8A6] text-white border-0 min-w-[140px]"
               onClick={handleGenerate}
               disabled={total === 0 || generating}
             >

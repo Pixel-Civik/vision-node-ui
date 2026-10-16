@@ -19,10 +19,7 @@ export interface DashboardData {
   heatmap: HeatmapRow[];
   conversion: ConversionHourRow[];
   tizKpis: TIZKpiRow[];
-  /** true mientras no hay ningún dato todavía → la UI muestra skeletons. */
   loading: boolean;
-  /** true al revalidar en segundo plano con datos ya en pantalla. */
-  refreshing: boolean;
   error: string | null;
 }
 
@@ -52,7 +49,7 @@ export function useDashboard(
 ): DashboardData & { refresh: () => void } {
   const qc = useQueryClient();
 
-  const { data, isFetching, error } = useQuery({
+  const { data, isPending, isFetching, error } = useQuery({
     queryKey: dashboardKey(filters),
     queryFn: ({ signal }) => fetchOverview(filters, signal),
     enabled,
@@ -65,7 +62,6 @@ export function useDashboard(
   }, [qc]);
 
   const o = data ?? EMPTY_OVERVIEW;
-  const hasData = data !== undefined;
 
   return {
     kpis:             data ? o.kpis : null,
@@ -77,12 +73,11 @@ export function useDashboard(
     heatmap:          o.heatmap,
     conversion:       o.conversion,
     tizKpis:          o.tiz,
-    // `loading` solo cuando AÚN no hay nada que mostrar: así el skeleton se
-    // mantiene hasta la carga completa y, al revalidar, los datos previos
-    // siguen en pantalla (placeholderData) en vez de parpadear.
-    loading:          enabled && !hasData,
-    refreshing:       enabled && isFetching && hasData,
-    error:            error && !hasData ? "No se pudieron cargar los datos del período" : null,
+    // isPending = aún no hay ningún dato; isFetching = revalidando en segundo
+    // plano. Se marca cargando en ambos casos, pero con placeholderData los
+    // datos previos siguen en pantalla en vez de parpadear a vacío.
+    loading:          enabled && (isPending || isFetching),
+    error:            error ? "Error al cargar los datos del período" : null,
     refresh,
   };
 }

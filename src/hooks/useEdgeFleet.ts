@@ -139,10 +139,10 @@ export function useEdgeFleet(filters: EdgeFleetFilters) {
       p_cameras: filters.cameras.length > 0 ? filters.cameras : null,
       p_detection_types: filters.detectionTypes.length > 0 ? filters.detectionTypes : null,
     }, signal),
-    staleTime: 30_000,
-    refetchInterval: 60_000,
-    refetchIntervalInBackground: false,
-    retry: false,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: true,
+    retry: 2,
   });
   return {
     data: query.data ?? EMPTY,

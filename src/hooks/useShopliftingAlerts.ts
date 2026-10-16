@@ -9,32 +9,15 @@ const BUCKET = "shoplifting-evidence";
 const QUERY_KEY = ["shoplifting-alerts"] as const;
 const COUNT_KEY = ["shoplifting-alerts", "new-count"] as const;
 const SIGN_BATCH_SIZE = 100;
+const ALERT_PAGE_SIZE = 500;
+const ALERT_HISTORY_LIMIT = 5_000;
+const THUMBNAIL_SIGN_LIMIT = 120;
 const EVIDENCE_GENERATION = "h264-faststart-v1";
-
-export interface ShopliftingAlertPage {
-  alerts: ShopliftingAlert[];
-  total: number;
-  newCount: number;
-  confirmedCount: number;
-  dismissedCount: number;
-  cameras: string[];
-}
-
-interface AlertPageParams {
-  page: number;
-  pageSize: number;
-  camera: string | null;
-  status: ShopliftingAlertStatus | null;
-}
-
-interface AlertPageRpc {
-  alerts?: ShopliftingAlert[];
-  total?: number;
-  new_count?: number;
-  confirmed_count?: number;
-  dismissed_count?: number;
-  cameras?: string[];
-}
+const PUBLIC_ALERT_COLUMNS = [
+  "id", "site", "camera_id", "camera_name", "occurred_at", "risk_score",
+  "risk_reasons", "status", "thumbnail_path", "duration_sec", "metadata",
+  "created_at", "reviewed_at", "video_status", "video_uploaded_at", "video_size_bytes",
+].join(",");
 
 async function signPaths(paths: string[]): Promise<Map<string, string>> {
   const unique = [...new Set(paths.filter(Boolean))];
@@ -51,18 +34,26 @@ async function signPaths(paths: string[]): Promise<Map<string, string>> {
   return signed;
 }
 
-async function fetchAlertPage(params: AlertPageParams): Promise<ShopliftingAlertPage> {
-  const { data, error } = await supabase.rpc("dashboard_shoplifting_alert_page", {
-    p_offset: Math.max(0, params.page - 1) * params.pageSize,
-    p_limit: params.pageSize,
-    p_camera_id: params.camera,
-    p_status: params.status,
-  });
-  if (error) throw new Error(`No se pudieron cargar las alertas: ${error.message}`);
-  const result = (data ?? {}) as AlertPageRpc;
-  const rows = result.alerts ?? [];
-  const urls = await signPaths(rows.map((row) => row.thumbnail_path ?? ""));
-  const alerts = rows.map((row) => {
+async function fetchAlerts(): Promise<ShopliftingAlert[]> {
+  const rows: ShopliftingAlert[] = [];
+  for (let offset = 0; offset < ALERT_HISTORY_LIMIT; offset += ALERT_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("shoplifting_alerts")
+      .select(PUBLIC_ALERT_COLUMNS)
+      .contains("metadata", { evidence_generation: EVIDENCE_GENERATION })
+      .order("occurred_at", { ascending: false })
+      .range(offset, offset + ALERT_PAGE_SIZE - 1);
+    if (error) throw new Error(`No se pudieron cargar las alertas: ${error.message}`);
+    const page = (data ?? []) as unknown as ShopliftingAlert[];
+    rows.push(...page);
+    if (page.length < ALERT_PAGE_SIZE) break;
+  }
+  // Firmar miles de JPG al abrir el dashboard era el mayor costo. Los videos
+  // legacy no dependen de miniatura y las evidencias recientes conservan preview.
+  const urls = await signPaths(
+    rows.slice(0, THUMBNAIL_SIGN_LIMIT).map((row) => row.thumbnail_path ?? "")
+  );
+  return rows.map((row) => {
     const legacyThumbnail = row.thumbnail_path
       ? urls.get(row.thumbnail_path) ?? null
       : null;
@@ -87,14 +78,6 @@ async function fetchAlertPage(params: AlertPageParams): Promise<ShopliftingAlert
       ),
     };
   });
-  return {
-    alerts,
-    total: Number(result.total ?? 0),
-    newCount: Number(result.new_count ?? 0),
-    confirmedCount: Number(result.confirmed_count ?? 0),
-    dismissedCount: Number(result.dismissed_count ?? 0),
-    cameras: result.cameras ?? [],
-  };
 }
 
 export async function getShopliftingVideoUrl(
@@ -177,17 +160,15 @@ function useAlertsRealtime(channelName: string) {
   }, [channelName, queryClient]);
 }
 
-export function useShopliftingAlerts(params: AlertPageParams) {
+export function useShopliftingAlerts() {
   useAlertsRealtime("shoplifting-alerts-list-live");
   return useQuery({
-    queryKey: [
-      ...QUERY_KEY, "page", params.page, params.pageSize,
-      params.camera ?? "*", params.status ?? "*",
-    ],
-    queryFn: () => fetchAlertPage(params),
-    staleTime: 5 * 60_000,
-    // Realtime actualiza al instante. El respaldo ya trae sólo una página.
-    refetchInterval: 30 * 60_000,
+    queryKey: QUERY_KEY,
+    queryFn: fetchAlerts,
+    staleTime: 20_000,
+    // Realtime actualiza al instante; este sondeo pesado es solo respaldo.
+    // Con 1.030 alertas baja de ~1,48 M a ~98.880 filas/día por pestaña.
+    refetchInterval: 15 * 60_000,
   });
 }
 

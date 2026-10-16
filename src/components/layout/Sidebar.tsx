@@ -1,0 +1,120 @@
+/**
+ * Sidebar — branding, navigation and refresh control.
+ * SRP: renders sidebar UI only; no data fetching.
+ * DIP: depends on typed props (Section, NavItem), not on concrete hooks.
+ */
+"use client";
+
+import Image from "next/image";
+import { RefreshCw } from "lucide-react";
+import { NAV_ITEMS, type Section } from "./nav";
+
+interface SidebarProps {
+  section: Section;
+  onNavigate: (id: Section) => void;
+  loading: boolean;
+  onRefresh: () => void;
+  dateRange: { start: string; end: string };
+  alertCount?: number;
+}
+
+export function Sidebar({
+  section,
+  onNavigate,
+  loading,
+  onRefresh,
+  dateRange,
+  alertCount,
+}: SidebarProps) {
+  return (
+    <>
+      {/* ── Logo & brand ──────────────────────────────────────────────── */}
+      <div className="shrink-0 border-b border-white/10 px-4 py-5">
+        <div className="bg-[#1C2B45] rounded-2xl px-4 py-4 flex items-center justify-center">
+          {/* fill + aspect-ratio avoids the Next.js width/height mismatch warning */}
+          <div className="relative w-full" style={{ aspectRatio: "160 / 110" }}>
+            <Image
+              src="/pixel_civik.png"
+              alt="Pixel Civik"
+              fill
+              sizes="160px"
+              className="object-contain scale-125"
+              priority
+            />
+          </div>
+        </div>
+        <p className="text-center text-[10px] text-[#2DD4BF]/60 mt-2.5 tracking-widest uppercase">
+          Analytics Platform
+        </p>
+      </div>
+
+      {/* ── Navigation ────────────────────────────────────────────────── */}
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-3 py-5 [scrollbar-gutter:stable]">
+        <p className="px-3 pb-3 text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
+          Navegación
+        </p>
+        <NavList section={section} onNavigate={onNavigate} alertCount={alertCount} />
+      </nav>
+
+      {/* ── Footer: refresh + date range ──────────────────────────────── */}
+      <div className="shrink-0 border-t border-white/10 bg-[#0B1222] px-4 py-4">
+        <button
+          onClick={onRefresh}
+          disabled={loading}
+          className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-40"
+        >
+          <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+          {loading ? "Actualizando..." : "Actualizar datos"}
+        </button>
+        <p className="text-[10px] text-slate-600 mt-3" suppressHydrationWarning>
+          {dateRange.start} → {dateRange.end}
+        </p>
+      </div>
+    </>
+  );
+}
+
+// ── NavList — renders items with group separators ──────────────────────────────
+function NavList({
+  section,
+  onNavigate,
+  alertCount,
+}: Pick<SidebarProps, "section" | "onNavigate" | "alertCount">) {
+  return (
+    <>
+      {NAV_ITEMS.map(({ id, label, Icon, group }, index) => {
+        const showGroup = !!group && group !== NAV_ITEMS[index - 1]?.group;
+
+        return (
+          <div key={id}>
+            {showGroup && (
+              <p className="px-3 pt-3 pb-1 text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
+                {group}
+              </p>
+            )}
+            <button
+              onClick={() => onNavigate(id)}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
+                section === id
+                  ? "bg-[#2DD4BF]/15 border-l-[3px] border-[#2DD4BF] text-white font-semibold pl-[9px]"
+                  : "text-slate-400 hover:text-slate-100 hover:bg-white/6"
+              }`}
+            >
+              <Icon
+                size={16}
+                strokeWidth={section === id ? 2.5 : 1.75}
+                style={section === id ? { color: "#2DD4BF" } : undefined}
+              />
+              {label}
+              {id === "alertas" && (alertCount ?? 0) > 0 && (
+                <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow-sm shadow-red-950/30 animate-pulse">
+                  {(alertCount ?? 0) > 99 ? "99+" : alertCount}
+                </span>
+              )}
+            </button>
+          </div>
+        );
+      })}
+    </>
+  );
+}

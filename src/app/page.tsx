@@ -13,21 +13,18 @@
  */
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { AlertTriangle } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { fetchFreshness } from "@/lib/api";
+import { useState, useMemo } from "react";
+import { AlertTriangle, X } from "lucide-react";
 import dynamic from "next/dynamic";
 
 const Toaster = dynamic(
   () => import("@/components/ui/sonner").then((m) => ({ default: m.Toaster })),
   { ssr: false }
 );
-// Alerta de frescura desactivada: el stream de Supabase está cortado y solo hay
-// data histórica, por lo que esta alerta dispararía permanentemente.
-// import { useDataFreshnessAlert } from "@/hooks/useDataFreshnessAlert";
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/layout/AppSidebar";
-import { AppTopbar } from "@/components/layout/AppTopbar";
-import { CommandPalette } from "@/components/layout/CommandPalette";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { TopBar } from "@/components/layout/TopBar";
 import { type Section } from "@/components/layout/nav";
 import { InicioSection } from "@/components/sections/InicioSection";
 import { ReporteSection } from "@/components/sections/ReporteSection";
@@ -55,9 +52,9 @@ function limaToUtc(date: string, h: number, m: number, s: number): string {
 }
 
 export default function App() {
-  const [section, setSection] = useState<Section>("reporte");
-  const [commandOpen, setCommandOpen] = useState(false);
-  const { data: shopliftingAlertCount = 0 } = useShopliftingAlertCount();
+  const [section, setSection]       = useState<Section>("reporte");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { data: shopliftingAlertCount, error: alertCountError } = useShopliftingAlertCount();
 
   const opts = useFilterOptions();
 
@@ -106,7 +103,8 @@ export default function App() {
 
   // No consultar hasta conocer el rango de apertura: si no, se dispararía una
   // consulta con fechas provisionales y otra con las definitivas.
-  const dashboardReady = !opts.loading && !!dr;
+  const dashboardReady = !!(fvRaw.startDate && fvRaw.endDate) || (!opts.loading && !opts.error);
+  const freshness = useQuery({ queryKey: ["freshness"], queryFn: ({ signal }) => fetchFreshness(signal), staleTime: 60_000, refetchInterval: 60_000 });
 
   const data      = useDashboard(filters, { enabled: dashboardReady });
   const analytics = useAnalytics(filters, {
@@ -115,12 +113,6 @@ export default function App() {
     tiz: dashboardReady && section === "tiz",
   });
 
-  // useDataFreshnessAlert();  // desactivada — ver nota en el import
-
-  // Mientras el bootstrap (rango de apertura + opciones) no termina, el
-  // dashboard aún no se consulta: sin unificar el estado, las gráficas se
-  // pintaban como "sin datos" en vez de mantener el skeleton.
-  const loading = opts.loading || data.loading;
 
   const hasConversion = data.conversion.some((r) => r.pasantes > 0);
   const hasTIZ        = data.tizKpis.length > 0;
@@ -131,116 +123,120 @@ export default function App() {
 
   function navigate(id: Section) {
     setSection(id);
+    setSidebarOpen(false);
   }
-
-  // Atajo ⌘K / Ctrl+K para el buscador (paleta de comandos).
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        setCommandOpen((v) => !v);
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
 
   return (
     <>
-      <Toaster position="top-right" />
-      <SidebarProvider className="h-dvh">
-        <AppSidebar
+    <Toaster position="top-right" />
+    <div className="flex h-dvh min-h-0 overflow-hidden bg-slate-50">
+      {/* ── Mobile overlay ───────────────────────────────────────────────── */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-[2px] xl:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* ── Sidebar ──────────────────────────────────────────────────────── */}
+      <aside
+        id="app-sidebar"
+        className={`fixed inset-y-0 left-0 z-50 flex h-dvh max-h-dvh w-[min(18rem,86vw)] shrink-0 flex-col overflow-hidden bg-[#0B1222] shadow-2xl transition-transform duration-300 ease-out
+          sm:w-64 xl:sticky xl:inset-auto xl:top-0 xl:flex xl:h-dvh xl:w-56 xl:self-start xl:translate-x-0 xl:shadow-none ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+      >
+        <button
+          onClick={() => setSidebarOpen(false)}
+          className="absolute right-3 top-3 z-10 flex size-9 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-slate-300 transition hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 xl:hidden"
+          aria-label="Cerrar menú"
+        >
+          <X size={18} />
+        </button>
+        <Sidebar
           section={section}
           onNavigate={navigate}
-          loading={loading || data.refreshing}
+          loading={data.loading}
           onRefresh={data.refresh}
           dateRange={{ start: fv.startDate, end: fv.endDate }}
           alertCount={shopliftingAlertCount}
         />
+      </aside>
 
-        <SidebarInset className="flex h-dvh min-h-0 flex-col overflow-hidden bg-surface">
-          <AppTopbar
-            section={section}
-            onRefresh={data.refresh}
-            refreshing={data.refreshing}
-          />
+      {/* ── Main content ─────────────────────────────────────────────────── */}
+      <div className="flex h-dvh min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <TopBar open={sidebarOpen} onOpen={() => setSidebarOpen(true)} onClose={() => setSidebarOpen(false)} />
 
-          <div className="scroll-slim min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
-          {/* Barra de progreso sutil al revalidar con datos ya en pantalla */}
-          {data.refreshing && (
-            <div className="sticky top-0 z-20 h-0.5 w-full overflow-hidden bg-transparent">
-              <div className="h-full w-1/3 animate-[loading-bar_1.1s_ease-in-out_infinite] bg-brand" />
+        <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
+          {alertCountError && <p role="status" className="mx-6 mt-3 text-xs text-amber-700">Contador de alertas no disponible.</p>}
+          {opts.error && (
+            <div role="alert" className="mx-6 mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-700">
+              {opts.error} <button onClick={opts.retry} className="ml-3 underline">Reintentar</button>
+            </div>
+          )}
+          {freshness.data && <p className="mx-6 mt-3 text-xs text-slate-500">
+            Último evento: {freshness.data.last_event_at ? new Date(freshness.data.last_event_at).toLocaleString("es-PE", { timeZone: "America/Lima" }) : "sin eventos"} · Consulta: {new Date(freshness.data.queried_at).toLocaleString("es-PE", { timeZone: "America/Lima" })} (hora Lima). El período seleccionado puede ser histórico.
+          </p>}
+          {freshness.error && <p role="status" className="mx-6 mt-3 text-xs text-amber-700">Frescura de datos no disponible.</p>}
+          {(data.error || analytics.analyticsError) && (
+            <div className="mx-6 mt-4 flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+              <AlertTriangle size={15} />
+              {data.error || analytics.analyticsError}
             </div>
           )}
 
-          {data.error && (
-            <div className="mx-6 mt-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              <AlertTriangle size={15} className="shrink-0" />
-              <span className="flex-1">{data.error}</span>
-              <button
-                onClick={data.refresh}
-                className="shrink-0 rounded-lg border border-red-200 bg-white px-2.5 py-1 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100"
-              >
-                Reintentar
-              </button>
-            </div>
-          )}
-
-          {/* Sections — all mounted; visibility toggled via CSS `hidden`.
-             `cv-auto` deja que el navegador salte el render de lo que está
-             fuera de pantalla: menos trabajo por frame al hacer scroll. */}
-          <div className={section !== "inicio" ? "hidden" : "cv-auto"}>
+          {/* Sections — all mounted; visibility toggled via CSS `hidden` */}
+          <div className={section !== "inicio"     ? "hidden" : undefined}>
             <InicioSection
               kpis={data.kpis} hourly={data.hourly} hourlyAvg={data.hourlyAvg}
               zoneBreakdown={data.zoneBreakdown} channelBreakdown={data.channelBreakdown}
               conversion={data.conversion} tizKpis={data.tizKpis} totals={totals}
-              filters={filters} loading={loading}
+              filters={filters} loading={data.loading}
               dateRange={{ start: fv.startDate, end: fv.endDate }}
               onNavigateToReporte={() => navigate("reporte")}
             />
           </div>
 
-          <div className={section !== "reporte" ? "hidden" : "cv-auto"}>
+          <div className={section !== "reporte"    ? "hidden" : undefined}>
             <ReporteSection
               kpis={data.kpis} hourly={data.hourly} hourlyAvg={data.hourlyAvg} heatmap={data.heatmap}
               zoneBreakdown={data.zoneBreakdown} channelBreakdown={data.channelBreakdown}
               conversion={data.conversion} tizKpis={data.tizKpis}
               totals={totals} filters={filters} filterValues={fv} opts={opts}
-              loading={loading} hasConversion={hasConversion} hasTIZ={hasTIZ}
+              loading={data.loading} hasConversion={hasConversion} hasTIZ={hasTIZ}
               onFilterChange={(patch) => setFv((prev) => ({ ...prev, ...patch }))}
             />
           </div>
 
           {section === "alertas" && <AlertasSection />}
 
-          <div className={section !== "entradas" ? "hidden" : "cv-auto"}>
+          <div className={section !== "entradas"   ? "hidden" : undefined}>
             <EntradasView
               kpis={data.kpis} hourly={data.hourly} zoneBreakdown={data.zoneBreakdown}
               channelBreakdown={data.channelBreakdown} heatmap={data.heatmap}
               genderEnter={analytics.genderEnter} ageEnter={analytics.ageEnter}
-              loading={loading} analyticsLoading={analytics.analyticsLoading} filters={filters}
+              loading={data.loading} analyticsLoading={analytics.analyticsLoading} filters={filters}
             />
           </div>
 
-          <div className={section !== "visitantes" ? "hidden" : "cv-auto"}>
+          <div className={section !== "visitantes" ? "hidden" : undefined}>
             <VisitantesView
               hourly={data.hourly} conversion={data.conversion}
               genderVisitor={analytics.genderVisitor}
-              loading={loading} analyticsLoading={analytics.analyticsLoading} filters={filters}
+              loading={data.loading} analyticsLoading={analytics.analyticsLoading} filters={filters}
             />
           </div>
 
-          <div className={section !== "tiz" ? "hidden" : "cv-auto"}>
+          <div className={section !== "tiz"        ? "hidden" : undefined}>
             <TIZView
               tizKpis={data.tizKpis} tizDistribution={analytics.tizDistribution}
-              loading={loading} analyticsLoading={analytics.analyticsLoading} filters={filters}
+              loading={data.loading} analyticsLoading={analytics.analyticsLoading} filters={filters}
             />
           </div>
 
           {section === "tecnico" && (
             <TecnicoSection
               hourly={data.hourly}
-              loading={loading}
+              loading={data.loading}
               kpis={data.kpis}
               totals={totals}
               filterValues={fv}
@@ -248,16 +244,9 @@ export default function App() {
               onFilterChange={(patch) => setFv((prev) => ({ ...prev, ...patch }))}
             />
           )}
-          </div>
-        </SidebarInset>
-
-        <CommandPalette
-          open={commandOpen}
-          onOpenChange={setCommandOpen}
-          onNavigate={navigate}
-          onRefresh={data.refresh}
-        />
-      </SidebarProvider>
+        </main>
+      </div>
+    </div>
     </>
   );
 }

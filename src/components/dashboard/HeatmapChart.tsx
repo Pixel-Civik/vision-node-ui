@@ -1,31 +1,28 @@
 "use client";
 
 import type { HeatmapRow } from "@/lib/types";
-import { CHART, CHART_SKELETON_CLASS } from "@/lib/chartTheme";
 
 const DOWS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const HOURS = Array.from({ length: 17 }, (_, i) => i + 7); // 07–23
 
-const HEAT_RAMP = ["#F0FDFA", "#99F6E4", CHART.brand, CHART.brandStrong, "#0F766E"] as const;
-
 function cellColor(val: number, max: number): string {
   if (max === 0 || val === 0) return "#F8FAFC";
   const r = val / max;
-  if (r < 0.15) return HEAT_RAMP[0];
-  if (r < 0.35) return HEAT_RAMP[1];
-  if (r < 0.55) return HEAT_RAMP[2];
-  if (r < 0.75) return HEAT_RAMP[3];
-  return HEAT_RAMP[4];
+  if (r < 0.15) return "#DBEAFE";
+  if (r < 0.35) return "#93C5FD";
+  if (r < 0.55) return "#60A5FA";
+  if (r < 0.75) return "#3B82F6";
+  return "#1D4ED8";
 }
 
 function cellTextColor(val: number, max: number): string {
   if (max === 0 || val === 0) return "transparent";
-  return val / max >= 0.55 ? "#FFFFFF" : CHART.brandStrong;
+  return val / max >= 0.55 ? "#FFFFFF" : "#1E40AF";
 }
 
 export function HeatmapChart({ rows, loading }: { rows: HeatmapRow[]; loading: boolean }) {
   if (loading) {
-    return <div className={`h-52 ${CHART_SKELETON_CLASS}`} />;
+    return <div className="h-52 bg-slate-50 rounded-xl animate-pulse" />;
   }
 
   const map = new Map<string, number>();
@@ -40,7 +37,7 @@ export function HeatmapChart({ rows, loading }: { rows: HeatmapRow[]; loading: b
   return (
     <div className="space-y-3">
       <p className="text-xs text-slate-500">
-        Intensidad de tráfico por hora y día. Teal oscuro = mayor concentración de eventos.
+        Intensidad de tráfico por hora y día. Azul oscuro = mayor concentración de eventos.
       </p>
 
       {/* Hour headers */}
@@ -86,7 +83,7 @@ export function HeatmapChart({ rows, loading }: { rows: HeatmapRow[]; loading: b
       {/* Legend */}
       <div className="flex items-center gap-1.5" style={{ paddingLeft: "2.75rem" }}>
         <span className="text-[10px] text-slate-400">Menor</span>
-        {HEAT_RAMP.map((c) => (
+        {["#DBEAFE", "#93C5FD", "#60A5FA", "#3B82F6", "#1D4ED8"].map((c) => (
           <div key={c} className="w-6 h-3 rounded-sm" style={{ backgroundColor: c }} />
         ))}
         <span className="text-[10px] text-slate-400">Mayor</span>

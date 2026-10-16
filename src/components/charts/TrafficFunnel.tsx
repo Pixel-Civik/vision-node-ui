@@ -2,7 +2,6 @@
 
 import { ChevronDown } from "lucide-react";
 import type { HourlyRow, KPIResult } from "@/lib/types";
-import { CHART } from "@/lib/chartTheme";
 
 function sum(rows: HourlyRow[], type: string) {
   return rows.filter((r) => r.event_type === type).reduce((s, r) => s + r.count, 0);
@@ -33,7 +32,7 @@ export function TrafficFunnel({
     return (
       <div className="space-y-2 py-2">
         {[100, 68, 48].map((w) => (
-          <div key={w} style={{ width: `${w}%` }} className="mx-auto h-20 bg-slate-100 animate-pulse rounded-xl" />
+          <div key={w} style={{ width: `${w}%` }} className="mx-auto h-20 bg-slate-100 animate-pulse rounded-2xl" />
         ))}
       </div>
     );
@@ -54,26 +53,21 @@ export function TrafficFunnel({
   const conv1 = fmtPct(visitors, pasantes);
   const conv2 = fmtPct(enters, visitors);
 
-  // Rampa monocromática teal (claro → oscuro): un solo tono, tres pasos.
-  // Mantiene la lectura de "embudo" sin mezclar colores que no combinan.
   const stages = [
     {
       n: 1, label: "Pasantes", sub: "Personas frente a la tienda",
       count: pasantes, pctBase: null, width: 100,
-      bg: "#F6F8FB", border: "#E7ECF3", chipBg: "#CCFBF1", chipFg: "#0F766E",
-      fg: "#0F172A", muted: "#64748B",
+      bg: "#DBEAFE", fg: "#1E3A8A", muted: "#3B82F6",
     },
     {
       n: 2, label: "Visitantes", sub: "Se acercaron / mostraron interés",
       count: visitors, pctBase: fmtPct(visitors, pasantes), width: w2,
-      bg: "#D7FAF4", border: "#A7F3E4", chipBg: "#5EEAD4", chipFg: "#0F766E",
-      fg: "#0F172A", muted: "#0F766E",
+      bg: "#3B82F6", fg: "#FFFFFF", muted: "#BFDBFE",
     },
     {
       n: 3, label: "Entradas", sub: "Ingresaron al local",
       count: enters, pctBase: fmtPct(enters, pasantes), width: w3,
-      bg: CHART.brandStrong, border: CHART.brandStrong, chipBg: "rgba(255,255,255,0.18)", chipFg: "#FFFFFF",
-      fg: "#FFFFFF", muted: "#CCFBF1",
+      bg: "#1D4ED8", fg: "#FFFFFF", muted: "#93C5FD",
     },
   ];
 
@@ -110,14 +104,14 @@ export function TrafficFunnel({
               {/* Stage block — width narrows each step */}
               <div style={{ width: `${s.width}%` }} className="mx-auto">
                 <div
-                  className="flex items-center justify-between gap-4 rounded-xl border px-5 py-4"
-                  style={{ backgroundColor: s.bg, borderColor: s.border }}
+                  className="rounded-2xl px-5 py-4 flex items-center justify-between gap-4"
+                  style={{ backgroundColor: s.bg }}
                 >
                   {/* Left: step badge + label */}
                   <div className="flex items-center gap-3 min-w-0">
                     <span
                       className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
-                      style={{ backgroundColor: s.chipBg, color: s.chipFg }}
+                      style={{ backgroundColor: "rgba(255,255,255,0.25)", color: s.fg }}
                     >
                       {s.n}
                     </span>

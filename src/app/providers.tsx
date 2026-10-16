@@ -17,7 +17,6 @@
 
 import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { TooltipProvider } from "@/components/ui/tooltip";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   // useState (no una constante de módulo) para que cada montaje del árbol tenga
@@ -31,14 +30,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
             // cada cambio de sección mientras se sigue notando "en vivo".
             staleTime: 60_000,
             gcTime: 15 * 60_000,
-            // Un par de reintentos con backoff (no una tormenta): un RPC que
-            // responde lento o un fallo transitorio de red se recupera solo en
-            // vez de dejar la vista en error. TanStack deduplica, así que no
-            // se multiplican las consultas.
             retry: 2,
-            retryDelay: (attempt) => Math.min(1_000 * 2 ** attempt, 8_000),
+            retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
             refetchOnWindowFocus: false,
-            refetchOnReconnect: true,
             // Al cambiar de filtro mantiene los datos previos en pantalla en
             // vez de vaciarla: se acabó el parpadeo a "sin datos".
             placeholderData: <T,>(prev: T) => prev,
@@ -47,9 +41,5 @@ export function Providers({ children }: { children: React.ReactNode }) {
       })
   );
 
-  return (
-    <QueryClientProvider client={client}>
-      <TooltipProvider delay={0}>{children}</TooltipProvider>
-    </QueryClientProvider>
-  );
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }

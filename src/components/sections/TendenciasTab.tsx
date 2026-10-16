@@ -10,12 +10,12 @@ import {
 import { TrendingUp, TrendingDown, Minus, Trophy, AlertTriangle, Calendar } from "lucide-react";
 import { useTrendData } from "@/hooks/useTrendData";
 import { useComparisonData, type CompareMode } from "@/hooks/useComparisonData";
-import { useDashboard } from "@/hooks/useDashboard";
+import { useQuery } from "@tanstack/react-query";
+import { filterKey } from "@/lib/dashboard-filters";
+import { fetchKPIs, fetchHourly } from "@/lib/api";
 import { DatePicker, type DateMode } from "@/components/filters/DatePicker";
 import type { DashboardFilters, HourlyRow } from "@/lib/types";
 import { fmtHour } from "@/lib/fmt";
-import { CHART, GRID_PROPS, AXIS_TICK, TOOLTIP_STYLE, CHART_SKELETON_CLASS } from "@/lib/chartTheme";
-import { PanelTitle } from "@/components/ui/page-header";
 
 // ── date helpers ──────────────────────────────────────────────────────────────
 
@@ -44,6 +44,13 @@ function prevMonthRange(): { start: string; end: string } {
   };
 }
 
+// ── local KPI fetch ───────────────────────────────────────────────────────────
+
+function useLocalKPIs(filters: DashboardFilters) {
+  const query = useQuery({ queryKey: ["local-kpis", ...filterKey(filters)], queryFn: () => Promise.all([fetchKPIs(filters), fetchHourly(filters)]) });
+  return { kpis: query.data?.[0] ?? null, hourly: query.data?.[1] ?? [], loading: query.isPending || query.isFetching, error: query.error };
+}
+
 // ── chart helpers ─────────────────────────────────────────────────────────────
 
 function fmtDate(iso: string): string {
@@ -57,14 +64,15 @@ function ChartCard({ title, subtitle, children }: {
   title: string; subtitle: string; children: React.ReactNode;
 }) {
   return (
-    <div className="panel p-5">
-      <PanelTitle title={title} hint={subtitle} />
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+      <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
+      <p className="text-xs text-slate-400 mt-0.5 mb-4">{subtitle}</p>
       {children}
     </div>
   );
 }
 function Skeleton({ h = 200 }: { h?: number }) {
-  return <div className={CHART_SKELETON_CLASS} style={{ height: h }} />;
+  return <div className="bg-slate-50 animate-pulse rounded-xl" style={{ height: h }} />;
 }
 
 // ── delta pill ────────────────────────────────────────────────────────────────
@@ -102,8 +110,8 @@ function KPICompareCard({
   siteRank: { rank: number; total: number } | null; showRank: boolean; loading: boolean;
 }) {
   return (
-    <div className="relative panel p-5 overflow-hidden">
-      <div className="absolute top-0 left-0 right-0 h-1 bg-brand rounded-t-2xl" />
+    <div className="relative bg-white rounded-2xl border border-slate-100 shadow-sm p-5 overflow-hidden">
+      <div className="absolute top-0 left-0 right-0 h-1 bg-[#2DD4BF] rounded-t-2xl" />
       <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">{label}</p>
       {loading ? (
         <div className="h-9 w-28 bg-slate-100 animate-pulse rounded-lg mb-3" />
@@ -122,14 +130,14 @@ function KPICompareCard({
         <div className="mt-4 pt-4 border-t border-slate-100">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-xs text-slate-500 flex items-center gap-1.5">
-              <Trophy size={11} className="text-brand" />
+              <Trophy size={11} className="text-[#2DD4BF]" />
               Ranking entre tiendas
             </span>
             {loading || !siteRank ? (
               <div className="h-5 w-16 bg-slate-100 animate-pulse rounded-full" />
             ) : (
               <span className="text-xs font-bold text-slate-700">
-                <span className="bg-navy text-brand text-xs font-bold px-2 py-0.5 rounded-lg mr-1">
+                <span className="bg-[#0B1222] text-[#2DD4BF] text-xs font-bold px-2 py-0.5 rounded-lg mr-1">
                   #{siteRank.rank}
                 </span>
                 de {siteRank.total}
@@ -140,13 +148,13 @@ function KPICompareCard({
             <>
               <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-brand rounded-full"
+                  className="h-full bg-[#2DD4BF] rounded-full"
                   style={{ width: `${Math.round(((siteRank.total - siteRank.rank + 1) / siteRank.total) * 100)}%` }}
                 />
               </div>
               <div className="flex justify-between text-[9px] text-slate-400 mt-0.5">
                 <span>#{siteRank.total} peor</span>
-                <span className="text-brand font-semibold">#{siteRank.rank}</span>
+                <span className="text-[#2DD4BF] font-semibold">#{siteRank.rank}</span>
                 <span>#1 mejor</span>
               </div>
             </>
@@ -172,11 +180,11 @@ function TendenciaChart({ daily, loading }: {
   return (
     <ResponsiveContainer width="100%" height={220}>
       <ComposedChart data={daily} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-        <CartesianGrid {...GRID_PROPS} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
         <XAxis dataKey="date" tickFormatter={(l) => fmtDate(String(l))} interval={xInterval(daily.length)}
-          tick={AXIS_TICK} axisLine={false} tickLine={false} />
-        <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} />
-        <Tooltip contentStyle={TOOLTIP_STYLE}
+          tick={{ fontSize: 10, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fontSize: 10, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+        <Tooltip contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 11 }}
           labelFormatter={(l) => fmtDate(String(l))}
           formatter={(v, name) => [v, name === "enters" ? "Entradas" : "Media móvil 7d"]} />
         <Legend formatter={(v) => v === "enters" ? "Entradas diarias" : "Media móvil 7d"}
@@ -184,12 +192,12 @@ function TendenciaChart({ daily, loading }: {
         <Bar dataKey="enters" radius={[3, 3, 0, 0]} maxBarSize={28}>
           {daily.map((d, i) => (
             <Cell key={i}
-              fill={d.isAnomaly ? (d.enters > maxE * 0.85 ? CHART.amber : CHART.rose) : CHART.brand}
+              fill={d.isAnomaly ? (d.enters > maxE * 0.85 ? "#FCD34D" : "#FCA5A5") : "#2DD4BF"}
               opacity={d.isAnomaly ? 1 : 0.85} />
           ))}
         </Bar>
-        <Line dataKey="ma7" stroke={CHART.navy} strokeWidth={2.5} dot={false}
-          connectNulls={false} activeDot={{ r: 4, fill: CHART.navy }} />
+        <Line dataKey="ma7" stroke="#0B1222" strokeWidth={2.5} dot={false}
+          connectNulls={false} activeDot={{ r: 4, fill: "#0B1222" }} />
       </ComposedChart>
     </ResponsiveContainer>
   );
@@ -204,21 +212,21 @@ function PasantesVsEntradasChart({ daily, loading }: {
   return (
     <ResponsiveContainer width="100%" height={200}>
       <ComposedChart data={daily} margin={{ top: 8, right: 40, left: -16, bottom: 0 }}>
-        <CartesianGrid {...GRID_PROPS} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
         <XAxis dataKey="date" tickFormatter={(l) => fmtDate(String(l))} interval={xInterval(daily.length)}
-          tick={AXIS_TICK} axisLine={false} tickLine={false} />
-        <YAxis yAxisId="e" tick={{ ...AXIS_TICK, fill: CHART.brand }} axisLine={false} tickLine={false} />
-        <YAxis yAxisId="p" orientation="right" tick={AXIS_TICK}
+          tick={{ fontSize: 10, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+        <YAxis yAxisId="e" tick={{ fontSize: 10, fill: "#2DD4BF" }} axisLine={false} tickLine={false} />
+        <YAxis yAxisId="p" orientation="right" tick={{ fontSize: 10, fill: "#94A3B8" }}
           axisLine={false} tickLine={false} width={38} />
-        <Tooltip contentStyle={TOOLTIP_STYLE}
+        <Tooltip contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 11 }}
           labelFormatter={(l) => fmtDate(String(l))}
           formatter={(v, name) => [v, name === "enters" ? "Entradas" : "Pasantes"]} />
         <Legend formatter={(v) => v === "enters" ? "Entradas" : "Pasantes"}
           wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
-        <Line yAxisId="e" dataKey="enters" stroke={CHART.brand} strokeWidth={2.5}
-          dot={false} activeDot={{ r: 4, fill: CHART.brand }} />
-        <Line yAxisId="p" dataKey="pasantes" stroke={CHART.slate} strokeWidth={2}
-          strokeDasharray="5 3" dot={false} activeDot={{ r: 4, fill: CHART.slate }} />
+        <Line yAxisId="e" dataKey="enters" stroke="#2DD4BF" strokeWidth={2.5}
+          dot={false} activeDot={{ r: 4, fill: "#2DD4BF" }} />
+        <Line yAxisId="p" dataKey="pasantes" stroke="#94A3B8" strokeWidth={2}
+          strokeDasharray="5 3" dot={false} activeDot={{ r: 4, fill: "#94A3B8" }} />
       </ComposedChart>
     </ResponsiveContainer>
   );
@@ -235,19 +243,19 @@ function DOWConversionChart({ dowData, loading }: {
   return (
     <ResponsiveContainer width="100%" height={200}>
       <BarChart data={dowData} barSize={28} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-        <CartesianGrid {...GRID_PROPS} />
-        <XAxis dataKey="dow" tick={AXIS_TICK} axisLine={false} tickLine={false} />
-        <YAxis tickFormatter={(v) => `${v}%`} tick={AXIS_TICK} axisLine={false} tickLine={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+        <XAxis dataKey="dow" tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+        <YAxis tickFormatter={(v) => `${v}%`} tick={{ fontSize: 10, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
         <Tooltip formatter={(v) => [`${v}%`, "Conv. promedio"]}
-          contentStyle={TOOLTIP_STYLE} />
+          contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 11 }} />
         {avg > 0 && (
-          <ReferenceLine y={+avg.toFixed(1)} stroke={CHART.slate} strokeDasharray="4 2"
+          <ReferenceLine y={+avg.toFixed(1)} stroke="#94A3B8" strokeDasharray="4 2"
             label={{ value: `Prom ${avg.toFixed(1)}%`, fill: "#64748B", fontSize: 9, position: "insideTopRight" }} />
         )}
         <Bar dataKey="conv" radius={[4, 4, 0, 0]}>
           {dowData.map((d, i) => (
             <Cell key={i}
-              fill={d.conv === maxC && maxC > 0 ? CHART.navy : d.conv === minC && minC < maxC ? CHART.rose : CHART.brand} />
+              fill={d.conv === maxC && maxC > 0 ? "#0B1222" : d.conv === minC && minC < maxC ? "#FCA5A5" : "#2DD4BF"} />
           ))}
         </Bar>
       </BarChart>
@@ -265,13 +273,8 @@ function IntradayChart({ hourly, loading }: { hourly: HourlyRow[]; loading: bool
     const sorted = Array.from(byHour.entries()).sort((a, b) => a[0] - b[0]);
     const total  = sorted.reduce((s, [, v]) => s + v, 0);
     return sorted.map(([hour], index) => {
-      const cumulative = sorted
-        .slice(0, index + 1)
-        .reduce((sum, [, count]) => sum + count, 0);
-      return {
-        hour,
-        cumPct: total > 0 ? +(((cumulative / total) * 100).toFixed(1)) : 0,
-      };
+      const cum = sorted.slice(0, index + 1).reduce((sum, [, count]) => sum + count, 0);
+      return { hour, cumPct: total > 0 ? +(((cum / total) * 100).toFixed(1)) : 0 };
     });
   }, [hourly]);
 
@@ -286,24 +289,24 @@ function IntradayChart({ hourly, loading }: { hourly: HourlyRow[]; loading: bool
       <AreaChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
         <defs>
           <linearGradient id="cumGrad2" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={CHART.brand} stopOpacity={0.2} />
-            <stop offset="95%" stopColor={CHART.brand} stopOpacity={0} />
+            <stop offset="5%" stopColor="#2DD4BF" stopOpacity={0.2} />
+            <stop offset="95%" stopColor="#2DD4BF" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid {...GRID_PROPS} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
         <XAxis dataKey="hour" tickFormatter={(h) => fmtHour(Number(h))}
-          tick={AXIS_TICK} axisLine={false} tickLine={false} />
+          tick={{ fontSize: 10, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
         <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`}
-          tick={AXIS_TICK} axisLine={false} tickLine={false} />
+          tick={{ fontSize: 10, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
         <Tooltip formatter={(v) => [`${v}%`, "Acumulado"]}
           labelFormatter={(h) => fmtHour(Number(h))}
-          contentStyle={TOOLTIP_STYLE} />
-        {h50 && <ReferenceLine x={h50.hour} stroke={CHART.amber} strokeDasharray="4 2"
-          label={{ value: `50% · ${fmtHour(h50.hour)}`, fill: CHART.amber, fontSize: 9, position: "insideTopLeft" }} />}
-        {h80 && <ReferenceLine x={h80.hour} stroke={CHART.slate} strokeDasharray="4 2"
+          contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 11 }} />
+        {h50 && <ReferenceLine x={h50.hour} stroke="#F59E0B" strokeDasharray="4 2"
+          label={{ value: `50% · ${fmtHour(h50.hour)}`, fill: "#F59E0B", fontSize: 9, position: "insideTopLeft" }} />}
+        {h80 && <ReferenceLine x={h80.hour} stroke="#94A3B8" strokeDasharray="4 2"
           label={{ value: `80% · ${fmtHour(h80.hour)}`, fill: "#64748B", fontSize: 9, position: "insideTopLeft" }} />}
-        <Area dataKey="cumPct" stroke={CHART.brand} strokeWidth={2.5} fill="url(#cumGrad2)"
-          dot={false} activeDot={{ r: 4, fill: CHART.brand }} />
+        <Area dataKey="cumPct" stroke="#2DD4BF" strokeWidth={2.5} fill="url(#cumGrad2)"
+          dot={false} activeDot={{ r: 4, fill: "#2DD4BF" }} />
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -319,23 +322,23 @@ function ProjectionChart({ projection, lastDate, loading }: {
   return (
     <ResponsiveContainer width="100%" height={220}>
       <ComposedChart data={projection} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-        <CartesianGrid {...GRID_PROPS} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
         <XAxis dataKey="date" tickFormatter={(l) => fmtDate(String(l))} interval={xInterval(projection.length)}
-          tick={AXIS_TICK} axisLine={false} tickLine={false} />
-        <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} />
-        <Tooltip contentStyle={TOOLTIP_STYLE}
+          tick={{ fontSize: 10, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fontSize: 10, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+        <Tooltip contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 11 }}
           labelFormatter={(l) => fmtDate(String(l))}
           formatter={(v, name) => [v, name === "actual" ? "Real" : "Proyectado"]} />
         <Legend formatter={(v) => v === "actual" ? "Entradas reales" : "Proyección (regresión lineal)"}
           wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
         {lastDate && (
-          <ReferenceLine x={lastDate} stroke={CHART.slateSoft} strokeDasharray="4 2"
-            label={{ value: "Hoy", fill: CHART.slate, fontSize: 9, position: "insideTopRight" }} />
+          <ReferenceLine x={lastDate} stroke="#CBD5E1" strokeDasharray="4 2"
+            label={{ value: "Hoy", fill: "#94A3B8", fontSize: 9, position: "insideTopRight" }} />
         )}
-        <Line dataKey="actual" stroke={CHART.brand} strokeWidth={2.5} dot={false}
-          connectNulls={false} activeDot={{ r: 4, fill: CHART.brand }} />
-        <Line dataKey="projected" stroke={CHART.slate} strokeWidth={2} strokeDasharray="6 4"
-          dot={false} connectNulls={false} activeDot={{ r: 4, fill: CHART.slate }} />
+        <Line dataKey="actual" stroke="#2DD4BF" strokeWidth={2.5} dot={false}
+          connectNulls={false} activeDot={{ r: 4, fill: "#2DD4BF" }} />
+        <Line dataKey="projected" stroke="#94A3B8" strokeWidth={2} strokeDasharray="6 4"
+          dot={false} connectNulls={false} activeDot={{ r: 4, fill: "#94A3B8" }} />
       </ComposedChart>
     </ResponsiveContainer>
   );
@@ -395,17 +398,11 @@ export function TendenciasTab({
   }
 
   // Fetch kpis + hourly for local period (for KPI cards + intraday chart)
-  // Un solo dashboard_overview sustituye las antiguas RPC separadas de KPI y
-  // serie horaria, y comparte la misma caché/cancelación del panel principal.
-  const { kpis: localKpis, hourly: localHourly, loading: kpiLoading, error: kpiError } =
-    useDashboard(localFilters);
+  const { kpis: localKpis, hourly: localHourly, loading: kpiLoading, error: kpiError } = useLocalKPIs(localFilters);
 
   // Comparison data (REQ 1 + REQ 2)
   const { refHourly, siteRank, loading: compLoading, deltas, curPasantes } =
-    useComparisonData(
-      localFilters, compareMode, localKpis, localHourly, allSites,
-      { enabled: !kpiLoading && localKpis !== null },
-    );
+    useComparisonData(localFilters, compareMode, localKpis, localHourly, allSites);
 
   // Trend data for charts
   const { daily, dowData, projection, loading: trendLoading, hasEnoughData, error: trendError } = useTrendData(localFilters);
@@ -445,9 +442,9 @@ export function TendenciasTab({
       {(kpiError || trendError) && <p role="alert" className="text-sm text-red-700">No se pudieron cargar las tendencias. Actualiza para reintentar.</p>}
 
       {/* ── Period filter ── */}
-      <div className="panel p-5">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
         <div className="flex items-center gap-2 mb-3">
-          <Calendar size={13} className="text-brand" />
+          <Calendar size={13} className="text-[#2DD4BF]" />
           <span className="text-xs font-semibold text-slate-600">Período de análisis</span>
           <span className="text-[10px] text-slate-400 ml-auto">Independiente del filtro global</span>
         </div>
@@ -460,7 +457,7 @@ export function TendenciasTab({
               onClick={() => applyPreset(p)}
               className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${
                 activePreset === p.label
-                  ? "bg-navy text-brand border-navy"
+                  ? "bg-[#0B1222] text-[#2DD4BF] border-[#0B1222]"
                   : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
               }`}
             >
@@ -505,7 +502,7 @@ export function TendenciasTab({
       )}
 
       {/* ── REQ 2: KPI cards + REQ 1: toggle comparación ── */}
-      <div className="panel p-5">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
         {/* Header + toggle (REQ 1) */}
         <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
           <div>
@@ -519,7 +516,7 @@ export function TendenciasTab({
                 onClick={() => setCompareMode(key)}
                 className={`text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-colors ${
                   compareMode === key
-                    ? "bg-navy text-brand"
+                    ? "bg-[#0B1222] text-[#2DD4BF]"
                     : "text-slate-500 hover:text-slate-700"
                 }`}
               >
@@ -565,19 +562,19 @@ export function TendenciasTab({
                 barSize={10}
                 margin={{ top: 4, right: 8, left: -20, bottom: 0 }}
               >
-                <CartesianGrid {...GRID_PROPS} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
                 <XAxis dataKey="hour" tickFormatter={(h) => fmtHour(Number(h))}
-                  tick={AXIS_TICK} axisLine={false} tickLine={false} />
-                <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={TOOLTIP_STYLE}
+                  tick={{ fontSize: 9, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 9, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 11 }}
                   labelFormatter={(h) => fmtHour(Number(h))}
                   formatter={(v, name) => [v, name === "actual" ? "Actual" : "Referencia"]} />
                 <Legend formatter={(v) => v === "actual" ? "Actual" : "Referencia"}
                   wrapperStyle={{ fontSize: 11, paddingTop: 4 }} />
-                <Bar dataKey="referencia" fill={CHART.slateSoft} radius={[2, 2, 0, 0]} />
+                <Bar dataKey="referencia" fill="#CBD5E1" radius={[2, 2, 0, 0]} />
                 <Bar dataKey="actual" radius={[2, 2, 0, 0]}>
                   {compChartData.map((d, i) => (
-                    <Cell key={i} fill={d.actual < d.referencia && d.referencia > 0 ? CHART.rose : CHART.brand} />
+                    <Cell key={i} fill={d.actual < d.referencia && d.referencia > 0 ? "#FCA5A5" : "#2DD4BF"} />
                   ))}
                 </Bar>
               </BarChart>
@@ -595,7 +592,7 @@ export function TendenciasTab({
       </ChartCard>
 
       {/* ── Charts 2 + 3 ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <ChartCard title="Pasantes vs Entradas diario"
           subtitle="Teal = entradas (eje izq.) · Gris punteado = pasantes (eje der.)">
           <PasantesVsEntradasChart daily={daily} loading={loading} />
@@ -607,7 +604,7 @@ export function TendenciasTab({
       </div>
 
       {/* ── Charts 4 + 5 ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <ChartCard title="Acumulado intradiario de entradas"
           subtitle="% de entradas acumuladas hora a hora · Marcadores al 50% y 80%">
           <IntradayChart hourly={localHourly} loading={loading} />

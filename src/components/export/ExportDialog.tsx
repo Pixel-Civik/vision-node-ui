@@ -123,12 +123,12 @@ async function exportExcel(data: Props, sections: string[]) {
 }
 
 function Preview({ kpis }: { kpis: KPIResult | null }) {
-  if (!kpis) return <p className="text-sm text-slate-400">Sin datos KPI.</p>;
+  if (!kpis) return <p className="text-sm text-gray-400">Sin datos KPI.</p>;
   const d = Math.max(1, kpis.days);
   return (
     <table className="text-xs w-full border-collapse">
       <thead>
-        <tr className="bg-navy text-white">
+        <tr className="bg-gray-800 text-white">
           <th className="text-left px-3 py-2">Métrica</th>
           <th className="text-right px-3 py-2">Prom/día</th>
           <th className="text-right px-3 py-2">Total</th>
@@ -141,10 +141,10 @@ function Preview({ kpis }: { kpis: KPIResult | null }) {
           ["Neto", (kpis.net / d).toFixed(1), kpis.net.toLocaleString()],
           ["Días", "—", kpis.days.toString()],
         ].map(([m, avg, total], i) => (
-          <tr key={m} className={i % 2 === 0 ? "bg-slate-50" : "bg-white"}>
-            <td className="px-3 py-1.5 text-slate-700">{m}</td>
-            <td className="px-3 py-1.5 text-right text-slate-600">{avg}</td>
-            <td className="px-3 py-1.5 text-right font-medium text-slate-800">{total}</td>
+          <tr key={m} className={i % 2 === 0 ? "bg-gray-50" : "bg-white"}>
+            <td className="px-3 py-1.5 text-gray-700">{m}</td>
+            <td className="px-3 py-1.5 text-right text-gray-600">{avg}</td>
+            <td className="px-3 py-1.5 text-right font-medium text-gray-800">{total}</td>
           </tr>
         ))}
       </tbody>
@@ -175,15 +175,15 @@ export function ExportDialog(props: Props) {
           <DialogTitle>Exportar reporte</DialogTitle>
         </DialogHeader>
 
-        <div className="flex gap-1 border-b border-slate-200 mb-4">
+        <div className="flex gap-1 border-b border-gray-200 mb-4">
           {(["opciones", "preview"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={`px-4 py-2 text-sm capitalize transition-colors ${
                 tab === t
-                  ? "border-b-2 border-brand text-brand-strong font-medium"
-                  : "text-slate-500 hover:text-slate-700"
+                  ? "border-b-2 border-blue-500 text-blue-600 font-medium"
+                  : "text-gray-500 hover:text-gray-700"
               }`}
             >
               {t === "opciones" ? "Opciones" : "Vista previa"}
@@ -194,7 +194,7 @@ export function ExportDialog(props: Props) {
         {tab === "opciones" && (
           <div className="space-y-5">
             <div>
-              <p className="text-sm font-medium text-slate-700 mb-3">Secciones a incluir</p>
+              <p className="text-sm font-medium text-gray-700 mb-3">Secciones a incluir</p>
               <div className="space-y-2.5">
                 {[
                   { id: "enter_exit", label: "Entradas y Salidas (por hora y zona)", always: true },
@@ -207,7 +207,7 @@ export function ExportDialog(props: Props) {
                       disabled={!always}
                       onCheckedChange={() => toggleSection(id)}
                     />
-                    <span className={`text-sm ${!always ? "text-slate-400" : "text-slate-700"}`}>
+                    <span className={`text-sm ${!always ? "text-gray-400" : "text-gray-700"}`}>
                       {label}
                     </span>
                   </label>
@@ -245,7 +245,7 @@ export function ExportDialog(props: Props) {
                 Descargar PDF
               </Button>
             </div>
-            <p className="text-xs text-slate-400 text-center">
+            <p className="text-xs text-gray-400 text-center">
               El Excel incluye una hoja Resumen + hojas por sección seleccionada.
             </p>
           </div>
@@ -253,14 +253,14 @@ export function ExportDialog(props: Props) {
 
         {tab === "preview" && (
           <div className="space-y-4">
-            <p className="text-sm font-medium text-slate-700">Resumen ejecutivo del período</p>
+            <p className="text-sm font-medium text-gray-700">Resumen ejecutivo del período</p>
             <Preview kpis={props.kpis} />
             {props.conversion.length > 0 && (
               <>
-                <p className="text-sm font-medium text-slate-700 mt-4">Conversión por hora (primeras 5 filas)</p>
+                <p className="text-sm font-medium text-gray-700 mt-4">Conversión por hora (primeras 5 filas)</p>
                 <table className="text-xs w-full border-collapse">
                   <thead>
-                    <tr className="bg-navy text-white">
+                    <tr className="bg-gray-800 text-white">
                       <th className="px-2 py-1.5 text-left">Hora</th>
                       <th className="px-2 py-1.5 text-right">Pasantes</th>
                       <th className="px-2 py-1.5 text-right">Ingresos</th>
@@ -269,11 +269,11 @@ export function ExportDialog(props: Props) {
                   </thead>
                   <tbody>
                     {props.conversion.slice(0, 5).map((r, i) => (
-                      <tr key={r.hour} className={i % 2 === 0 ? "bg-slate-50" : "bg-white"}>
+                      <tr key={r.hour} className={i % 2 === 0 ? "bg-gray-50" : "bg-white"}>
                         <td className="px-2 py-1">{r.hour}h</td>
                         <td className="px-2 py-1 text-right">{r.pasantes}</td>
                         <td className="px-2 py-1 text-right">{r.enters}</td>
-                        <td className="px-2 py-1 text-right font-medium text-emerald-700">{r.conv_enter_pct}%</td>
+                        <td className="px-2 py-1 text-right font-medium text-green-700">{r.conv_enter_pct}%</td>
                       </tr>
                     ))}
                   </tbody>

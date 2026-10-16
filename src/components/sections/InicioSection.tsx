@@ -1,7 +1,6 @@
 "use client";
 
-import { ArrowRight, LayoutDashboard } from "lucide-react";
-import { PageHeader, PanelTitle } from "@/components/ui/page-header";
+import { ArrowRight } from "lucide-react";
 import { TrafficFunnel } from "@/components/charts/TrafficFunnel";
 import { TrafficPeriodChart } from "@/components/dashboard/TrafficPeriodChart";
 import { CombinedTrafficChart } from "@/components/charts/CombinedTrafficChart";
@@ -31,47 +30,49 @@ export function InicioSection({
   filters, loading, dateRange, onNavigateToReporte,
 }: InicioSectionProps) {
   return (
-    <div className="mx-auto max-w-6xl space-y-5 px-6 py-7 md:px-8">
+    <div className="px-6 md:px-8 py-7 space-y-6 max-w-6xl mx-auto">
       {/* ── Header ── */}
-      <PageHeader
-        title="Panel de Inicio"
-        icon={<LayoutDashboard size={19} />}
-        subtitle={
-          <>
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Panel de Inicio</h1>
+          <p className="text-sm text-slate-500 mt-1">
             Período:{" "}
-            <span className="tnum font-medium text-slate-700">{dateRange.start}</span>
+            <span className="font-medium text-slate-700">{dateRange.start}</span>
             {" → "}
-            <span className="tnum font-medium text-slate-700">{dateRange.end}</span>
-          </>
-        }
-        actions={
-          <ExportDialog
-            kpis={kpis}
-            hourly={hourly}
-            zones={zoneBreakdown}
-            channels={channelBreakdown}
-            conversion={conversion}
-            tiz={tizKpis}
-            startTs={filters.startTs}
-            endTs={filters.endTs}
-          />
-        }
-      />
+            <span className="font-medium text-slate-700">{dateRange.end}</span>
+          </p>
+        </div>
+        <ExportDialog
+          kpis={kpis}
+          hourly={hourly}
+          zones={zoneBreakdown}
+          channels={channelBreakdown}
+          conversion={conversion}
+          tiz={tizKpis}
+          startTs={filters.startTs}
+          endTs={filters.endTs}
+        />
+      </div>
 
       {/* ── Embudo de conversión (reemplaza KPIs) ── */}
-      <div className="panel cv-auto p-5">
-        <PanelTitle title="Embudo de conversión" hint="Pasantes → Visitantes → Entradas · período seleccionado" />
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <h2 className="text-sm font-semibold text-slate-700 mb-0.5">Embudo de conversión</h2>
+        <p className="text-xs text-slate-400 mb-5">
+          Pasantes → Visitantes → Entradas · período seleccionado
+        </p>
         <TrafficFunnel rows={hourlyAvg.length > 0 ? hourlyAvg : hourly} loading={loading} kpis={kpis} />
       </div>
 
       {/* ── Gráficas de tráfico ── */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="panel cv-auto p-5 lg:col-span-2">
-          <PanelTitle title="Tráfico combinado por hora" hint="Entradas · Salidas · Visitantes · Pasantes" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+          <h3 className="text-sm font-semibold text-slate-700 mb-1">Tráfico combinado por hora</h3>
+          <p className="text-xs text-slate-400 mb-4">Entradas · Salidas · Visitantes · Pasantes</p>
           <CombinedTrafficChart rows={hourlyAvg.length > 0 ? hourlyAvg : hourly} loading={loading} />
         </div>
-        <div className="panel cv-auto p-5">
-          <PanelTitle title="Distribución del día" hint="% de entradas por franja horaria" />
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+          <h3 className="text-sm font-semibold text-slate-700 mb-1">Distribución del día</h3>
+          <p className="text-xs text-slate-400 mb-4">% de entradas por franja horaria</p>
           <TrafficPeriodChart rows={hourlyAvg.length > 0 ? hourlyAvg : hourly} loading={loading} />
         </div>
       </div>
@@ -79,10 +80,10 @@ export function InicioSection({
       {/* ── CTA ── */}
       <button
         onClick={onNavigateToReporte}
-        className="group inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-brand-strong transition-colors hover:text-brand"
+        className="flex items-center gap-2 text-sm text-[#2DD4BF] hover:text-[#14B8A6] font-semibold transition-colors"
       >
         Explorar reporte completo con filtros
-        <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />
+        <ArrowRight size={15} />
       </button>
     </div>
   );

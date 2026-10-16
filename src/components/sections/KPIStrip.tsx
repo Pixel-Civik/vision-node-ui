@@ -5,9 +5,6 @@
  */
 "use client";
 
-import { Users, Footprints, Target, Fingerprint } from "lucide-react";
-import type { ElementType } from "react";
-
 interface KPIStripProps {
   visitors: number;
   pasantes: number;
@@ -22,8 +19,7 @@ interface CardDef {
   label: string;
   value: string;
   sub: string;
-  accent: string;
-  Icon: ElementType;
+  border: string;
 }
 
 export function KPIStrip({ visitors, pasantes, conv, uniqueTracks, days = 1, loading, compact }: KPIStripProps) {
@@ -34,58 +30,45 @@ export function KPIStrip({ visitors, pasantes, conv, uniqueTracks, days = 1, loa
       label: "Visitantes / día",
       value: (visitors / d).toFixed(1),
       sub: `${visitors.toLocaleString("es-PE")} total · ${d} día(s)`,
-      accent: "#0D9488",
-      Icon: Users,
+      border: "border-l-indigo-400",
     },
     {
       label: "Pasantes / día",
       value: (pasantes / d).toFixed(1),
       sub: `${pasantes.toLocaleString("es-PE")} total · ${d} día(s)`,
-      accent: "#64748B",
-      Icon: Footprints,
+      border: "border-l-slate-400",
     },
     {
       label: "Conversión",
       value: conv !== null ? `${conv}%` : "—",
       sub: "Visitantes / Pasantes",
-      accent: "#0D9488",
-      Icon: Target,
+      border: "border-l-[#2DD4BF]",
     },
     {
       label: "Tracks únicos",
       value: uniqueTracks.toLocaleString("es-PE"),
-      sub: "Personas distintas detectadas",
-      accent: "#0B1222",
-      Icon: Fingerprint,
+      sub: "IDs de trayectoria detectados",
+      border: "border-l-amber-400",
     },
   ];
 
-  const pad = compact ? "p-3" : "p-3.5";
-  const numSize = compact ? "text-lg" : "text-xl";
+  const pad = compact ? "px-4 py-3" : "p-4";
+  const numSize = compact ? "text-xl" : "text-2xl";
 
   return (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-      {cards.map(({ label, value, sub, accent, Icon }) => (
-        <div key={label} className={`panel panel-interactive ${pad}`}>
-          <div className="flex items-start justify-between gap-2">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
-              {label}
-            </p>
-            <span
-              className="flex size-6 shrink-0 items-center justify-center rounded-lg"
-              style={{ backgroundColor: `${accent}14`, color: accent }}
-            >
-              <Icon size={14} />
-            </span>
-          </div>
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {cards.map(({ label, value, sub, border }) => (
+        <div
+          key={label}
+          className={`bg-white rounded-2xl border border-slate-100 shadow-sm ${pad} border-l-4 ${border}`}
+        >
+          <p className="text-xs text-slate-500 font-medium uppercase tracking-widest">{label}</p>
           {loading ? (
-            <div className="mt-2 h-6 w-20 animate-pulse rounded bg-slate-100" />
+            <div className="h-7 w-20 bg-slate-100 rounded animate-pulse mt-2" />
           ) : (
-            <p className={`tnum mt-2 font-semibold leading-none tracking-tight text-slate-900 ${numSize}`}>
-              {value}
-            </p>
+            <p className={`${numSize} font-bold text-slate-800 mt-1`}>{value}</p>
           )}
-          <p className="mt-1.5 text-[11px] text-slate-400">{sub}</p>
+          <p className="text-[11px] text-slate-400 mt-1">{sub}</p>
         </div>
       ))}
     </div>

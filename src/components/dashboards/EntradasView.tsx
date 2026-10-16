@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import type {
   KPIResult, HourlyRow, ZoneBreakdownRow, ChannelBreakdownRow,
   HeatmapRow, GenderRow, AgeRow, DashboardFilters,
@@ -12,9 +11,7 @@ import { GenderAgePanel } from "@/components/charts/GenderAgePanel";
 import { NetFlowChart } from "@/components/charts/NetFlowChart";
 import { ExportDialog } from "@/components/export/ExportDialog";
 import { PDFExportDialog } from "@/components/export/PDFExportDialog";
-import { PageHeader, PanelTitle } from "@/components/ui/page-header";
-import { SectionTabs } from "@/components/ui/section-tabs";
-import { TrendingUp, LogIn, Users, Grid2x2 } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 
 interface Props {
   kpis: KPIResult | null;
@@ -84,147 +81,128 @@ export function EntradasView({
   kpis, hourly, zoneBreakdown, channelBreakdown,
   heatmap, genderEnter, ageEnter, loading, analyticsLoading, filters,
 }: Props) {
-  const [tab, setTab] = useState("resumen");
   const peaks = peakHours(hourly);
 
   return (
     <section className="px-4 md:px-6 py-5 space-y-5">
       {/* Header */}
-      <PageHeader
-        title="Entradas y Salidas"
-        icon={<LogIn size={19} />}
-        subtitle={
-          <>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Entradas y Salidas</h1>
+          <p className="text-xs text-slate-500 mt-0.5">
             Análisis detallado de flujo — período:{" "}
-            <span className="tnum font-medium text-slate-700">{filters.startTs.slice(0, 10)}</span> →{" "}
-            <span className="tnum font-medium text-slate-700">{filters.endTs.slice(0, 10)}</span>
-          </>
-        }
-        actions={
-          <>
-            <PDFExportDialog
-              kpis={kpis}
-              hourly={hourly}
-              heatmap={heatmap}
-              zones={zoneBreakdown}
-              channels={channelBreakdown}
-              gender={genderEnter}
-              age={ageEnter}
-              filters={filters}
-            />
-            <ExportDialog
-              kpis={kpis}
-              hourly={hourly}
-              zones={zoneBreakdown}
-              channels={channelBreakdown}
-              conversion={[]}
-              tiz={[]}
-              startTs={filters.startTs}
-              endTs={filters.endTs}
-            />
-          </>
-        }
-      />
+            <span className="font-medium text-slate-700">{filters.startTs.slice(0, 10)}</span> →{" "}
+            <span className="font-medium text-slate-700">{filters.endTs.slice(0, 10)}</span>
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <PDFExportDialog
+            kpis={kpis}
+            hourly={hourly}
+            heatmap={heatmap}
+            zones={zoneBreakdown}
+            channels={channelBreakdown}
+            gender={genderEnter}
+            age={ageEnter}
+            filters={filters}
+          />
+          <ExportDialog
+            kpis={kpis}
+            hourly={hourly}
+            zones={zoneBreakdown}
+            channels={channelBreakdown}
+            conversion={[]}
+            tiz={[]}
+            startTs={filters.startTs}
+            endTs={filters.endTs}
+          />
+        </div>
+      </div>
 
-      {/* KPI cards — contexto común a todas las sub-pestañas */}
+      {/* KPI cards */}
       <KPICards kpis={kpis} loading={loading} />
 
-      <SectionTabs
-        value={tab}
-        onValueChange={setTab}
-        tabs={[
-          {
-            value: "resumen",
-            label: "Resumen",
-            icon: TrendingUp,
-            content: (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-2 panel p-5">
-                  <PanelTitle title="Tráfico por hora" hint="Barras = volumen · Línea = tendencia de entradas" />
-                  <BehaviorChart rows={hourly} loading={loading} />
-                </div>
-                <div className="panel p-5">
-                  <PanelTitle title="Horas pico" hint="Franjas con mayor volumen de entradas" />
-                  {loading ? (
-                    <div className="space-y-2">
-                      {[1, 2, 3, 4, 5].map((i) => (
-                        <div key={i} className="h-6 bg-slate-50 rounded animate-pulse" />
-                      ))}
+      {/* Hourly + Gender/Age */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="md:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+          <h3 className="text-sm font-semibold text-slate-700">Tráfico por hora</h3>
+          <p className="text-xs text-slate-400 mt-0.5 mb-4">Barras = volumen · Línea = tendencia de entradas</p>
+          <BehaviorChart rows={hourly} loading={loading} />
+        </div>
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+          <h3 className="text-sm font-semibold text-slate-700 mb-1">Género y Edad</h3>
+          <p className="text-xs text-slate-400 mb-4">Distribución de personas que ingresaron</p>
+          <GenderAgePanel gender={genderEnter} age={ageEnter} loading={analyticsLoading} />
+        </div>
+      </div>
+
+      {/* Net flow + Peak hours + Camera ranking */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="md:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+          <h3 className="text-sm font-semibold text-slate-700">Flujo neto por hora</h3>
+          <p className="text-xs text-slate-400 mt-0.5 mb-4">
+            Verde = más entradas que salidas · Rojo = más salidas que entradas
+          </p>
+          <NetFlowChart rows={hourly} loading={loading} />
+        </div>
+
+        <div className="space-y-5">
+          {/* Peak hours */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp size={14} className="text-[#2DD4BF]" />
+              <h3 className="text-sm font-semibold text-slate-700">Horas pico</h3>
+            </div>
+            {loading ? (
+              <div className="space-y-2">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="h-6 bg-slate-50 rounded animate-pulse" />
+                ))}
+              </div>
+            ) : peaks.length === 0 ? (
+              <p className="text-xs text-slate-400 text-center py-4">Sin datos</p>
+            ) : (
+              <div className="space-y-2">
+                {peaks.map(({ hour, count }, i) => {
+                  const max = peaks[0].count;
+                  return (
+                    <div key={hour} className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-slate-400 w-4">{i + 1}</span>
+                      <div className="flex-1 space-y-0.5">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-600 font-medium">{hour}:00 h</span>
+                          <span className="text-emerald-600 font-semibold">{count}</span>
+                        </div>
+                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-[#2DD4BF] rounded-full"
+                            style={{ width: `${(count / max) * 100}%` }}
+                          />
+                        </div>
+                      </div>
                     </div>
-                  ) : peaks.length === 0 ? (
-                    <p className="text-xs text-slate-400 text-center py-4">Sin datos</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {peaks.map(({ hour, count }, i) => {
-                        const max = peaks[0].count;
-                        return (
-                          <div key={hour} className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-slate-400 w-4">{i + 1}</span>
-                            <div className="flex-1 space-y-0.5">
-                              <div className="flex justify-between text-xs">
-                                <span className="text-slate-600 font-medium">{hour}:00 h</span>
-                                <span className="text-emerald-600 font-semibold">{count}</span>
-                              </div>
-                              <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-brand rounded-full"
-                                  style={{ width: `${(count / max) * 100}%` }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                  );
+                })}
               </div>
-            ),
-          },
-          {
-            value: "flujo",
-            label: "Flujo y cámaras",
-            icon: LogIn,
-            content: (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-2 panel p-5">
-                  <PanelTitle
-                    title="Flujo neto por hora"
-                    hint="Verde = más entradas que salidas · Rojo = más salidas que entradas"
-                  />
-                  <NetFlowChart rows={hourly} loading={loading} />
-                </div>
-                <div className="panel p-5">
-                  <PanelTitle title="Rendimiento por cámara" hint="Entradas y salidas por punto de seguimiento" />
-                  <CameraTable channels={channelBreakdown} loading={loading} />
-                </div>
-              </div>
-            ),
-          },
-          {
-            value: "demografia",
-            label: "Género y edad",
-            icon: Users,
-            content: (
-              <div className="panel p-5">
-                <PanelTitle title="Género y edad" hint="Distribución de personas que ingresaron" />
-                <GenderAgePanel gender={genderEnter} age={ageEnter} loading={analyticsLoading} />
-              </div>
-            ),
-          },
-          {
-            value: "heatmap",
-            label: "Mapa de calor",
-            icon: Grid2x2,
-            content: (
-              <div className="panel p-5">
-                <PanelTitle title="Mapa de calor" hint="Concentración de tráfico por hora × día de semana" />
-                <HeatmapChart rows={heatmap} loading={loading} />
-              </div>
-            ),
-          },
-        ]}
-      />
+            )}
+          </div>
+
+          {/* Camera ranking */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">Rendimiento por cámara</h3>
+            <CameraTable channels={channelBreakdown} loading={loading} />
+          </div>
+        </div>
+      </div>
+
+      {/* Heatmap */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+        <h3 className="text-sm font-semibold text-slate-700">Mapa de calor</h3>
+        <p className="text-xs text-slate-400 mt-0.5 mb-4">
+          Concentración de tráfico por hora × día de semana
+        </p>
+        <HeatmapChart rows={heatmap} loading={loading} />
+      </div>
     </section>
   );
 }

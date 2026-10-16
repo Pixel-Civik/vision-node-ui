@@ -2,7 +2,6 @@
 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import type { TIZKpiRow } from "@/lib/types";
-import { CHART, AXIS_TICK, CHART_SKELETON_CLASS } from "@/lib/chartTheme";
 import { Card, CardContent } from "@/components/ui/card";
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub: string }) {
@@ -23,10 +22,10 @@ export function TIZPanel({ rows, loading }: { rows: TIZKpiRow[]; loading: boolea
       <div className="space-y-4">
         <div className="grid grid-cols-3 gap-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className={`h-24 ${CHART_SKELETON_CLASS}`} />
+            <div key={i} className="h-24 bg-gray-100 rounded-lg animate-pulse" />
           ))}
         </div>
-        <div className={`h-48 ${CHART_SKELETON_CLASS}`} />
+        <div className="h-48 bg-gray-100 rounded-lg animate-pulse" />
       </div>
     );
   }
@@ -70,15 +69,15 @@ export function TIZPanel({ rows, loading }: { rows: TIZKpiRow[]; loading: boolea
         <p className="text-xs font-medium text-gray-600 mb-2">Mediana por zona (segundos)</p>
         <ResponsiveContainer width="100%" height={Math.max(100, rows.length * 36)}>
           <BarChart layout="vertical" data={rows} margin={{ left: 4, right: 24, top: 4, bottom: 4 }}>
-            <XAxis type="number" tick={AXIS_TICK} />
-            <YAxis type="category" dataKey="zone" tick={AXIS_TICK} width={120} />
+            <XAxis type="number" tick={{ fontSize: 10 }} />
+            <YAxis type="category" dataKey="zone" tick={{ fontSize: 10 }} width={120} />
             <Tooltip
               formatter={(v, name) => [
                 name === "median_s" ? `${v}s` : name === "p90_s" ? `${v}s` : v,
                 name === "median_s" ? "Mediana" : name === "p90_s" ? "P90" : "Registros",
               ]}
             />
-            <Bar dataKey="median_s" name="median_s" fill={CHART.sky} radius={[0, 4, 4, 0]} />
+            <Bar dataKey="median_s" name="median_s" fill="#7C3AED" radius={[0, 4, 4, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>

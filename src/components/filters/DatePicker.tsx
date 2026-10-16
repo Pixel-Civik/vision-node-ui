@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useEffect, useRef } from "react"
 import { format, parse, isValid } from "date-fns"
 import { es } from "date-fns/locale"
 import { Calendar as CalendarIcon, CalendarRange, AlertTriangle, Info } from "lucide-react"
@@ -102,8 +102,8 @@ export function DatePicker({
   const [openStart, setOpenStart] = useState(false)
   const [openEnd,   setOpenEnd]   = useState(false)
 
-  const [startInput, setStartInput] = useState(() => isoToDisplay(startDate))
-  const [endInput,   setEndInput]   = useState(() => isoToDisplay(endDate))
+  const [startInput, setStartInput] = useState(isoToDisplay(startDate))
+  const [endInput,   setEndInput]   = useState(isoToDisplay(endDate))
 
   const [startOk, setStartOk] = useState(true)
   const [endOk,   setEndOk]   = useState(true)
@@ -122,27 +122,13 @@ export function DatePicker({
     setInputWarn(null)
   }
 
-  // Sincroniza los inputs cuando la fecha cambia desde afuera (p. ej. snap de
-  // page.tsx). Se usa el patrón "adjust state during render" de React en vez de
-  // un setState síncrono dentro de un effect, que provoca renders en cascada.
-  const [prevStart, setPrevStart] = useState(startDate)
-  if (startDate !== prevStart) {
-    setPrevStart(startDate)
-    setStartInput(isoToDisplay(startDate))
-    setStartOk(true)
+  const [syncedDates, setSyncedDates] = useState({ startDate, endDate });
+  if (syncedDates.startDate !== startDate || syncedDates.endDate !== endDate) {
+    setSyncedDates({ startDate, endDate });
+    setStartInput(isoToDisplay(startDate)); setEndInput(isoToDisplay(endDate));
+    setStartOk(true); setEndOk(true); setInputWarn(null);
   }
-  const [prevEnd, setPrevEnd] = useState(endDate)
-  if (endDate !== prevEnd) {
-    setPrevEnd(endDate)
-    setEndInput(isoToDisplay(endDate))
-    setEndOk(true)
-  }
-  // Oculta el aviso de tipeo cuando llega un aviso del filtro.
-  const [prevFilterWarn, setPrevFilterWarn] = useState(filterWarning)
-  if (filterWarning !== prevFilterWarn) {
-    setPrevFilterWarn(filterWarning)
-    if (filterWarning) setInputWarn(null)
-  }
+  useEffect(() => () => clearTimeout(warnTimer.current), []);
 
   const minD = isoToLocal(minDate)
   const maxD = isoToLocal(maxDate)
@@ -209,7 +195,7 @@ export function DatePicker({
   const inputCls = "text-slate-700 font-medium bg-transparent border-none outline-none text-xs"
   const boxCls = cn(
     "flex items-center gap-2 border rounded-xl px-3 py-2 bg-white text-xs transition-all",
-    "hover:border-brand/50 focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20",
+    "hover:border-[#2DD4BF]/50 focus-within:border-[#2DD4BF] focus-within:ring-2 focus-within:ring-[#2DD4BF]/20",
   )
   const errBorder = "border-red-400 hover:border-red-400 focus-within:border-red-400 focus-within:ring-red-200"
   const okBorder  = "border-gray-200"
@@ -237,7 +223,7 @@ export function DatePicker({
             />
             <Popover open={openStart} onOpenChange={setOpenStart}>
               <PopoverTrigger render={<button type="button" className="shrink-0 hover:opacity-70 transition-opacity" />}>
-                <CalendarIcon size={13} className="text-brand" />
+                <CalendarIcon size={13} className="text-[#2DD4BF]" />
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
@@ -269,7 +255,7 @@ export function DatePicker({
             />
             <Popover open={openStart} onOpenChange={setOpenStart}>
               <PopoverTrigger render={<button type="button" className="shrink-0 hover:opacity-70 transition-opacity" />}>
-                <CalendarIcon size={12} className="text-brand" />
+                <CalendarIcon size={12} className="text-[#2DD4BF]" />
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
@@ -299,7 +285,7 @@ export function DatePicker({
             />
             <Popover open={openEnd} onOpenChange={setOpenEnd}>
               <PopoverTrigger render={<button type="button" className="shrink-0 hover:opacity-70 transition-opacity" />}>
-                <CalendarIcon size={12} className="text-brand" />
+                <CalendarIcon size={12} className="text-[#2DD4BF]" />
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar

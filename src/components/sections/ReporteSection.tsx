@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { FileBarChart2 } from "lucide-react";
-import { PageHeader, PanelTitle } from "@/components/ui/page-header";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrafficFunnel } from "@/components/charts/TrafficFunnel";
@@ -80,39 +78,42 @@ export function ReporteSection({
   return (
     <div className="px-4 md:px-6 py-5 space-y-5">
       {/* ── Header ── */}
-      <PageHeader
-        title="Reporte de Tráfico"
-        icon={<FileBarChart2 size={19} />}
-        subtitle="Análisis detallado — ajusta los filtros y actualiza"
-        actions={
-          <>
-            <div className="hidden items-center gap-2 border-r border-slate-200 pr-3 sm:flex">
-              <span className="text-[10px] font-medium uppercase tracking-widest text-slate-400">
-                Cliente
-              </span>
-              <div className="relative h-10 w-36">
-                <Image
-                  src="/freshmart.png"
-                  alt="Freshmart"
-                  fill
-                  sizes="124px"
-                  className="object-contain scale-200"
-                />
-              </div>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+              Reporte de Tráfico
+            </h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Análisis detallado — ajusta los filtros y actualiza
+            </p>
+          </div>
+          <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
+            <span className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">
+              Cliente
+            </span>
+            <div className="relative h-10 w-36">
+              <Image
+                src="/freshmart.png"
+                alt="Freshmart"
+                fill
+                sizes="124px"
+                className="object-contain scale-200"
+              />
             </div>
-            <ReporteExportDialog
-              kpis={kpis}
-              hourly={hourly}
-              heatmap={heatmap}
-              zones={zoneBreakdown}
-              channels={channelBreakdown}
-              startTs={filters.startTs}
-              endTs={filters.endTs}
-              filters={filters}
-            />
-          </>
-        }
-      />
+          </div>
+        </div>
+        <ReporteExportDialog
+          kpis={kpis}
+          hourly={hourly}
+          heatmap={heatmap}
+          zones={zoneBreakdown}
+          channels={channelBreakdown}
+          startTs={filters.startTs}
+          endTs={filters.endTs}
+          filters={filters}
+        />
+      </div>
 
       <FilterPanel
         opts={opts}
@@ -121,14 +122,15 @@ export function ReporteSection({
       />
 
       {/* Embudo de conversión reemplaza los KPI cards */}
-      <div className="panel p-5">
-        <PanelTitle title="Embudo de conversión" hint="Pasantes → Visitantes → Entradas · período filtrado" />
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+        <h3 className="text-sm font-semibold text-slate-700 mb-0.5">Embudo de conversión</h3>
+        <p className="text-xs text-slate-400 mb-4">Pasantes → Visitantes → Entradas · período filtrado</p>
         <TrafficFunnel rows={hourlyAvg.length > 0 ? hourlyAvg : hourly} loading={loading} kpis={kpis} />
       </div>
 
       {/* Contexto comparativo — oculto en modo Promedio */}
       {!isPromedioMode && (
-        <div className="panel p-5">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
           <ComparisonPanel
             filters={filters}
             kpis={kpis}
@@ -143,30 +145,30 @@ export function ReporteSection({
 
       {/* ── Tabs ── */}
       <Tabs defaultValue="combinado" onValueChange={setActiveTab}>
-        <TabsList className="h-auto! w-full flex-wrap justify-start gap-1 overflow-hidden rounded-2xl border border-border bg-muted/60 p-1.5 shadow-sm">
+        <TabsList className="bg-slate-100 p-1 rounded-xl">
           <TabsTrigger
             value="combinado"
-            className="h-9 flex-none cursor-pointer whitespace-nowrap rounded-xl px-4 text-[13px] font-medium text-slate-500 transition-colors hover:bg-background hover:text-slate-800 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40 data-active:bg-navy data-active:text-white data-active:shadow-sm"
+            className="rounded-lg text-xs font-medium"
           >
             Visión general
           </TabsTrigger>
           <TabsTrigger
             value="resumen"
-            className="h-9 flex-none cursor-pointer whitespace-nowrap rounded-xl px-4 text-[13px] font-medium text-slate-500 transition-colors hover:bg-background hover:text-slate-800 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40 data-active:bg-navy data-active:text-white data-active:shadow-sm"
+            className="rounded-lg text-xs font-medium"
           >
             Entradas
           </TabsTrigger>
           {(hasConversion || hasTIZ) && (
             <TabsTrigger
               value="visitantes"
-              className="h-9 flex-none cursor-pointer whitespace-nowrap rounded-xl px-4 text-[13px] font-medium text-slate-500 transition-colors hover:bg-background hover:text-slate-800 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40 data-active:bg-navy data-active:text-white data-active:shadow-sm"
+              className="rounded-lg text-xs font-medium"
             >
               Visitantes y Zonas
             </TabsTrigger>
           )}
           <TabsTrigger
             value="tendencias"
-            className="h-9 flex-none cursor-pointer whitespace-nowrap rounded-xl px-4 text-[13px] font-medium text-slate-500 transition-colors hover:bg-background hover:text-slate-800 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40 data-active:bg-navy data-active:text-white data-active:shadow-sm"
+            className="rounded-lg text-xs font-medium"
           >
             Tendencias históricas
           </TabsTrigger>
@@ -186,10 +188,10 @@ export function ReporteSection({
 
         {/* Tab 2: entries & exits detail */}
         <TabsContent value="resumen" className="mt-5 space-y-5">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             <div
               id="export-chart-behavior"
-              className="lg:col-span-2 panel p-5"
+              className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-5 shadow-sm"
             >
               <h3 className="text-sm font-semibold text-slate-700">
                 Entradas por hora
@@ -199,7 +201,7 @@ export function ReporteSection({
               </p>
               <BehaviorChart rows={hourly} loading={loading} />
             </div>
-            <div className="panel p-5">
+            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
               <h3 className="text-sm font-semibold text-slate-700 mb-1">
                 Franja horaria
               </h3>
@@ -209,7 +211,7 @@ export function ReporteSection({
               <TrafficPeriodChart rows={hourly} loading={loading} />
             </div>
           </div>
-          <div className="panel p-5">
+          <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
             <h3 className="text-sm font-semibold text-slate-700 mb-1">
               Desglose por zona y cámara
             </h3>
@@ -227,7 +229,7 @@ export function ReporteSection({
         {/* Tab 3: visitors & zones (conditional) */}
         <TabsContent value="visitantes" className="mt-5 space-y-5">
           {hasConversion && (
-            <div className="panel p-5">
+            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
               <h3 className="text-sm font-semibold text-slate-700">
                 Conversión Pasantes → Ingreso
               </h3>
@@ -238,7 +240,7 @@ export function ReporteSection({
             </div>
           )}
           {hasTIZ && (
-            <div className="panel p-5">
+            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
               <h3 className="text-sm font-semibold text-slate-700">
                 Tiempo en Zona
               </h3>

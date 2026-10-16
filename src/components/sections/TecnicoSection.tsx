@@ -1,14 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Wifi, WifiOff, AlertTriangle, Camera, Clock, Activity } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, ReferenceLine,
 } from "recharts";
-import { CHART, AXIS_TICK, GRID_PROPS, TOOLTIP_STYLE, CHART_SKELETON_CLASS } from "@/lib/chartTheme";
-import { PageHeader } from "@/components/ui/page-header";
-import { SectionTabs } from "@/components/ui/section-tabs";
 import { useUptime } from "@/hooks/useUptime";
 import { useAvailability } from "@/hooks/useAvailability";
 import { useCameraLastEvents } from "@/hooks/useCameraLastEvents";
@@ -119,7 +116,6 @@ function PctBadge({ pct }: { pct: number }) {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFilterChange }: Props) {
-  const [tab, setTab] = useState("equipos");
   const todayStr = limaToday();
 
   // ── Últimos eventos y estado actual (RPC indexada, respuesta pequeña) ─────
@@ -185,41 +181,52 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
   const avail  = useAvailability(filterTs.start, filterTs.end);
   const uptime = useUptime(filterTs.start, filterTs.end);
 
-  // ── Indicadores del período ───────────────────────────────────────────────
-  const indicadores = (
-    <div className="space-y-4">
+  return (
+    <div className="mx-auto min-w-0 max-w-[1800px] space-y-5 px-3 py-4 sm:px-4 sm:py-5 md:px-6">
+
+      {/* ── Header ── */}
       <div>
-        <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-widest mb-3">
-          Indicadores del período seleccionado
-        </h2>
-        <KPICards kpis={kpis} loading={loading} />
+        <h1 className="flex items-center gap-2 text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
+          <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-800">
+            <Camera size={14} className="text-[#2DD4BF]" />
+          </span>
+          Panel Técnico — Infraestructura y Actividad
+        </h1>
+        <p className="text-xs text-slate-500 mt-0.5">
+          Salud de mini-PC/Jetson por heartbeat · actividad analítica 07:00–23:00
+        </p>
       </div>
-      <KPIStrip
-        visitors={totals.visitors}
-        pasantes={totals.pasantes}
-        conv={totals.conv}
-        uniqueTracks={kpis?.unique_tracks ?? 0}
-        days={kpis?.days ?? 1}
-        loading={loading}
-        compact
+
+      {/* ── Filtro de período (al tope, igual que en general) ── */}
+      <FilterPanel opts={opts} values={filterValues} onChange={onFilterChange} />
+
+      <EdgeFleetPanel
+        filterValues={filterValues}
+        opts={opts}
+        onFilterChange={onFilterChange}
       />
-    </div>
-  );
 
-  // ── Equipos (salud de mini-PC/Jetson por heartbeat) ────────────────────────
-  const equipos = (
-    <EdgeFleetPanel
-      filterValues={filterValues}
-      opts={opts}
-      onFilterChange={onFilterChange}
-    />
-  );
+      {/* ── Indicadores del período ── */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-widest mb-3">
+            Indicadores del período seleccionado
+          </h2>
+          <KPICards kpis={kpis} loading={loading} />
+        </div>
+        <KPIStrip
+          visitors={totals.visitors}
+          pasantes={totals.pasantes}
+          conv={totals.conv}
+          uniqueTracks={kpis?.unique_tracks ?? 0}
+          days={kpis?.days ?? 1}
+          loading={loading}
+          compact
+        />
+      </div>
 
-  // ── Señal de cámaras (última actividad registrada por cámara) ──────────────
-  const senal = (
-    <div className="space-y-5">
       {/* Actividad analítica; no se usa para decidir si el equipo está online. */}
-      <div className={`rounded-xl border shadow-sm p-5 flex items-center gap-4 ${
+      <div className={`rounded-2xl border shadow-sm p-5 flex items-center gap-4 ${
         liveLoading     ? "bg-white border-slate-100" :
         isLive          ? "bg-emerald-50 border-emerald-200" :
         liveTs !== null ? "bg-red-50 border-red-200" :
@@ -273,10 +280,10 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
       </div>
 
       {/* ── Última señal por cámara ── */}
-      <div className="panel p-5">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-            <Camera size={14} className="text-brand" />
+            <Camera size={14} className="text-[#2DD4BF]" />
             Última señal por cámara
           </h3>
           <span className="text-[10px] text-slate-400">Actualiza cada 2 min</span>
@@ -315,6 +322,7 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
                   const rowCls    = isOnline ? "" : isWarning ? "bg-amber-50/40" : "bg-red-50/40";
                   return (
                     <tr key={cam.channel} className={`border-b border-slate-50 transition-colors ${rowCls}`}>
+                      {/* Cámara */}
                       <td className="py-2.5 font-medium text-slate-700">
                         <div className="flex items-center gap-1.5">
                           <Camera size={11} className="text-slate-400 shrink-0" />
@@ -323,6 +331,7 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
                         <span className="text-[10px] text-slate-400 font-normal ml-4">ch {cam.channel}</span>
                       </td>
 
+                      {/* Último evento */}
                       <td className="py-2.5">
                         <div className="flex items-center gap-1.5">
                           <TypeBadge type={cam.last.type} />
@@ -331,6 +340,7 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
                         <span className="text-[10px] text-slate-400 ml-0.5">{fmtRelative(cam.last.time)}</span>
                       </td>
 
+                      {/* Penúltimo evento */}
                       <td className="py-2.5">
                         {cam.prev ? (
                           <>
@@ -345,6 +355,7 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
                         )}
                       </td>
 
+                      {/* Estado */}
                       <td className="py-2.5 text-right align-top pt-3">
                         {isOnline ? (
                           <span className="inline-flex items-center gap-1 text-emerald-600 font-medium">
@@ -369,84 +380,11 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
         )}
       </div>
 
-      {/* ── Estado por cámara (período filtrado) ── */}
-      {(uptime.loading || uptime.cameras.length > 0) && (
-        <div className="panel p-5">
-          <h3 className="text-sm font-semibold text-slate-700 mb-1">Estado por cámara</h3>
-          <p className="text-xs text-slate-400 mb-4">Disponibilidad individual en ventana 07–23</p>
-          {uptime.loading ? (
-            <div className="space-y-2">
-              {[1,2,3].map((i) => <div key={i} className="h-10 bg-slate-50 animate-pulse rounded-lg" />)}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-slate-100">
-                    <th className="text-left  pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Cámara</th>
-                    <th className="text-right pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Última señal</th>
-                    <th className="text-right pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Pasantes</th>
-                    <th className="text-right pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Entradas</th>
-                    <th className="text-right pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Disponibilidad</th>
-                    <th className="text-right pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Estado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {uptime.cameras.map((cam) => {
-                    const isRecent = (lastMinutesByCamera.get(cam.channel) ?? Infinity) < 120;
-                    const pasantes = cam.pasanteEvents ?? 0;
-                    const enters   = cam.enterEvents   ?? 0;
-                    const missingType = pasantes === 0 || enters === 0;
-                    return (
-                      <tr key={cam.channel} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                        <td className="py-2.5 font-medium text-slate-700">
-                          <div className="flex items-center gap-1.5">
-                            <Camera size={11} className="text-slate-400 shrink-0" />
-                            <span>{cam.cameraName ?? cam.channel}</span>
-                          </div>
-                          <span className="text-[10px] text-slate-400 font-normal ml-4">ch {cam.channel}</span>
-                        </td>
-                        <td className="py-2.5 text-right text-slate-500">{fmtRelative(cam.lastSeen)}</td>
-                        <td className={`py-2.5 text-right font-mono text-xs ${pasantes === 0 ? "text-red-400" : "text-slate-600"}`}>
-                          {pasantes.toLocaleString("es-PE")}
-                        </td>
-                        <td className={`py-2.5 text-right font-mono text-xs ${enters === 0 ? "text-red-400" : "text-slate-600"}`}>
-                          {enters.toLocaleString("es-PE")}
-                        </td>
-                        <td className="py-2.5 text-right">
-                          <div className="inline-flex items-center gap-1.5">
-                            <PctBadge pct={cam.pct} />
-                            {missingType && <AlertTriangle size={10} className="text-amber-500" />}
-                          </div>
-                        </td>
-                        <td className="py-2.5 text-right">
-                          {isRecent
-                            ? <span className="inline-flex items-center gap-1 text-emerald-600 font-medium"><Wifi size={10} />Online</span>
-                            : <span className="inline-flex items-center gap-1 text-slate-400"><WifiOff size={10} />Inactiva</span>
-                          }
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-
-  // ── Actividad ─────────────────────────────────────────────────────────────
-  const actividad = (
-    <div className="space-y-5">
-      {indicadores}
-
       {/* ── Actividad de hoy ── */}
-      <div className="panel p-5">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-            <Activity size={14} className="text-brand" />
+            <Activity size={14} className="text-[#2DD4BF]" />
             Actividad de hoy — {todayStr}
           </h3>
           {!todayLoading && todayGaps.length > 0 && (
@@ -456,24 +394,24 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
           )}
         </div>
         <div className="flex items-center gap-4 mb-4 flex-wrap text-[11px] text-slate-500">
-          <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-brand" /> Con eventos</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: CHART.rose }} /> Sin eventos (hora pasada)</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: CHART.amber }} /> Hora actual</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: CHART.slateSoft }} /> Hora futura</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-[#2DD4BF]" /> Con eventos</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-[#fca5a5]" /> Sin eventos (hora pasada)</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-[#fbbf24]" /> Hora actual</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-[#e2e8f0]" /> Hora futura</span>
         </div>
 
         {todayLoading ? (
-          <div className={`h-48 ${CHART_SKELETON_CLASS}`} />
+          <div className="h-48 bg-slate-50 animate-pulse rounded-xl" />
         ) : (
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={todayChartData} barSize={22} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-              <CartesianGrid {...GRID_PROPS} />
-              <XAxis dataKey="hour" tick={AXIS_TICK} tickFormatter={(h: number) => `${h}h`} axisLine={false} tickLine={false} />
-              <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} />
-              <Tooltip formatter={(v) => [v, "Eventos"]} labelFormatter={(l) => `${l}:00 – ${l}:59`} contentStyle={TOOLTIP_STYLE} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <XAxis dataKey="hour" tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={(h: number) => `${h}h`} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+              <Tooltip formatter={(v) => [v, "Eventos"]} labelFormatter={(l) => `${l}:00 – ${l}:59`} contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12 }} />
               <Bar dataKey="count" radius={[3, 3, 0, 0]}>
                 {todayChartData.map((d, i) => (
-                  <Cell key={i} fill={d.count > 0 ? CHART.brand : d.isFuture ? CHART.slateSoft : d.isCurrent ? CHART.amber : CHART.rose} />
+                  <Cell key={i} fill={d.count > 0 ? "#2DD4BF" : d.isFuture ? "#e2e8f0" : d.isCurrent ? "#fbbf24" : "#fca5a5"} />
                 ))}
               </Bar>
             </BarChart>
@@ -503,12 +441,48 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
         )}
       </div>
 
-    </div>
-  );
+      {/* ── Disponibilidad últimos 7 días (overview fijo) ── */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+        <div className="flex items-start justify-between mb-0.5">
+          <h3 className="text-sm font-semibold text-slate-700">Disponibilidad — últimos 7 días</h3>
+          {!weekAvail.loading && weekAvail.daily.length > 0 && (
+            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+              weekAvail.avgPct >= 90 ? "bg-emerald-100 text-emerald-700" :
+              weekAvail.avgPct >= 70 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
+            }`}>
+              Prom {weekAvail.avgPct}%
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-slate-400 mb-4">% de horas 07–23 con eventos por día</p>
 
-  // ── Cortes en el período ──────────────────────────────────────────────────
-  const cortes = (
-    <div className="panel p-5">
+        {weekAvail.loading ? (
+          <div className="h-44 bg-slate-50 animate-pulse rounded-xl" />
+        ) : weekAvail.daily.length === 0 ? (
+          <div className="h-44 flex items-center justify-center text-sm text-slate-400">Sin datos</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={weekAvail.daily} barSize={36} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={fmtShortDate} axisLine={false} tickLine={false} />
+              <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
+              <Tooltip formatter={(v) => [`${v}%`, "Disponibilidad"]} labelFormatter={(l) => fmtShortDate(String(l))} contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12 }} />
+              {weekAvail.daily.length > 1 && (
+                <ReferenceLine y={weekAvail.avgPct} stroke="#94a3b8" strokeDasharray="4 2"
+                  label={{ value: `Prom ${weekAvail.avgPct}%`, fill: "#64748b", fontSize: 10, position: "insideTopRight" }} />
+              )}
+              <Bar dataKey="pct" radius={[4, 4, 0, 0]}>
+                {weekAvail.daily.map((d, i) => (
+                  <Cell key={i} fill={d.pct >= 90 ? "#34d399" : d.pct >= 70 ? "#fbbf24" : "#f87171"} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* ── Cortes en el período filtrado ── */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
         <h3 className="text-sm font-semibold text-slate-700 mb-1 flex items-center gap-2">
           <Clock size={14} className="text-amber-500" />
           Cortes en el período
@@ -571,54 +545,10 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
           </>
         )}
       </div>
-  );
-
-  // ── Disponibilidad ────────────────────────────────────────────────────────
-  const disponibilidad = (
-    <div className="space-y-5">
-      {/* ── Disponibilidad últimos 7 días (overview fijo) ── */}
-      <div className="panel p-5">
-        <div className="flex items-start justify-between mb-0.5">
-          <h3 className="text-sm font-semibold text-slate-700">Disponibilidad — últimos 7 días</h3>
-          {!weekAvail.loading && weekAvail.daily.length > 0 && (
-            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-              weekAvail.avgPct >= 90 ? "bg-emerald-100 text-emerald-700" :
-              weekAvail.avgPct >= 70 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
-            }`}>
-              Prom {weekAvail.avgPct}%
-            </span>
-          )}
-        </div>
-        <p className="text-xs text-slate-400 mb-4">% de horas 07–23 con eventos por día</p>
-
-        {weekAvail.loading ? (
-          <div className="h-44 bg-slate-50 animate-pulse rounded-xl" />
-        ) : weekAvail.daily.length === 0 ? (
-          <div className="h-44 flex items-center justify-center text-sm text-slate-400">Sin datos</div>
-        ) : (
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={weekAvail.daily} barSize={36} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-              <CartesianGrid {...GRID_PROPS} />
-              <XAxis dataKey="date" tick={AXIS_TICK} tickFormatter={fmtShortDate} axisLine={false} tickLine={false} />
-              <YAxis domain={[0, 100]} tick={AXIS_TICK} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
-              <Tooltip formatter={(v) => [`${v}%`, "Disponibilidad"]} labelFormatter={(l) => fmtShortDate(String(l))} contentStyle={TOOLTIP_STYLE} />
-              {weekAvail.daily.length > 1 && (
-                <ReferenceLine y={weekAvail.avgPct} stroke={CHART.slate} strokeDasharray="4 2"
-                  label={{ value: `Prom ${weekAvail.avgPct}%`, fill: CHART.slate, fontSize: 10, position: "insideTopRight" }} />
-              )}
-              <Bar dataKey="pct" radius={[4, 4, 0, 0]}>
-                {weekAvail.daily.map((d, i) => (
-                  <Cell key={i} fill={d.pct >= 90 ? "#34d399" : d.pct >= 70 ? "#fbbf24" : "#f87171"} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </div>
 
       {/* ── Disponibilidad diaria (período filtrado) ── */}
       {(avail.loading || avail.daily.length > 0) && (
-        <div className="panel p-5">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
           <div className="flex items-start justify-between mb-0.5">
             <h3 className="text-sm font-semibold text-slate-700">Disponibilidad diaria</h3>
             {!avail.loading && avail.daily.length > 0 && (
@@ -632,21 +562,21 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
           </div>
           <p className="text-xs text-slate-400 mt-0.5 mb-4">% de horas 07–23 con eventos por día</p>
           {avail.loading ? (
-            <div className={`h-44 ${CHART_SKELETON_CLASS}`} />
+            <div className="h-44 bg-slate-50 animate-pulse rounded-xl" />
           ) : (
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={avail.daily} barSize={28} margin={{ top: 10, right: 8, left: -20, bottom: 0 }}>
-                <CartesianGrid {...GRID_PROPS} />
-                <XAxis dataKey="date" tick={AXIS_TICK} tickFormatter={fmtShortDate} axisLine={false} tickLine={false} />
-                <YAxis domain={[0, 100]} tick={AXIS_TICK} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(v) => [`${v}%`, "Disponibilidad"]} labelFormatter={(l) => fmtShortDate(String(l))} contentStyle={TOOLTIP_STYLE} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={fmtShortDate} axisLine={false} tickLine={false} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
+                <Tooltip formatter={(v) => [`${v}%`, "Disponibilidad"]} labelFormatter={(l) => fmtShortDate(String(l))} contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12 }} />
                 {avail.daily.length > 1 && (
-                  <ReferenceLine y={avail.avgPct} stroke={CHART.slate} strokeDasharray="4 2"
-                    label={{ value: `Prom ${avail.avgPct}%`, fill: CHART.slate, fontSize: 10, position: "insideTopRight" }} />
+                  <ReferenceLine y={avail.avgPct} stroke="#94a3b8" strokeDasharray="4 2"
+                    label={{ value: `Prom ${avail.avgPct}%`, fill: "#64748b", fontSize: 10, position: "insideTopRight" }} />
                 )}
                 <Bar dataKey="pct" radius={[4, 4, 0, 0]}>
                   {avail.daily.map((d, i) => (
-                    <Cell key={i} fill={d.pct >= 90 ? CHART.emerald : d.pct >= 70 ? CHART.amber : CHART.rose} />
+                    <Cell key={i} fill={d.pct >= 90 ? "#34d399" : d.pct >= 70 ? "#fbbf24" : "#f87171"} />
                   ))}
                 </Bar>
               </BarChart>
@@ -654,33 +584,72 @@ export function TecnicoSection({ kpis, totals, loading, filterValues, opts, onFi
           )}
         </div>
       )}
-    </div>
-  );
 
-  return (
-    <div className="mx-auto min-w-0 max-w-[1800px] space-y-5 px-3 py-4 sm:px-4 sm:py-5 md:px-6">
-
-      {/* ── Header ── */}
-      <PageHeader
-        title="Panel Técnico — Infraestructura y Actividad"
-        icon={<Camera size={19} />}
-        subtitle="Salud de mini-PC/Jetson por heartbeat · actividad analítica 07:00–23:00"
-      />
-
-      {/* ── Filtro de período (compartido por todas las sub-pestañas) ── */}
-      <FilterPanel opts={opts} values={filterValues} onChange={onFilterChange} />
-
-      <SectionTabs
-        value={tab}
-        onValueChange={setTab}
-        tabs={[
-          { value: "equipos",        label: "Equipos",         icon: Wifi,     content: equipos },
-          { value: "senal",          label: "Señal de cámaras", icon: Camera,   content: senal },
-          { value: "actividad",      label: "Actividad",        icon: Activity, content: actividad },
-          { value: "cortes",         label: "Cortes",           icon: Clock,    content: cortes },
-          { value: "disponibilidad", label: "Disponibilidad",   icon: Clock,    content: disponibilidad },
-        ]}
-      />
+      {/* ── Cámaras ── */}
+      {(uptime.loading || uptime.cameras.length > 0) && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+          <h3 className="text-sm font-semibold text-slate-700 mb-1">Estado por cámara</h3>
+          <p className="text-xs text-slate-400 mb-4">Disponibilidad individual en ventana 07–23</p>
+          {uptime.loading ? (
+            <div className="space-y-2">
+              {[1,2,3].map((i) => <div key={i} className="h-10 bg-slate-50 animate-pulse rounded-lg" />)}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    <th className="text-left  pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Cámara</th>
+                    <th className="text-right pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Última señal</th>
+                    <th className="text-right pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Pasantes</th>
+                    <th className="text-right pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Entradas</th>
+                    <th className="text-right pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Disponibilidad</th>
+                    <th className="text-right pb-2 font-semibold text-slate-500 uppercase tracking-widest text-[10px]">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {uptime.cameras.map((cam) => {
+                    const isRecent = (lastMinutesByCamera.get(cam.channel) ?? Infinity) < 120;
+                    const pasantes = cam.pasanteEvents ?? 0;
+                    const enters   = cam.enterEvents   ?? 0;
+                    const missingType = pasantes === 0 || enters === 0;
+                    return (
+                      <tr key={cam.channel} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                        <td className="py-2.5 font-medium text-slate-700">
+                          <div className="flex items-center gap-1.5">
+                            <Camera size={11} className="text-slate-400 shrink-0" />
+                            <span>{cam.cameraName ?? cam.channel}</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-normal ml-4">ch {cam.channel}</span>
+                        </td>
+                        <td className="py-2.5 text-right text-slate-500">{fmtRelative(cam.lastSeen)}</td>
+                        <td className={`py-2.5 text-right font-mono text-xs ${pasantes === 0 ? "text-red-400" : "text-slate-600"}`}>
+                          {pasantes.toLocaleString("es-PE")}
+                        </td>
+                        <td className={`py-2.5 text-right font-mono text-xs ${enters === 0 ? "text-red-400" : "text-slate-600"}`}>
+                          {enters.toLocaleString("es-PE")}
+                        </td>
+                        <td className="py-2.5 text-right">
+                          <div className="inline-flex items-center gap-1.5">
+                            <PctBadge pct={cam.pct} />
+                            {missingType && <AlertTriangle size={10} className="text-amber-500" />}
+                          </div>
+                        </td>
+                        <td className="py-2.5 text-right">
+                          {isRecent
+                            ? <span className="inline-flex items-center gap-1 text-emerald-600 font-medium"><Wifi size={10} />Online</span>
+                            : <span className="inline-flex items-center gap-1 text-slate-400"><WifiOff size={10} />Inactiva</span>
+                          }
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

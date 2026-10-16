@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, Camera, CheckCircle2, Clock3, Eye, Filter,
   ChevronLeft, ChevronRight, Download, Film, LoaderCircle, Play, RefreshCw,
@@ -103,34 +103,37 @@ function paginationPages(currentPage: number, totalPages: number): Array<number 
 }
 
 export function AlertasSection() {
+  const { data: alerts = [], isLoading, isFetching, error, refetch } = useShopliftingAlerts();
   const [camera, setCamera] = useState("all");
   const [status, setStatus] = useState<FilterStatus>("all");
-  const [currentPage, setCurrentPage] = useState(1);
-  const { data, isLoading, isFetching, error, refetch } = useShopliftingAlerts({
-    page: currentPage,
-    pageSize: ALERTS_PER_PAGE,
-    camera: camera === "all" ? null : camera,
-    status: status === "all" ? null : status,
-  });
-  const alerts = data?.alerts ?? [];
-  const cameras = data?.cameras ?? [];
-  const visibleCount = data?.total ?? 0;
-  const newCount = data?.newCount ?? 0;
-  const confirmedCount = data?.confirmedCount ?? 0;
-  const dismissedCount = data?.dismissedCount ?? 0;
   const [selected, setSelected] = useState<ShopliftingAlert | null>(null);
   const [saving, setSaving] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoLoading, setVideoLoading] = useState(false);
   const [videoDownloading, setVideoDownloading] = useState(false);
   const [videoPlaybackError, setVideoPlaybackError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const videoRequestId = useRef(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  const totalPages = Math.max(1, Math.ceil(visibleCount / ALERTS_PER_PAGE));
+  const cameras = useMemo(
+    () => [...new Set(alerts.map((alert) => alert.camera_id))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
+    [alerts]
+  );
+  const visible = useMemo(
+    () => alerts.filter((alert) =>
+      (camera === "all" || alert.camera_id === camera) &&
+      (status === "all" || alert.status === status)
+    ),
+    [alerts, camera, status]
+  );
+  const newCount = alerts.filter((alert) => alert.status === "new").length;
+  const confirmedCount = alerts.filter((alert) => alert.status === "confirmed").length;
+  const dismissedCount = alerts.filter((alert) => alert.status === "dismissed").length;
+  const totalPages = Math.max(1, Math.ceil(visible.length / ALERTS_PER_PAGE));
   const safePage = Math.min(currentPage, totalPages);
   const pageStart = (safePage - 1) * ALERTS_PER_PAGE;
-  const displayed = alerts;
+  const displayed = visible.slice(pageStart, pageStart + ALERTS_PER_PAGE);
   const pageItems = paginationPages(safePage, totalPages);
 
   async function review(nextStatus: "confirmed" | "dismissed") {
@@ -219,7 +222,7 @@ export function AlertasSection() {
   }
 
   return (
-    <div className="px-4 py-5 md:px-8 md:py-7 space-y-5 max-w-7xl mx-auto">
+    <div className="px-4 py-5 md:px-8 md:py-7 space-y-6 max-w-7xl mx-auto">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="flex items-center gap-2.5">
@@ -251,7 +254,7 @@ export function AlertasSection() {
           { label: "Descartadas", value: dismissedCount, icon: CheckCircle2, cls: "border-emerald-200 bg-emerald-50 text-emerald-700" },
           { label: "Cámaras", value: cameras.length, icon: Camera, cls: "border-slate-200 bg-white text-slate-700" },
         ].map(({ label, value, icon: Icon, cls }) => (
-          <div key={label} className={`rounded-xl border p-4 shadow-sm ${cls}`}>
+          <div key={label} className={`rounded-2xl border p-4 shadow-sm ${cls}`}>
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-wider opacity-75">{label}</p>
               <Icon size={16} />
@@ -261,7 +264,7 @@ export function AlertasSection() {
         ))}
       </div>
 
-      <div className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm sm:p-4">
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
           <div className="flex items-center gap-2 px-1 lg:pb-2.5">
             <span className="flex size-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
@@ -346,35 +349,35 @@ export function AlertasSection() {
 
           <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5 lg:min-w-32 lg:justify-center">
             <span className="text-xs text-slate-500 lg:hidden">Resultados visibles</span>
-            <span className="text-sm font-bold text-slate-700">{visibleCount} <span className="font-normal text-slate-400">resultado(s)</span></span>
+            <span className="text-sm font-bold text-slate-700">{visible.length} <span className="font-normal text-slate-400">resultado(s)</span></span>
           </div>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map((item) => <div key={item} className="h-72 animate-pulse rounded-xl bg-slate-100" />)}
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((item) => <div key={item} className="h-72 animate-pulse rounded-2xl bg-slate-100" />)}
         </div>
       ) : error ? (
-        <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+        <div className="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
           <AlertTriangle size={18} />
           <div><p className="font-semibold">No se pudieron cargar las alertas</p><p className="text-xs opacity-80">{error.message}</p></div>
         </div>
-      ) : visibleCount === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-200 bg-white py-16 text-center">
+      ) : visible.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-16 text-center">
           <ShieldCheck size={32} className="mx-auto text-emerald-400" />
           <p className="mt-3 font-semibold text-slate-700">No hay alertas con estos filtros</p>
           <p className="mt-1 text-sm text-slate-400">Las nuevas detecciones aparecerán aquí automáticamente.</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {displayed.map((alert) => {
             const statusMeta = STATUS_META[alert.status];
             return (
               <article
                 key={alert.id}
                 onClick={() => selectAlert(alert)}
-                className={`group cursor-pointer overflow-hidden rounded-xl border bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${alert.status === "new" ? "border-red-200 ring-1 ring-red-100" : "border-slate-100"}`}
+                className={`group cursor-pointer overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${alert.status === "new" ? "border-red-200 ring-1 ring-red-100" : "border-slate-100"}`}
               >
                 <button
                   className="relative block aspect-video w-full overflow-hidden bg-slate-900 text-left"
@@ -426,13 +429,13 @@ export function AlertasSection() {
         </div>
       )}
 
-      {visibleCount > 0 && (
+      {visible.length > 0 && (
         <div
           data-testid="alerts-pagination"
-          className="flex flex-col items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm sm:flex-row sm:px-4"
+          className="flex flex-col items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm sm:flex-row sm:px-4"
         >
           <p className="text-xs text-slate-500">
-            Mostrando <span className="font-bold text-slate-700">{pageStart + 1}–{Math.min(pageStart + displayed.length, visibleCount)}</span> de {visibleCount}
+            Mostrando <span className="font-bold text-slate-700">{pageStart + 1}–{Math.min(pageStart + ALERTS_PER_PAGE, visible.length)}</span> de {visible.length}
           </p>
           <nav aria-label="Paginación de alertas" className="flex items-center gap-1.5">
             <Button

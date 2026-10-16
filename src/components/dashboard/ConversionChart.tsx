@@ -14,10 +14,9 @@ import {
 } from "recharts";
 import type { ConversionHourRow } from "@/lib/types";
 import { fmtHour } from "@/lib/fmt";
-import { CHART, AXIS_TICK, GRID_PROPS, CHART_SKELETON_CLASS } from "@/lib/chartTheme";
 
 function SkeletonChart() {
-  return <div className={`h-72 ${CHART_SKELETON_CLASS}`} />;
+  return <div className="h-72 bg-gray-100 rounded-lg animate-pulse" />;
 }
 
 export function ConversionChart({
@@ -47,23 +46,23 @@ export function ConversionChart({
           data={visibleRows}
           margin={{ top: 4, right: 16, bottom: 0, left: 0 }}
         >
-          <CartesianGrid {...GRID_PROPS} />
+          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
           <XAxis
             dataKey="hour"
             tickFormatter={(h) => fmtHour(Number(h))}
-            tick={AXIS_TICK}
+            tick={{ fontSize: 11 }}
           />
           <YAxis
             yAxisId="pasantes"
             orientation="left"
-            tick={AXIS_TICK}
+            tick={{ fontSize: 11 }}
           />
           <YAxis
             yAxisId="conv"
             orientation="right"
             domain={[0, 100]}
             tickFormatter={(v) => `${v}%`}
-            tick={AXIS_TICK}
+            tick={{ fontSize: 11 }}
           />
           <Tooltip
             formatter={(v, name) => {
@@ -85,21 +84,21 @@ export function ConversionChart({
           <ReferenceLine
             yAxisId="conv"
             y={20}
-            stroke={CHART.rose}
+            stroke="#EF4444"
             strokeDasharray="4 2"
             strokeOpacity={0.4}
           />
           <ReferenceLine
             yAxisId="conv"
             y={40}
-            stroke={CHART.amber}
+            stroke="#F59E0B"
             strokeDasharray="4 2"
             strokeOpacity={0.4}
           />
           <Bar
             yAxisId="pasantes"
             dataKey="pasantes"
-            fill={CHART.slate}
+            fill="#9CA3AF"
             opacity={0.3}
             radius={[3, 3, 0, 0]}
           />
@@ -107,9 +106,9 @@ export function ConversionChart({
             yAxisId="conv"
             type="monotone"
             dataKey="conv_enter_pct"
-            stroke={CHART.emerald}
+            stroke="#10B981"
             strokeWidth={2.5}
-            dot={{ r: 4, fill: CHART.emerald }}
+            dot={{ r: 4, fill: "#10B981" }}
             activeDot={{ r: 6 }}
           />
         </ComposedChart>

@@ -124,7 +124,6 @@ export async function exportExcelReporte(params: {
   // ── KPI summary ──────────────────────────────────────────────────────────────
   if (inc.kpi && kpis) {
     const d = Math.max(1, kpis.days);
-    const exitRate = kpis.enters > 0 ? ((kpis.exits / kpis.enters) * 100).toFixed(1) + "%" : "—";
     sheets.push({
       name: "Resumen KPI",
       headers: ["Parámetro", "Valor"],
@@ -135,7 +134,6 @@ export async function exportExcelReporte(params: {
         ["Días analizados",        kpis.days],
         ["Entradas (total)",       kpis.enters],
         ["Entradas / día",         Number((kpis.enters / d).toFixed(1))],
-        ["Salidas / Entrada (%)",  exitRate],
         ["Tracks únicos",          kpis.unique_tracks ?? "—"],
       ],
     });
