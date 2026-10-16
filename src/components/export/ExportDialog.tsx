@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Download, FileText, Table2 } from "lucide-react";
 import type { KPIResult, HourlyRow, ZoneBreakdownRow, ChannelBreakdownRow, ConversionHourRow, TIZKpiRow } from "@/lib/types";
 import { exportPDF } from "@/lib/exportPDF";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
+import { toast } from "sonner";
 
 interface Props {
   kpis: KPIResult | null;
@@ -20,8 +21,13 @@ interface Props {
   endTs: string;
 }
 
-function exportExcel(data: Props, sections: string[]) {
-  const wb = XLSX.utils.book_new();
+async function exportExcel(data: Props, sections: string[]) {
+  const wb = new ExcelJS.Workbook();
+  const addRows = (name: string, rows: (string | number)[][]) => { wb.addWorksheet(name).addRows(rows); };
+  const addObjects = (name: string, rows: Record<string, string | number>[]) => {
+    const keys = Object.keys(rows[0] ?? {});
+    addRows(name, [keys, ...rows.map(row => keys.map(key => row[key]))]);
+  };
 
   if (data.kpis) {
     const d = data.kpis;
@@ -38,7 +44,7 @@ function exportExcel(data: Props, sections: string[]) {
       ["Días", d.days],
       ["Tasa salida %", d.enters > 0 ? ((d.exits / d.enters) * 100).toFixed(1) + "%" : "—"],
     ];
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), "Resumen");
+    addRows("Resumen", summary);
   }
 
   if (sections.includes("enter_exit")) {
@@ -54,7 +60,7 @@ function exportExcel(data: Props, sections: string[]) {
     const hourly = Array.from(hourMap.entries())
       .sort((a, b) => a[0] - b[0])
       .map(([h, d]) => ({ Hora: `${h}:00 h`, Entradas: d.enters, Salidas: d.exits, Neto: d.enters - d.exits }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hourly), "Por_Hora");
+    addObjects("Por_Hora", hourly);
 
     // Zone pivot
     const zoneMap = new Map<string, { enters: number; exits: number }>();
@@ -67,7 +73,7 @@ function exportExcel(data: Props, sections: string[]) {
     }
     const byZone = Array.from(zoneMap.entries())
       .map(([z, d]) => ({ Zona: z, Entradas: d.enters, Salidas: d.exits, Neto: d.enters - d.exits }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(byZone), "Por_Zona");
+    addObjects("Por_Zona", byZone);
 
     // Channel pivot
     if (data.channels && data.channels.length > 0) {
@@ -81,7 +87,7 @@ function exportExcel(data: Props, sections: string[]) {
       }
       const byCam = Array.from(chMap.entries())
         .map(([c, d]) => ({ Camara: c, Entradas: d.enters, Salidas: d.exits, Neto: d.enters - d.exits }));
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(byCam), "Por_Camara");
+      addObjects("Por_Camara", byCam);
     }
   }
 
@@ -94,7 +100,7 @@ function exportExcel(data: Props, sections: string[]) {
       "Conv_Enter_%": r.conv_enter_pct,
       "Conv_Visitor_%": r.conv_visitor_pct,
     }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(conv), "Conversión_Por_Hora");
+    addObjects("Conversión_Por_Hora", conv);
   }
 
   if (sections.includes("tiz") && data.tiz.length) {
@@ -106,11 +112,14 @@ function exportExcel(data: Props, sections: string[]) {
       P90_s: r.p90_s,
       Mediana_min: (r.median_s / 60).toFixed(2),
     }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(tiz), "TIZ_Por_Zona");
+    addObjects("TIZ_Por_Zona", tiz);
   }
 
   const fname = `vision_node_${new Date().toISOString().slice(0, 16).replace(/[T:]/g, "_")}.xlsx`;
-  XLSX.writeFile(wb, fname);
+  const buffer = await wb.xlsx.writeBuffer();
+  const url = URL.createObjectURL(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+  const anchor = document.createElement("a"); anchor.href = url; anchor.download = fname; anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function Preview({ kpis }: { kpis: KPIResult | null }) {
@@ -209,7 +218,7 @@ export function ExportDialog(props: Props) {
             <div className="flex gap-3 pt-2">
               <Button
                 className="flex-1 gap-1.5"
-                onClick={() => { exportExcel(props, sections); setOpen(false); }}
+                onClick={() => { void exportExcel(props, sections).then(() => setOpen(false)).catch(() => toast.error("No se pudo exportar Excel")); }}
                 disabled={!sections.length}
               >
                 <Table2 size={14} />

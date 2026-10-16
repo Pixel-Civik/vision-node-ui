@@ -1,0 +1,18 @@
+name: Dashboard checks
+on: [push, pull_request]
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.invalid
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJsb2NhbC10ZXN0LW9ubHkiLCJyb2xlIjoiYW5vbiIsImV4cCI6NDc0OTAwMDAwMCwicmVmIjoic3ludGhldGljLWJ1aWxkLW5vLXByb2plY3QifQ.c3ludGhldGljLW5vLXNpZ25hdHVyZS1uby1jcmVkZW50aWFs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm audit --omit=dev --audit-level=moderate

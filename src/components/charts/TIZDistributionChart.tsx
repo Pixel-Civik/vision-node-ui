@@ -10,20 +10,20 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import type { TIZDistributionBucket } from "@/lib/types";
+import type { TIZDistribution } from "@/lib/types";
 import { CATEGORICAL, AXIS_TICK, GRID_PROPS, TOOLTIP_STYLE, CHART_SKELETON_CLASS } from "@/lib/chartTheme";
 
 interface Props {
-  data: TIZDistributionBucket[];
+  buckets: TIZDistribution["buckets"];
   loading: boolean;
 }
 
-export function TIZDistributionChart({ data, loading }: Props) {
+export function TIZDistributionChart({ buckets, loading }: Props) {
   if (loading) {
     return <div className={`h-56 ${CHART_SKELETON_CLASS}`} />;
   }
 
-  if (data.length === 0 || data.every((bucket) => bucket.count === 0)) {
+  if (buckets.length === 0 || buckets.every((bucket) => bucket.count === 0)) {
     return (
       <div className="flex items-center justify-center h-56 text-sm text-slate-400">
         Sin datos de permanencia para el período seleccionado.
@@ -31,8 +31,8 @@ export function TIZDistributionChart({ data, loading }: Props) {
     );
   }
 
-  const chartData = data.map((bucket, index) => ({
-    rango: bucket.range,
+  const chartData = buckets.map((bucket, index) => ({
+    rango: bucket.label,
     cantidad: bucket.count,
     fill: CATEGORICAL[index] ?? CATEGORICAL.at(-1),
   }));

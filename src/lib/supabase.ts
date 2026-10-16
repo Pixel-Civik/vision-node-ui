@@ -1,12 +1,16 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const PROJECT_URL = "https://xpubdazwixxdckiunhvt.supabase.co";
-
-// This is the project's public `anon` JWT, not a service-role/secret key.
-// Keeping a known-good public fallback prevents a truncated Vercel variable
-// from disabling the dashboard, alerts and Realtime for every visitor.
-const PROJECT_ANON_PUBLIC_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhwdWJkYXp3aXh4ZGNraXVuaHZ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNTc0NzksImV4cCI6MjA4ODgzMzQ3OX0.BcJaPndbNGsc9l4B7bNHeJvABQKwUtnXkywlbFrnEFs";
+// La configuración viene EXCLUSIVAMENTE del entorno. No hay fallback.
+//
+// Antes había una PROJECT_URL y una anon key del proyecto xpubdazwixxdckiunhvt
+// escritas aquí, como red de seguridad ante una variable de Vercel truncada.
+// Se eliminaron el 2026-09-13 al migrar el proyecto: un fallback apuntando al
+// proyecto viejo hace que una variable mal configurada conecte la app en
+// silencio a la base equivocada, que es peor que una caída visible. Además esa
+// key quedó versionada en GitHub.
+//
+// Si esto revienta en build o arranque, la causa es una variable ausente o mal
+// pegada en Vercel, no un problema de código.
 
 function isCompleteJwt(value: string | undefined): value is string {
   if (!value || value.length < 150) return false;
@@ -16,10 +20,20 @@ function isCompleteJwt(value: string | undefined): value is string {
 
 const configuredUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
 const configuredKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-const url = configuredUrl?.startsWith("https://") ? configuredUrl : PROJECT_URL;
-const key = isCompleteJwt(configuredKey)
-  ? configuredKey
-  : PROJECT_ANON_PUBLIC_KEY;
+
+if (!configuredUrl?.startsWith("https://")) {
+  throw new Error(
+    "NEXT_PUBLIC_SUPABASE_URL ausente o inválida. Debe ser la URL https del proyecto Supabase."
+  );
+}
+if (!isCompleteJwt(configuredKey)) {
+  throw new Error(
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY ausente o incompleta. Suele ser una variable truncada al pegarla en Vercel."
+  );
+}
+
+const url = configuredUrl;
+const key = configuredKey;
 
 // Persist the client on globalThis so Turbopack HMR hot-reloads don't create
 // a second GoTrueClient instance in the same browser context.

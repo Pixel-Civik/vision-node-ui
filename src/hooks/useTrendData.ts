@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { filterKey } from "@/lib/dashboard-filters";
 import { fetchDailyTrends, type DailyTrendRow } from "@/lib/api";
 import type { DashboardFilters } from "@/lib/types";
 
@@ -64,19 +65,9 @@ const DOWS_ES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 // ── hook ──────────────────────────────────────────────────────────────────────
 
 export function useTrendData(filters: DashboardFilters) {
-  const query = useQuery({
-    queryKey: [
-      "daily-trends", filters.startTs, filters.endTs,
-      filters.sites?.join(",") ?? "*",
-      filters.channels?.join(",") ?? "*",
-      filters.zones?.join(",") ?? "*",
-      filters.hourMin, filters.hourMax,
-      filters.dows?.join(",") ?? "*",
-    ],
-    queryFn: ({ signal }) => fetchDailyTrends(filters, signal),
-    staleTime: 15 * 60_000,
-  });
-  const raw = useMemo<DailyTrendRow[]>(() => query.data ?? [], [query.data]);
+  const query = useQuery({ queryKey: ["daily-trends", ...filterKey(filters)], queryFn: () => fetchDailyTrends(filters) });
+  const raw = useMemo(() => query.data ?? [], [query.data]);
+  const loading = query.isPending || query.isFetching;
 
   const daily = useMemo<TrendRow[]>(() => {
     const enters    = raw.map((r) => r.enters);
@@ -130,11 +121,5 @@ export function useTrendData(filters: DashboardFilters) {
     return [...hist, ...future];
   }, [raw]);
 
-  return {
-    daily,
-    dowData,
-    projection,
-    loading: query.isPending || query.isFetching,
-    hasEnoughData: raw.length >= 2,
-  };
+  return { daily, dowData, projection, loading, error: query.error, hasEnoughData: raw.length >= 2 };
 }

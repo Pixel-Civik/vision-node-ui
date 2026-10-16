@@ -77,7 +77,7 @@ export interface ConversionHourRow {
 
 export interface GenderRow { gender: string; count: number; }
 export interface AgeRow { age: string; count: number; }
-export interface TIZRaw { time: string; dwell_sec: number; zone: string | null; }
+export interface TIZDistribution { count: number; avg_s: number; median_s: number; p90_s: number; buckets: { label: string; count: number }[]; }
 
 export interface DailyRow {
   date: string;   // YYYY-MM-DD (hora Lima)
