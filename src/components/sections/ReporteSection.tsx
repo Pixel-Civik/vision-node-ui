@@ -19,6 +19,7 @@ import {
 import { ReporteExportDialog } from "@/components/export/ReporteExportDialog";
 import { VisionGeneralTab } from "./VisionGeneralTab";
 import { TendenciasTab } from "./TendenciasTab";
+import { PerfilVisitantesSection } from "./PerfilVisitantesSection";
 import { ComparisonPanel } from "@/components/dashboard/ComparisonPanel";
 import type { FilterOptions } from "@/hooks/useFilterOptions";
 import type {
@@ -138,6 +139,13 @@ export function ReporteSection({
           />
         </div>
       )}
+
+      {/* Perfil de visitantes: niños vs adultos (prioridad) y hombres vs mujeres */}
+      <PerfilVisitantesSection
+        filters={filters}
+        filterValues={filterValues}
+        enabled={!opts.loading && !!opts.defaultRange}
+      />
 
       <Separator className="my-1" />
 

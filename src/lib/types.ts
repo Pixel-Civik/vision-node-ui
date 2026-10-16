@@ -77,6 +77,28 @@ export interface ConversionHourRow {
 
 export interface GenderRow { gender: string; count: number; }
 export interface AgeRow { age: string; count: number; }
+/** Etiquetas de atributos que deja el contador edge (null = sin etiqueta). */
+export type AgeLabel = "nino" | "adulto" | null;
+export type GenderLabel = "hombre" | "mujer" | null;
+export type AttrsGranularity = "hour" | "day";
+
+/** Entradas de un bucket (hora "HH" o día "YYYY-MM-DD", hora Lima) por etiqueta. */
+export interface AttrBucketRow {
+  bucket: string;
+  age: AgeLabel;
+  gender: GenderLabel;
+  count: number;
+}
+
+export interface AttrsBreakdown {
+  granularity: AttrsGranularity;
+  rows: AttrBucketRow[];
+  /** "rpc" = agregado en la BD; "client" = respaldo calculado en el navegador. */
+  source: "rpc" | "client";
+  /** Solo el respaldo: se alcanzó el tope de filas y los conteos son parciales. */
+  truncated: boolean;
+}
+
 export interface TIZRaw { time: string; dwell_sec: number; zone: string | null; }
 
 export interface DailyRow {
