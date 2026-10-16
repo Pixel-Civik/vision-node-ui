@@ -13,31 +13,32 @@ interface CardProps {
 
 function KPICard({ label, value, total, accent, Icon }: CardProps) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex">
-      <div className="w-1 shrink-0" style={{ backgroundColor: accent }} />
-      <div className="flex-1 px-5 py-5">
-        <div className="flex items-start justify-between">
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">{label}</p>
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${accent}18` }}>
-            <Icon size={16} style={{ color: accent }} />
-          </div>
-        </div>
-        <p className="text-4xl font-bold text-slate-900 mt-3 leading-none tracking-tight">{value}</p>
-        <p className="text-xs text-slate-400 mt-2">{total}</p>
+    <div className="panel panel-interactive relative overflow-hidden p-5">
+      <span aria-hidden className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: accent }} />
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{label}</p>
+        <span
+          className="flex size-8 shrink-0 items-center justify-center rounded-lg"
+          style={{ backgroundColor: `${accent}14`, color: accent }}
+        >
+          <Icon size={16} />
+        </span>
       </div>
+      <p className="tnum mt-3 text-3xl font-semibold leading-none tracking-tight text-slate-900">{value}</p>
+      <p className="mt-2 text-xs text-slate-400">{total}</p>
     </div>
   );
 }
 
 function SkeletonCard() {
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex animate-pulse">
-      <div className="w-1 bg-slate-200 shrink-0" />
-      <div className="flex-1 px-5 py-5 space-y-3">
-        <div className="h-3 bg-slate-100 rounded w-1/2" />
-        <div className="h-9 bg-slate-100 rounded w-2/3" />
-        <div className="h-3 bg-slate-100 rounded w-1/3" />
+    <div className="panel animate-pulse p-5">
+      <div className="flex items-start justify-between">
+        <div className="h-3 w-1/2 rounded bg-slate-100" />
+        <div className="size-8 rounded-lg bg-slate-100" />
       </div>
+      <div className="mt-3 h-9 w-2/3 rounded bg-slate-100" />
+      <div className="mt-3 h-3 w-1/3 rounded bg-slate-100" />
     </div>
   );
 }
@@ -45,7 +46,7 @@ function SkeletonCard() {
 export function KPICards({ kpis, loading }: { kpis: KPIResult | null; loading: boolean }) {
   if (loading || !kpis) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <SkeletonCard />
         <SkeletonCard />
         <SkeletonCard />
@@ -58,26 +59,26 @@ export function KPICards({ kpis, loading }: { kpis: KPIResult | null; loading: b
   const ingresantes_per_day = (kpis.enters_per_day + kpis.exits_per_day) / 2;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <KPICard
         label="Entradas / día"
         value={Math.round(kpis.enters_per_day).toLocaleString()}
         total={`${kpis.enters.toLocaleString()} total · ${kpis.days} día(s)`}
-        accent="#059669"
+        accent="#0D9488"
         Icon={LogIn}
       />
       <KPICard
         label="Salidas / día"
         value={Math.round(kpis.exits_per_day).toLocaleString()}
         total={`${kpis.exits.toLocaleString()} total`}
-        accent="#DC2626"
+        accent="#64748B"
         Icon={LogOut}
       />
       <KPICard
         label="Ingresantes / día"
         value={Math.round(ingresantes_per_day).toLocaleString()}
         total={`${kpis.unique_tracks.toLocaleString()} trazas únicas · prom. (ent+sal)÷2`}
-        accent="#7C3AED"
+        accent="#0B1222"
         Icon={Users}
       />
     </div>

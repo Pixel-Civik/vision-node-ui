@@ -11,7 +11,8 @@ import { GenderAgePanel } from "@/components/charts/GenderAgePanel";
 import { NetFlowChart } from "@/components/charts/NetFlowChart";
 import { ExportDialog } from "@/components/export/ExportDialog";
 import { PDFExportDialog } from "@/components/export/PDFExportDialog";
-import { TrendingUp } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
+import { TrendingUp, LogIn } from "lucide-react";
 
 interface Props {
   kpis: KPIResult | null;
@@ -84,52 +85,55 @@ export function EntradasView({
   const peaks = peakHours(hourly);
 
   return (
-    <section className="px-4 md:px-6 py-5 space-y-5">
+    <section className="px-4 md:px-6 py-5 space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Entradas y Salidas</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+      <PageHeader
+        title="Entradas y Salidas"
+        icon={<LogIn size={19} />}
+        subtitle={
+          <>
             Análisis detallado de flujo — período:{" "}
-            <span className="font-medium text-slate-700">{filters.startTs.slice(0, 10)}</span> →{" "}
-            <span className="font-medium text-slate-700">{filters.endTs.slice(0, 10)}</span>
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <PDFExportDialog
-            kpis={kpis}
-            hourly={hourly}
-            heatmap={heatmap}
-            zones={zoneBreakdown}
-            channels={channelBreakdown}
-            gender={genderEnter}
-            age={ageEnter}
-            filters={filters}
-          />
-          <ExportDialog
-            kpis={kpis}
-            hourly={hourly}
-            zones={zoneBreakdown}
-            channels={channelBreakdown}
-            conversion={[]}
-            tiz={[]}
-            startTs={filters.startTs}
-            endTs={filters.endTs}
-          />
-        </div>
-      </div>
+            <span className="tnum font-medium text-slate-700">{filters.startTs.slice(0, 10)}</span> →{" "}
+            <span className="tnum font-medium text-slate-700">{filters.endTs.slice(0, 10)}</span>
+          </>
+        }
+        actions={
+          <>
+            <PDFExportDialog
+              kpis={kpis}
+              hourly={hourly}
+              heatmap={heatmap}
+              zones={zoneBreakdown}
+              channels={channelBreakdown}
+              gender={genderEnter}
+              age={ageEnter}
+              filters={filters}
+            />
+            <ExportDialog
+              kpis={kpis}
+              hourly={hourly}
+              zones={zoneBreakdown}
+              channels={channelBreakdown}
+              conversion={[]}
+              tiz={[]}
+              startTs={filters.startTs}
+              endTs={filters.endTs}
+            />
+          </>
+        }
+      />
 
       {/* KPI cards */}
       <KPICards kpis={kpis} loading={loading} />
 
       {/* Hourly + Gender/Age */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="md:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+        <div className="md:col-span-2 panel p-6">
           <h3 className="text-sm font-semibold text-slate-700">Tráfico por hora</h3>
           <p className="text-xs text-slate-400 mt-0.5 mb-4">Barras = volumen · Línea = tendencia de entradas</p>
           <BehaviorChart rows={hourly} loading={loading} />
         </div>
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+        <div className="panel p-6">
           <h3 className="text-sm font-semibold text-slate-700 mb-1">Género y Edad</h3>
           <p className="text-xs text-slate-400 mb-4">Distribución de personas que ingresaron</p>
           <GenderAgePanel gender={genderEnter} age={ageEnter} loading={analyticsLoading} />
@@ -138,7 +142,7 @@ export function EntradasView({
 
       {/* Net flow + Peak hours + Camera ranking */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="md:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+        <div className="md:col-span-2 panel p-6">
           <h3 className="text-sm font-semibold text-slate-700">Flujo neto por hora</h3>
           <p className="text-xs text-slate-400 mt-0.5 mb-4">
             Verde = más entradas que salidas · Rojo = más salidas que entradas
@@ -146,11 +150,11 @@ export function EntradasView({
           <NetFlowChart rows={hourly} loading={loading} />
         </div>
 
-        <div className="space-y-5">
+        <div className="space-y-6">
           {/* Peak hours */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+          <div className="panel p-6">
             <div className="flex items-center gap-2 mb-3">
-              <TrendingUp size={14} className="text-[#2DD4BF]" />
+              <TrendingUp size={14} className="text-brand" />
               <h3 className="text-sm font-semibold text-slate-700">Horas pico</h3>
             </div>
             {loading ? (
@@ -175,7 +179,7 @@ export function EntradasView({
                         </div>
                         <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-[#2DD4BF] rounded-full"
+                            className="h-full bg-brand rounded-full"
                             style={{ width: `${(count / max) * 100}%` }}
                           />
                         </div>
@@ -188,7 +192,7 @@ export function EntradasView({
           </div>
 
           {/* Camera ranking */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+          <div className="panel p-6">
             <h3 className="text-sm font-semibold text-slate-700 mb-3">Rendimiento por cámara</h3>
             <CameraTable channels={channelBreakdown} loading={loading} />
           </div>
@@ -196,7 +200,7 @@ export function EntradasView({
       </div>
 
       {/* Heatmap */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+      <div className="panel p-6">
         <h3 className="text-sm font-semibold text-slate-700">Mapa de calor</h3>
         <p className="text-xs text-slate-400 mt-0.5 mb-4">
           Concentración de tráfico por hora × día de semana

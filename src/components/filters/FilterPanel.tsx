@@ -33,6 +33,17 @@ function fmtShort(iso: string): string {
   return `${d} ${M[m - 1]} ${y}`;
 }
 
+// Fechas "de hoy" calculadas una sola vez al cargar el módulo. Llamar a
+// `new Date()`/`Date.now()` durante el render es una función impura (rompe la
+// pureza de React y dispara renders inestables); a nivel de módulo queda fuera
+// del ciclo de render. Mismo patrón que ya usa page.tsx / useFilterOptions.
+const TODAY        = isoDate(new Date());
+const _now         = new Date();
+const YESTERDAY    = isoDate(new Date(Date.now() - 86_400_000));
+const AGO_7        = isoDate(new Date(Date.now() - 7 * 86_400_000));
+const MONTH_START  = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-01`;
+const LIMA_HOUR    = new Date(Date.now() - 5 * 3_600_000).getUTCHours();
+
 interface Props {
   opts: FilterOptions;
   values: FilterValues;
@@ -40,9 +51,6 @@ interface Props {
 }
 
 export function FilterPanel({ opts, values, onChange }: Props) {
-  const today     = isoDate(new Date());
-  const yesterday = isoDate(new Date(Date.now() - 86_400_000));
-
   const [datePickerMode, setDatePickerMode] = useState<DateMode>(
     values.startDate === values.endDate ? "single" : "range",
   );
@@ -55,43 +63,34 @@ export function FilterPanel({ opts, values, onChange }: Props) {
   const mode = useMemo<QuickMode>(() => {
     if (forcedPersonalizado) return "personalizado";
     const { startDate, endDate } = values;
-    if (startDate === today && endDate === today) return "hoy";
-    const ago7 = isoDate(new Date(Date.now() - 7 * 86_400_000));
-    if (startDate === ago7 && endDate === yesterday) return "7dias";
-    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    if (startDate === isoDate(monthStart) && endDate === yesterday) return "mensual";
-    if (!opts.loading && opts.minDate < today && startDate === opts.minDate && endDate === yesterday)
+    if (startDate === TODAY && endDate === TODAY) return "hoy";
+    if (startDate === AGO_7 && endDate === YESTERDAY) return "7dias";
+    if (startDate === MONTH_START && endDate === YESTERDAY) return "mensual";
+    if (!opts.loading && opts.minDate < TODAY && startDate === opts.minDate && endDate === YESTERDAY)
       return "promedio";
     return "personalizado";
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [forcedPersonalizado, values.startDate, values.endDate, opts.loading, opts.minDate]);
+  }, [forcedPersonalizado, values, opts.loading, opts.minDate]);
 
   function applyMode(m: QuickMode) {
-    const now = new Date();
     if (m === "personalizado") {
       setForcedPersonalizado(true);
       return;
     }
     setForcedPersonalizado(false);
     if (m === "promedio") {
-      const min = opts.minDate < today ? opts.minDate : yesterday;
-      onChange({ startDate: min, endDate: yesterday, hourMin: 0, hourMax: 23, dows: [0,1,2,3,4,5,6] });
+      const min = opts.minDate < TODAY ? opts.minDate : YESTERDAY;
+      onChange({ startDate: min, endDate: YESTERDAY, hourMin: 0, hourMax: 23, dows: [0,1,2,3,4,5,6] });
     } else if (m === "hoy") {
-      const limaHour = new Date(Date.now() - 5 * 3_600_000).getUTCHours();
-      onChange({ startDate: today, endDate: today, hourMin: 0, hourMax: limaHour });
+      onChange({ startDate: TODAY, endDate: TODAY, hourMin: 0, hourMax: LIMA_HOUR });
     } else if (m === "7dias") {
-      const start = isoDate(new Date(Date.now() - 7 * 86_400_000));
-      onChange({ startDate: start, endDate: yesterday, hourMin: 0, hourMax: 23, dows: [0,1,2,3,4,5,6] });
+      onChange({ startDate: AGO_7, endDate: YESTERDAY, hourMin: 0, hourMax: 23, dows: [0,1,2,3,4,5,6] });
     } else if (m === "mensual") {
-      const start = isoDate(new Date(now.getFullYear(), now.getMonth(), 1));
-      onChange({ startDate: start, endDate: yesterday, hourMin: 0, hourMax: 23, dows: [0,1,2,3,4,5,6] });
+      onChange({ startDate: MONTH_START, endDate: YESTERDAY, hourMin: 0, hourMax: 23, dows: [0,1,2,3,4,5,6] });
     }
   }
 
-  const now = new Date();
-  const firstOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-  const minDate = opts.minDate < today ? opts.minDate : firstOfMonth;
-  const maxDate = today;
+  const minDate = opts.minDate < TODAY ? opts.minDate : MONTH_START;
+  const maxDate = TODAY;
 
   type WarnType = "error" | "warning" | "info";
   const dateWarning = useMemo<{ type: WarnType; msg: string } | null>(() => {
@@ -100,20 +99,19 @@ export function FilterPanel({ opts, values, onChange }: Props) {
 
     const s = values.startDate;
     const e = values.endDate;
-    const realMin = opts.minDate < today ? opts.minDate : null;
+    const realMin = opts.minDate < TODAY ? opts.minDate : null;
 
     if (s > e)
       return { type: "error", msg: "La fecha de inicio es posterior a la fecha fin — se ajustará automáticamente" };
-    if (s > today)
+    if (s > TODAY)
       return { type: "warning", msg: "El período está en el futuro — no hay datos disponibles" };
     if (realMin && e < realMin)
       return { type: "warning", msg: `Sin datos antes del ${fmtShort(realMin)} — ajusta el rango` };
     if (realMin && s < realMin)
       return { type: "info", msg: `Datos disponibles desde el ${fmtShort(realMin)}` };
-    if (e >= today)
+    if (e >= TODAY)
       return { type: "info", msg: "Los datos de hoy están incompletos (día en curso)" };
     return null;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, values.startDate, values.endDate, opts.loading, opts.minDate]);
 
   const MODES: { id: QuickMode; label: string }[] = [
@@ -125,17 +123,18 @@ export function FilterPanel({ opts, values, onChange }: Props) {
   ];
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
+    <div className="panel overflow-hidden">
       {/* Quick-mode buttons */}
-      <div className="px-5 pt-3 pb-0 flex items-center gap-2 flex-wrap">
+      <div className="flex flex-wrap items-center gap-2 px-5 pt-4">
         {MODES.map((m) => (
           <button
             key={m.id}
             onClick={() => applyMode(m.id)}
-            className={`text-xs px-3.5 py-1.5 rounded-full border transition-all font-medium ${
+            aria-pressed={mode === m.id}
+            className={`cursor-pointer rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors duration-200 ${
               mode === m.id
-                ? "bg-[#2DD4BF] border-[#2DD4BF] text-white shadow-sm"
-                : "border-slate-200 text-slate-500 hover:border-[#2DD4BF] hover:text-[#2DD4BF]"
+                ? "border-transparent bg-brand text-brand-foreground shadow-sm"
+                : "border-slate-200 text-slate-500 hover:border-brand hover:text-brand-strong"
             }`}
           >
             {m.label}
@@ -144,17 +143,17 @@ export function FilterPanel({ opts, values, onChange }: Props) {
       </div>
 
       {/* Controls row */}
-      <div className="px-5 py-3 flex flex-wrap items-end gap-5">
+      <div className="flex flex-wrap items-end gap-5 px-5 py-4">
 
         {/* Promedio: muestra período y filtro por día */}
         {mode === "promedio" && (
           <>
-            {!opts.loading && opts.minDate < today && (
-              <p className="text-xs text-slate-400 self-center">
+            {!opts.loading && opts.minDate < TODAY && (
+              <p className="self-center text-xs text-slate-400">
                 Historial completo ·{" "}
-                <span className="text-slate-600 font-medium">{fmtShort(opts.minDate)}</span>
+                <span className="font-medium text-slate-600">{fmtShort(opts.minDate)}</span>
                 {" → "}
-                <span className="text-slate-600 font-medium">ayer</span>
+                <span className="font-medium text-slate-600">ayer</span>
               </p>
             )}
             <DowPicker dows={values.dows} onChange={onChange} />
@@ -194,17 +193,18 @@ export function FilterPanel({ opts, values, onChange }: Props) {
               filterWarning={dateWarning}
             />
 
-            <div className="w-px h-8 bg-gray-200 self-center" />
+            <div className="h-8 w-px self-center bg-slate-200" />
 
             <HourSlider hourMin={values.hourMin} hourMax={values.hourMax} onChange={onChange} />
 
-            <div className="w-px h-8 bg-gray-200 self-center" />
+            <div className="h-8 w-px self-center bg-slate-200" />
 
             <DowPicker dows={values.dows} onChange={onChange} />
 
             <button
               onClick={() => setExpanded(!expanded)}
-              className="ml-auto flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 transition-colors border border-gray-200 rounded-lg px-3 py-2 hover:bg-gray-50"
+              aria-expanded={expanded}
+              className="ml-auto flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800"
             >
               <SlidersHorizontal size={13} />
               Sede / Cámara / Zona
@@ -216,7 +216,7 @@ export function FilterPanel({ opts, values, onChange }: Props) {
 
       {/* Filtros de dimensión — solo en Personalizado */}
       {mode === "personalizado" && expanded && (
-        <div className="border-t border-gray-100 px-5 py-4 bg-gray-50 rounded-b-xl grid grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 gap-5 border-t border-slate-100 bg-slate-50/70 px-5 py-4 sm:grid-cols-3">
           {opts.sites.length > 0 && (
             <MultiSelect
               label="Sede"

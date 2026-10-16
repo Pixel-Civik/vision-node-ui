@@ -168,7 +168,7 @@ export function PDFExportDialog({
         <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
           <button
             onClick={selectAll}
-            className="text-xs text-[#2DD4BF] hover:text-[#14B8A6] font-medium transition-colors"
+            className="text-xs text-brand hover:text-brand-strong font-medium transition-colors"
           >
             Seleccionar todo
           </button>
@@ -199,7 +199,7 @@ export function PDFExportDialog({
                       key={id}
                       className={`flex items-start gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-all ${
                         checked
-                          ? "border-[#2DD4BF]/40 bg-[#2DD4BF]/5"
+                          ? "border-brand/40 bg-brand/5"
                           : "border-slate-100 hover:bg-slate-50"
                       }`}
                     >
@@ -231,7 +231,7 @@ export function PDFExportDialog({
             </Button>
             <Button
               size="sm"
-              className="gap-1.5 bg-[#2DD4BF] hover:bg-[#14B8A6] text-white border-0"
+              className="gap-1.5 bg-brand hover:bg-brand-strong text-brand-foreground border-0"
               onClick={handleExport}
               disabled={count === 0}
             >

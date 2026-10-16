@@ -16,8 +16,8 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { id: "inicio",     label: "Inicio",            Icon: LayoutDashboard },
-  { id: "reporte",    label: "Reporte General",    Icon: FileBarChart2 },
+  { id: "inicio",     label: "Inicio",            Icon: LayoutDashboard, group: "General" },
+  { id: "reporte",    label: "Reporte General",    Icon: FileBarChart2,  group: "General" },
   { id: "alertas",    label: "Alertas sospechosas", Icon: ShieldAlert, group: "Seguridad" },
   { id: "entradas",   label: "Entradas y Salidas", Icon: LogIn,  group: "Análisis" },
   { id: "visitantes", label: "Visitantes",         Icon: Users,  group: "Análisis" },

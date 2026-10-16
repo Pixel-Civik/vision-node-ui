@@ -135,6 +135,7 @@ export async function exportExcelReporte(params: {
         ["Días analizados",        kpis.days],
         ["Entradas (total)",       kpis.enters],
         ["Entradas / día",         Number((kpis.enters / d).toFixed(1))],
+        ["Salidas / Entrada (%)",  exitRate],
         ["Tracks únicos",          kpis.unique_tracks ?? "—"],
       ],
     });

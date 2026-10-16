@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { FileBarChart2 } from "lucide-react";
+import { PageHeader, PanelTitle } from "@/components/ui/page-header";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrafficFunnel } from "@/components/charts/TrafficFunnel";
@@ -58,7 +60,6 @@ export function ReporteSection({
   channelBreakdown,
   conversion,
   tizKpis,
-  totals,
   filters,
   filterValues,
   opts,
@@ -77,44 +78,41 @@ export function ReporteSection({
     filterValues.endDate === today;
 
   return (
-    <div className="px-4 md:px-6 py-5 space-y-5">
+    <div className="px-4 md:px-6 py-5 space-y-6">
       {/* ── Header ── */}
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-              Reporte de Tráfico
-            </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Análisis detallado — ajusta los filtros y actualiza
-            </p>
-          </div>
-          <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
-            <span className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">
-              Cliente
-            </span>
-            <div className="relative h-10 w-36">
-              <Image
-                src="/freshmart.png"
-                alt="Freshmart"
-                fill
-                sizes="124px"
-                className="object-contain scale-200"
-              />
+      <PageHeader
+        title="Reporte de Tráfico"
+        icon={<FileBarChart2 size={19} />}
+        subtitle="Análisis detallado — ajusta los filtros y actualiza"
+        actions={
+          <>
+            <div className="hidden items-center gap-2 border-r border-slate-200 pr-3 sm:flex">
+              <span className="text-[10px] font-medium uppercase tracking-widest text-slate-400">
+                Cliente
+              </span>
+              <div className="relative h-10 w-36">
+                <Image
+                  src="/freshmart.png"
+                  alt="Freshmart"
+                  fill
+                  sizes="124px"
+                  className="object-contain scale-200"
+                />
+              </div>
             </div>
-          </div>
-        </div>
-        <ReporteExportDialog
-          kpis={kpis}
-          hourly={hourly}
-          heatmap={heatmap}
-          zones={zoneBreakdown}
-          channels={channelBreakdown}
-          startTs={filters.startTs}
-          endTs={filters.endTs}
-          filters={filters}
-        />
-      </div>
+            <ReporteExportDialog
+              kpis={kpis}
+              hourly={hourly}
+              heatmap={heatmap}
+              zones={zoneBreakdown}
+              channels={channelBreakdown}
+              startTs={filters.startTs}
+              endTs={filters.endTs}
+              filters={filters}
+            />
+          </>
+        }
+      />
 
       <FilterPanel
         opts={opts}
@@ -123,15 +121,14 @@ export function ReporteSection({
       />
 
       {/* Embudo de conversión reemplaza los KPI cards */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-        <h3 className="text-sm font-semibold text-slate-700 mb-0.5">Embudo de conversión</h3>
-        <p className="text-xs text-slate-400 mb-4">Pasantes → Visitantes → Entradas · período filtrado</p>
+      <div className="panel p-6">
+        <PanelTitle title="Embudo de conversión" hint="Pasantes → Visitantes → Entradas · período filtrado" />
         <TrafficFunnel rows={hourlyAvg.length > 0 ? hourlyAvg : hourly} loading={loading} kpis={kpis} />
       </div>
 
       {/* Contexto comparativo — oculto en modo Promedio */}
       {!isPromedioMode && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+        <div className="panel p-6">
           <ComparisonPanel
             filters={filters}
             kpis={kpis}
@@ -188,11 +185,11 @@ export function ReporteSection({
         </TabsContent>
 
         {/* Tab 2: entries & exits detail */}
-        <TabsContent value="resumen" className="mt-5 space-y-5">
+        <TabsContent value="resumen" className="mt-5 space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             <div
               id="export-chart-behavior"
-              className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-5 shadow-sm"
+              className="lg:col-span-2 panel p-6"
             >
               <h3 className="text-sm font-semibold text-slate-700">
                 Entradas por hora
@@ -202,7 +199,7 @@ export function ReporteSection({
               </p>
               <BehaviorChart rows={hourly} loading={loading} />
             </div>
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+            <div className="panel p-6">
               <h3 className="text-sm font-semibold text-slate-700 mb-1">
                 Franja horaria
               </h3>
@@ -212,7 +209,7 @@ export function ReporteSection({
               <TrafficPeriodChart rows={hourly} loading={loading} />
             </div>
           </div>
-          <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+          <div className="panel p-6">
             <h3 className="text-sm font-semibold text-slate-700 mb-1">
               Desglose por zona y cámara
             </h3>
@@ -228,9 +225,9 @@ export function ReporteSection({
         </TabsContent>
 
         {/* Tab 3: visitors & zones (conditional) */}
-        <TabsContent value="visitantes" className="mt-5 space-y-5">
+        <TabsContent value="visitantes" className="mt-5 space-y-6">
           {hasConversion && (
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+            <div className="panel p-6">
               <h3 className="text-sm font-semibold text-slate-700">
                 Conversión Pasantes → Ingreso
               </h3>
@@ -241,7 +238,7 @@ export function ReporteSection({
             </div>
           )}
           {hasTIZ && (
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+            <div className="panel p-6">
               <h3 className="text-sm font-semibold text-slate-700">
                 Tiempo en Zona
               </h3>

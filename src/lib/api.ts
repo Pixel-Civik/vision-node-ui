@@ -152,7 +152,35 @@ export async function fetchTIZDistribution(
 export async function fetchDashboardBootstrap(
   signal?: AbortSignal,
 ): Promise<DashboardBootstrap> {
-  return rpcOne<DashboardBootstrap>("dashboard_bootstrap", {}, signal);
+  try {
+    return await rpcOne<DashboardBootstrap>("dashboard_bootstrap", {}, signal);
+  } catch (err) {
+    // La migración 20260903172000_dashboard_bootstrap puede no estar aplicada
+    // en la base (el RPC responde PGRST202). Sin él el dashboard no arrancaba y
+    // mostraba "sin datos" con un error: componemos el mismo resultado con las
+    // tres funciones que sí existen. Si el error es de red, esto también falla
+    // y se propaga para reintentar.
+    if (signal?.aborted) throw err;
+
+    const [options, range, days] = await Promise.all([
+      rpc<{ sites: string[]; channels: string[]; zones: string[]; min_date: string | null; max_date: string | null }>(
+        "dashboard_filter_options", {}, signal,
+      ),
+      rpc<DefaultRange>("dashboard_default_range", {}, signal),
+      rpc<{ day: string; events: number }>("dashboard_data_days", { p_from: null, p_to: null }, signal),
+    ]);
+
+    const o = options[0];
+    return {
+      sites:           o?.sites    ?? [],
+      channels:        o?.channels ?? [],
+      zones:           o?.zones    ?? [],
+      min_date:        o?.min_date ?? null,
+      max_date:        o?.max_date ?? null,
+      default_range:   range[0] ?? null,
+      available_dates: days.map((d) => d.day),
+    };
+  }
 }
 
 export async function fetchDailyTotals(f: DashboardFilters): Promise<DailyRow[]> {

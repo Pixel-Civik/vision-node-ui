@@ -6,12 +6,13 @@ import {
 } from "recharts";
 import type { HourlyRow } from "@/lib/types";
 import { fmtHour } from "@/lib/fmt";
+import { CHART, AXIS_TICK, GRID_PROPS, TOOLTIP_STYLE, CHART_SKELETON_CLASS } from "@/lib/chartTheme";
 
 const FIXED_HEIGHTS = [42, 68, 55, 83, 60, 72, 85, 90, 65, 78, 88, 70, 52, 60, 45, 55];
 
 function SkeletonChart() {
   return (
-    <div className="h-64 bg-slate-50 rounded-xl animate-pulse flex items-end gap-[3px] px-4 pb-4 pt-6">
+    <div className={`h-64 ${CHART_SKELETON_CLASS} flex items-end gap-[3px] px-4 pb-4 pt-6`}>
       {FIXED_HEIGHTS.map((h, i) => (
         <div key={i} className="bg-slate-200 rounded-t flex-1" style={{ height: `${h}%` }} />
       ))}
@@ -44,25 +45,25 @@ export function BehaviorChart({ rows, loading }: { rows: HourlyRow[]; loading: b
       <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
         <defs>
           <linearGradient id="enterGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#059669" stopOpacity={0.15} />
-            <stop offset="95%" stopColor="#059669" stopOpacity={0} />
+            <stop offset="5%" stopColor={CHART.brandStrong} stopOpacity={0.15} />
+            <stop offset="95%" stopColor={CHART.brandStrong} stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+        <CartesianGrid {...GRID_PROPS} />
         <XAxis
           dataKey="hour"
           tickFormatter={(h) => fmtHour(Number(h))}
-          tick={{ fontSize: 11, fill: "#94A3B8" }}
+          tick={AXIS_TICK}
           axisLine={false}
           tickLine={false}
         />
         <YAxis
-          tick={{ fontSize: 11, fill: "#94A3B8" }}
+          tick={AXIS_TICK}
           axisLine={false}
           tickLine={false}
         />
         <Tooltip
-          contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 12 }}
+          contentStyle={TOOLTIP_STYLE}
           formatter={(v) => [v, "Entradas"]}
           labelFormatter={(h) => fmtHour(Number(h))}
         />
@@ -70,15 +71,15 @@ export function BehaviorChart({ rows, loading }: { rows: HourlyRow[]; loading: b
           formatter={() => "Entradas"}
           wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
         />
-        <Bar dataKey="enter" fill="#6EE7B7" radius={[4, 4, 0, 0]} maxBarSize={22} />
+        <Bar dataKey="enter" fill={CHART.brand} radius={[4, 4, 0, 0]} maxBarSize={22} />
         <Area
           type="monotone"
           dataKey="enter"
-          stroke="#059669"
+          stroke={CHART.brandStrong}
           strokeWidth={2.5}
           fill="url(#enterGrad)"
           dot={false}
-          activeDot={{ r: 5, fill: "#059669" }}
+          activeDot={{ r: 5, fill: CHART.brandStrong }}
         />
       </ComposedChart>
     </ResponsiveContainer>

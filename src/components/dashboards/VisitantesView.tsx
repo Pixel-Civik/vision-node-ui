@@ -11,6 +11,7 @@ import { ExportDialog } from "@/components/export/ExportDialog";
 import { GenderAgePanel } from "@/components/charts/GenderAgePanel";
 import { VisitorFlowChart } from "@/components/charts/VisitorFlowChart";
 import { exportPDF } from "@/lib/exportPDF";
+import { PageHeader } from "@/components/ui/page-header";
 import { FileText, Users, ArrowRight, Clock } from "lucide-react";
 
 interface Props {
@@ -72,7 +73,7 @@ interface InlineKPIProps {
 function InlineKPI({ label, value, sub, borderColor, Icon, loading }: InlineKPIProps) {
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 animate-pulse">
+      <div className="panel p-6 animate-pulse">
         <div className="h-3 bg-slate-100 rounded w-1/2 mb-3" />
         <div className="h-8 bg-slate-100 rounded w-2/3 mb-2" />
         <div className="h-3 bg-slate-100 rounded w-1/3" />
@@ -81,7 +82,7 @@ function InlineKPI({ label, value, sub, borderColor, Icon, loading }: InlineKPIP
   }
   return (
     <div
-      className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 overflow-hidden flex"
+      className="panel p-6 overflow-hidden flex"
       style={{ borderLeftWidth: 4, borderLeftColor: borderColor }}
     >
       <div className="flex-1">
@@ -138,36 +139,39 @@ export function VisitantesView({
   const hasConversion = conversion.some((r) => r.pasantes > 0);
 
   return (
-    <section className="px-4 md:px-6 py-5 space-y-5">
+    <section className="px-4 md:px-6 py-5 space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Visitantes y Pasantes</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+      <PageHeader
+        title="Visitantes y Pasantes"
+        icon={<Users size={19} />}
+        subtitle={
+          <>
             Análisis de transeúntes y conversión — período:{" "}
-            <span className="font-medium text-slate-700">{filters.startTs.slice(0, 10)}</span> →{" "}
-            <span className="font-medium text-slate-700">{filters.endTs.slice(0, 10)}</span>
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handlePDF}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
-          >
-            <FileText size={13} />
-            PDF
-          </button>
-          <ExportDialog
-            kpis={null}
-            hourly={hourly}
-            zones={[]}
-            conversion={conversion}
-            tiz={[]}
-            startTs={filters.startTs}
-            endTs={filters.endTs}
-          />
-        </div>
-      </div>
+            <span className="tnum font-medium text-slate-700">{filters.startTs.slice(0, 10)}</span> →{" "}
+            <span className="tnum font-medium text-slate-700">{filters.endTs.slice(0, 10)}</span>
+          </>
+        }
+        actions={
+          <>
+            <button
+              onClick={handlePDF}
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
+            >
+              <FileText size={13} />
+              PDF
+            </button>
+            <ExportDialog
+              kpis={null}
+              hourly={hourly}
+              zones={[]}
+              conversion={conversion}
+              tiz={[]}
+              startTs={filters.startTs}
+              endTs={filters.endTs}
+            />
+          </>
+        }
+      />
 
       {/* 4 inline KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
@@ -207,13 +211,13 @@ export function VisitantesView({
 
       {/* Visitor flow + Gender */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="md:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+        <div className="md:col-span-2 panel p-6">
           <h3 className="text-sm font-semibold text-slate-700">Flujo por hora</h3>
           <p className="text-xs text-slate-400 mt-0.5 mb-4">Visitantes y pasantes detectados hora a hora</p>
           <VisitorFlowChart rows={hourly} loading={loading} />
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+        <div className="panel p-6">
           <h3 className="text-sm font-semibold text-slate-700 mb-1">Género visitantes</h3>
           <p className="text-xs text-slate-400 mb-4">Distribución de género entre visitantes</p>
           <GenderAgePanel gender={genderVisitor} age={[]} loading={analyticsLoading} />
@@ -222,7 +226,7 @@ export function VisitantesView({
 
       {/* Conversion chart */}
       {hasConversion && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+        <div className="panel p-6">
           <h3 className="text-sm font-semibold text-slate-700">Conversión Pasantes → Ingreso</h3>
           <p className="text-xs text-slate-400 mt-0.5 mb-4">
             % de transeúntes que ingresaron al local, por hora del día

@@ -251,7 +251,7 @@ export function AlertasSection() {
           { label: "Descartadas", value: dismissedCount, icon: CheckCircle2, cls: "border-emerald-200 bg-emerald-50 text-emerald-700" },
           { label: "Cámaras", value: cameras.length, icon: Camera, cls: "border-slate-200 bg-white text-slate-700" },
         ].map(({ label, value, icon: Icon, cls }) => (
-          <div key={label} className={`rounded-2xl border p-4 shadow-sm ${cls}`}>
+          <div key={label} className={`rounded-xl border p-4 shadow-sm ${cls}`}>
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-wider opacity-75">{label}</p>
               <Icon size={16} />
@@ -261,7 +261,7 @@ export function AlertasSection() {
         ))}
       </div>
 
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:p-4">
+      <div className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm sm:p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
           <div className="flex items-center gap-2 px-1 lg:pb-2.5">
             <span className="flex size-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
@@ -353,15 +353,15 @@ export function AlertasSection() {
 
       {isLoading ? (
         <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map((item) => <div key={item} className="h-72 animate-pulse rounded-2xl bg-slate-100" />)}
+          {[1, 2, 3, 4, 5, 6].map((item) => <div key={item} className="h-72 animate-pulse rounded-xl bg-slate-100" />)}
         </div>
       ) : error ? (
-        <div className="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+        <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
           <AlertTriangle size={18} />
           <div><p className="font-semibold">No se pudieron cargar las alertas</p><p className="text-xs opacity-80">{error.message}</p></div>
         </div>
       ) : visibleCount === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-16 text-center">
+        <div className="rounded-xl border border-dashed border-slate-200 bg-white py-16 text-center">
           <ShieldCheck size={32} className="mx-auto text-emerald-400" />
           <p className="mt-3 font-semibold text-slate-700">No hay alertas con estos filtros</p>
           <p className="mt-1 text-sm text-slate-400">Las nuevas detecciones aparecerán aquí automáticamente.</p>
@@ -374,7 +374,7 @@ export function AlertasSection() {
               <article
                 key={alert.id}
                 onClick={() => selectAlert(alert)}
-                className={`group cursor-pointer overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${alert.status === "new" ? "border-red-200 ring-1 ring-red-100" : "border-slate-100"}`}
+                className={`group cursor-pointer overflow-hidden rounded-xl border bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${alert.status === "new" ? "border-red-200 ring-1 ring-red-100" : "border-slate-100"}`}
               >
                 <button
                   className="relative block aspect-video w-full overflow-hidden bg-slate-900 text-left"
@@ -429,7 +429,7 @@ export function AlertasSection() {
       {visibleCount > 0 && (
         <div
           data-testid="alerts-pagination"
-          className="flex flex-col items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm sm:flex-row sm:px-4"
+          className="flex flex-col items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm sm:flex-row sm:px-4"
         >
           <p className="text-xs text-slate-500">
             Mostrando <span className="font-bold text-slate-700">{pageStart + 1}–{Math.min(pageStart + displayed.length, visibleCount)}</span> de {visibleCount}

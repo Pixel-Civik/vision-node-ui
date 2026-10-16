@@ -10,9 +10,9 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 import type { GenderRow, AgeRow } from "@/lib/types";
+import { CHART, AXIS_TICK, TOOLTIP_STYLE, CHART_SKELETON_CLASS } from "@/lib/chartTheme";
 
 interface Props {
   gender: GenderRow[];
@@ -22,10 +22,10 @@ interface Props {
 }
 
 const GENDER_COLORS: Record<string, string> = {
-  hombre: "#3b82f6",
-  male: "#3b82f6",
-  mujer: "#ec4899",
-  female: "#ec4899",
+  hombre: CHART.sky,
+  male: CHART.sky,
+  mujer: CHART.rose,
+  female: CHART.rose,
 };
 
 const GENDER_LABELS: Record<string, string> = {
@@ -35,7 +35,7 @@ const GENDER_LABELS: Record<string, string> = {
   female: "Mujer",
 };
 
-const DEFAULT_COLOR = "#94a3b8";
+const DEFAULT_COLOR = CHART.slate;
 
 function labelGender(g: string): string {
   return GENDER_LABELS[g.toLowerCase()] ?? g;
@@ -60,8 +60,8 @@ export function GenderAgePanel({ gender, age, loading, title }: Props) {
     return (
       <div className="space-y-4">
         {title && <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{title}</p>}
-        <div className="animate-pulse bg-slate-100 rounded-xl h-36" />
-        <div className="animate-pulse bg-slate-100 rounded-xl h-36" />
+        <div className={`h-36 ${CHART_SKELETON_CLASS}`} />
+        <div className={`h-36 ${CHART_SKELETON_CLASS}`} />
       </div>
     );
   }
@@ -78,7 +78,7 @@ export function GenderAgePanel({ gender, age, loading, title }: Props) {
   const barData = topAge.map((r) => ({ age: r.age, count: r.count }));
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {title && <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{title}</p>}
 
       {/* Gender donut */}
@@ -129,13 +129,13 @@ export function GenderAgePanel({ gender, age, loading, title }: Props) {
           <p className="text-xs text-slate-500 mb-2">Rango de edad</p>
           <ResponsiveContainer width="100%" height={Math.max(80, barData.length * 24)}>
             <BarChart data={barData} layout="vertical" margin={{ top: 0, right: 12, left: 0, bottom: 0 }}>
-              <XAxis type="number" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-              <YAxis type="category" dataKey="age" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={60} />
+              <XAxis type="number" tick={AXIS_TICK} tickLine={false} axisLine={false} />
+              <YAxis type="category" dataKey="age" tick={AXIS_TICK} tickLine={false} axisLine={false} width={60} />
               <Tooltip
                 formatter={(v) => [(v as number).toLocaleString(), "Registros"]}
-                contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e2e8f0" }}
+                contentStyle={TOOLTIP_STYLE}
               />
-              <Bar dataKey="count" fill="#6366f1" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="count" fill={CHART.brandStrong} radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

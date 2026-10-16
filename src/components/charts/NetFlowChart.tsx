@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import type { HourlyRow } from "@/lib/types";
 import { fmtHour } from "@/lib/fmt";
+import { CHART, AXIS_TICK, GRID_PROPS, TOOLTIP_STYLE, CHART_SKELETON_CLASS } from "@/lib/chartTheme";
 
 function buildNet(rows: HourlyRow[]) {
   const map = new Map<number, { enters: number; exits: number }>();
@@ -23,25 +24,25 @@ function buildNet(rows: HourlyRow[]) {
 }
 
 export function NetFlowChart({ rows, loading }: { rows: HourlyRow[]; loading: boolean }) {
-  if (loading) return <div className="h-48 bg-slate-50 rounded-xl animate-pulse" />;
+  if (loading) return <div className={"h-48 " + CHART_SKELETON_CLASS} />;
 
   const data = buildNet(rows);
 
   return (
     <ResponsiveContainer width="100%" height={200}>
       <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+        <CartesianGrid {...GRID_PROPS} />
         <XAxis
           dataKey="hour"
           tickFormatter={(h) => fmtHour(Number(h))}
-          tick={{ fontSize: 11, fill: "#94A3B8" }}
+          tick={AXIS_TICK}
           axisLine={false}
           tickLine={false}
         />
-        <YAxis tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
-        <ReferenceLine y={0} stroke="#CBD5E1" strokeWidth={1.5} />
+        <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} />
+        <ReferenceLine y={0} stroke={CHART.slateSoft} strokeWidth={1.5} />
         <Tooltip
-          contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 12 }}
+          contentStyle={TOOLTIP_STYLE}
           formatter={(v, name) => [
             v,
             name === "net" ? "Flujo neto (Ent − Sal)" : name,
@@ -50,7 +51,7 @@ export function NetFlowChart({ rows, loading }: { rows: HourlyRow[]; loading: bo
         />
         <Bar dataKey="net" maxBarSize={22} radius={[4, 4, 0, 0]}>
           {data.map((d, i) => (
-            <Cell key={i} fill={d.net >= 0 ? "#34D399" : "#F87171"} />
+            <Cell key={i} fill={d.net >= 0 ? CHART.brand : CHART.rose} />
           ))}
         </Bar>
       </BarChart>

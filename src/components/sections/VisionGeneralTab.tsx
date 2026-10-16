@@ -31,7 +31,7 @@ function ChartCard({ id, title, subtitle, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <div id={id} className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+    <div id={id} className="panel p-6">
       <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
       <p className="text-xs text-slate-400 mt-0.5 mb-4">{subtitle}</p>
       {children}
@@ -42,11 +42,11 @@ function ChartCard({ id, title, subtitle, children }: {
 export function VisionGeneralTab({ hourly, hourlyAvg, heatmap, conversion, loading, kpis }: VisionGeneralTabProps) {
   const isMultiDay = (kpis?.days ?? 1) > 1;
   const trafficSubtitle = isMultiDay
-    ? `Promedio por día · Barras: Entradas (verde) · Líneas: Visitantes (indigo) / Pasantes (gris)`
-    : "Barras: Entradas (verde) · Líneas: Visitantes (indigo) / Pasantes (gris)";
+    ? `Promedio por día · Barras: Entradas (teal) · Líneas: Visitantes (celeste) / Pasantes (gris)`
+    : "Barras: Entradas (teal) · Líneas: Visitantes (celeste) / Pasantes (gris)";
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* Row 1: Combined traffic — data from server-averaged RPC */}
       <ChartCard
         id="export-chart-combined"
@@ -57,7 +57,7 @@ export function VisionGeneralTab({ hourly, hourlyAvg, heatmap, conversion, loadi
       </ChartCard>
 
       {/* Row 2: Heatmap — fila completa */}
-      <ChartCard id="export-chart-heatmap" title="Mapa de calor hora × día" subtitle="Concentración de tráfico — azul oscuro = mayor actividad">
+      <ChartCard id="export-chart-heatmap" title="Mapa de calor hora × día" subtitle="Concentración de tráfico — teal oscuro = mayor actividad">
         <LazyChart height={220}><HeatmapChart rows={heatmap} loading={loading} /></LazyChart>
       </ChartCard>
 

@@ -53,6 +53,19 @@
   --font-sans: var(--font-inter);
   --font-mono: ui-monospace, monospace;
   --font-heading: var(--font-sans);
+  /* ── Marca Pixel Civik: navy + teal ────────────────────────────────── */
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-muted: var(--brand-muted);
+  --color-navy: var(--navy);
+  --color-navy-raised: var(--navy-raised);
+  --color-navy-line: var(--navy-line);
+  /* ── Superficies y profundidad ─────────────────────────────────────── */
+  --color-surface: var(--surface);
+  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  --shadow-card-hover: 0 2px 8px -2px rgb(15 23 42 / 0.10);
+  --shadow-panel: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 12px 32px -20px rgb(15 23 42 / 0.14);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -107,15 +120,24 @@
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: oklch(0.93 0.006 250);
+  --input: oklch(0.93 0.006 250);
+  --ring: #2DD4BF;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.75rem;
+  /* Marca */
+  --brand: #2DD4BF;
+  --brand-strong: #0D9488;
+  --brand-foreground: #04201C;
+  --brand-muted: #CCFBF1;
+  --navy: #0B1222;
+  --navy-raised: #1C2B45;
+  --navy-line: rgb(255 255 255 / 0.10);
+  --surface: #F6F8FB;
+  --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -150,6 +172,15 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
+  /* Marca */
+  --brand: #2DD4BF;
+  --brand-strong: #5EEAD4;
+  --brand-foreground: #04201C;
+  --brand-muted: #134E4A;
+  --navy: #070C17;
+  --navy-raised: #131F35;
+  --navy-line: rgb(255 255 255 / 0.08);
+  --surface: oklch(0.18 0 0);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
@@ -174,5 +205,85 @@
   }
   html {
     @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+  }
+  :focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--brand) 75%, transparent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer components {
+  /* Superficie estándar para tarjetas y gráficos (mismo lenguaje visual) */
+  .panel {
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+  }
+  .panel-interactive {
+    transition: box-shadow 200ms ease, border-color 200ms ease;
+  }
+  .panel-interactive:hover {
+    box-shadow: var(--shadow-card-hover);
+    border-color: color-mix(in oklab, var(--brand) 30%, var(--border));
+  }
+
+  /* Scrollbar fina y discreta para las áreas con scroll interno */
+  .scroll-slim {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(148 163 184 / 0.55) transparent;
+  }
+  .scroll-slim::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .scroll-slim::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scroll-slim::-webkit-scrollbar-thumb {
+    background-color: rgb(148 163 184 / 0.4);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+    transition: background-color 150ms ease;
+  }
+  .scroll-slim::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(100 116 139 / 0.7);
+    background-clip: content-box;
+  }
+}
+
+@layer utilities {
+  /* Cifras alineadas en columnas y tablas */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Saltar render de bloques fuera de pantalla: menos trabajo por frame al hacer scroll */
+  .cv-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 560px;
+  }
+}
+
+@keyframes loading-bar {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }

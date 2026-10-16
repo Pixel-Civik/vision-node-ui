@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import type { HourlyRow } from "@/lib/types";
 import { fmtHour } from "@/lib/fmt";
+import { CHART, AXIS_TICK, GRID_PROPS, TOOLTIP_STYLE, CHART_SKELETON_CLASS } from "@/lib/chartTheme";
 
 type HourPoint = { hour: number; enter: number; visitor: number; pasante: number };
 
@@ -29,7 +30,7 @@ const LABELS: Record<string, string> = {
 };
 
 export function CombinedTrafficChart({ rows, loading }: { rows: HourlyRow[]; loading: boolean }) {
-  if (loading) return <div className="h-64 bg-slate-50 rounded-xl animate-pulse" />;
+  if (loading) return <div className={"h-64 " + CHART_SKELETON_CLASS} />;
 
   const data = buildData(rows);
   const hasAny = data.some((d) => d.enter > 0 || d.visitor > 0 || d.pasante > 0);
@@ -39,14 +40,14 @@ export function CombinedTrafficChart({ rows, loading }: { rows: HourlyRow[]; loa
   return (
     <ResponsiveContainer width="100%" height={270}>
       <ComposedChart data={data} margin={{ top: 8, right: 48, bottom: 0, left: -16 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
-        <XAxis dataKey="hour" tickFormatter={(h) => fmtHour(Number(h))} tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+        <CartesianGrid {...GRID_PROPS} />
+        <XAxis dataKey="hour" tickFormatter={(h) => fmtHour(Number(h))} tick={AXIS_TICK} axisLine={false} tickLine={false} />
 
         {/* Eje izquierdo — escala de barras (entradas / salidas) */}
         <YAxis
           yAxisId="bars"
           orientation="left"
-          tick={{ fontSize: 11, fill: "#94A3B8" }}
+          tick={AXIS_TICK}
           axisLine={false} tickLine={false}
         />
 
@@ -54,24 +55,24 @@ export function CombinedTrafficChart({ rows, loading }: { rows: HourlyRow[]; loa
         <YAxis
           yAxisId="lines"
           orientation="right"
-          tick={{ fontSize: 11, fill: "#94A3B8" }}
+          tick={AXIS_TICK}
           axisLine={false} tickLine={false}
           width={40}
         />
 
         <Tooltip
-          contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 12 }}
+          contentStyle={TOOLTIP_STYLE}
           labelFormatter={(h) => fmtHour(Number(h))}
           formatter={(v, name) => [v, LABELS[name as string] ?? name]}
         />
         <Legend formatter={(v) => LABELS[v] ?? v} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
 
         {/* Barras — eje izquierdo */}
-        <Bar yAxisId="bars" dataKey="enter" fill="#34D399" radius={[4, 4, 0, 0]} maxBarSize={18} />
+        <Bar yAxisId="bars" dataKey="enter" fill={CHART.brand} radius={[4, 4, 0, 0]} maxBarSize={18} />
 
         {/* Líneas — eje derecho (escala propia para no aplastar las barras) */}
-        <Line yAxisId="lines" type="monotone" dataKey="visitor" stroke="#818CF8" strokeWidth={2.5} dot={false} activeDot={{ r: 4, fill: "#818CF8" }} />
-        <Line yAxisId="lines" type="monotone" dataKey="pasante" stroke="#94A3B8" strokeWidth={2}   dot={false} activeDot={{ r: 4, fill: "#94A3B8" }} strokeDasharray="5 3" />
+        <Line yAxisId="lines" type="monotone" dataKey="visitor" stroke={CHART.sky} strokeWidth={2.5} dot={false} activeDot={{ r: 4, fill: CHART.sky }} />
+        <Line yAxisId="lines" type="monotone" dataKey="pasante" stroke={CHART.slate} strokeWidth={2}   dot={false} activeDot={{ r: 4, fill: CHART.slate }} strokeDasharray="5 3" />
       </ComposedChart>
     </ResponsiveContainer>
   );

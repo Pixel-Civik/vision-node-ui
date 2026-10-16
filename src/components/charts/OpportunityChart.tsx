@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import type { ConversionHourRow } from "@/lib/types";
 import { fmtHour } from "@/lib/fmt";
+import { CHART, AXIS_TICK, GRID_PROPS, TOOLTIP_STYLE, CHART_SKELETON_CLASS } from "@/lib/chartTheme";
 
 export function OpportunityChart({
   rows,
@@ -14,7 +15,7 @@ export function OpportunityChart({
   rows: ConversionHourRow[];
   loading: boolean;
 }) {
-  if (loading) return <div className="h-52 bg-slate-50 rounded-xl animate-pulse" />;
+  if (loading) return <div className={`h-52 ${CHART_SKELETON_CLASS}`} />;
   const visibleRows = rows.filter((r) => r.hour >= 7 && r.hour <= 23);
   if (!visibleRows.length)
     return <p className="text-xs text-slate-400 text-center py-10">Sin datos de conversión.</p>;
@@ -37,18 +38,18 @@ export function OpportunityChart({
       </p>
       <ResponsiveContainer width="100%" height={220}>
         <ComposedChart data={data} margin={{ top: 8, right: 32, bottom: 0, left: -8 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+          <CartesianGrid {...GRID_PROPS} vertical={false} />
           <XAxis
             dataKey="hour"
             tickFormatter={(h) => fmtHour(Number(h))}
-            tick={{ fontSize: 10, fill: "#94A3B8" }}
+            tick={AXIS_TICK}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
             yAxisId="pas"
             orientation="left"
-            tick={{ fontSize: 10, fill: "#94A3B8" }}
+            tick={AXIS_TICK}
             axisLine={false}
             tickLine={false}
           />
@@ -57,14 +58,14 @@ export function OpportunityChart({
             orientation="right"
             domain={[0, 100]}
             tickFormatter={(v) => `${v}%`}
-            tick={{ fontSize: 10, fill: "#94A3B8" }}
+            tick={AXIS_TICK}
             axisLine={false}
             tickLine={false}
           />
-          <ReferenceLine yAxisId="pas"  y={avgPas}  stroke="#94A3B8" strokeDasharray="4 2" strokeOpacity={0.5} />
-          <ReferenceLine yAxisId="conv" y={avgConv} stroke="#94A3B8" strokeDasharray="4 2" strokeOpacity={0.5} />
+          <ReferenceLine yAxisId="pas"  y={avgPas}  stroke={CHART.slate} strokeDasharray="4 2" strokeOpacity={0.5} />
+          <ReferenceLine yAxisId="conv" y={avgConv} stroke={CHART.slate} strokeDasharray="4 2" strokeOpacity={0.5} />
           <Tooltip
-            contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 12 }}
+            contentStyle={TOOLTIP_STYLE}
             labelFormatter={(h) => fmtHour(Number(h))}
             formatter={(v, name) => {
               if (name === "pasantes") return [v, "Pasantes"];
@@ -74,17 +75,17 @@ export function OpportunityChart({
           />
           <Bar yAxisId="pas" dataKey="pasantes" radius={[4, 4, 0, 0]} maxBarSize={22}>
             {data.map((d, i) => (
-              <Cell key={i} fill={d.opportunity ? "#F59E0B" : "#CBD5E1"} />
+              <Cell key={i} fill={d.opportunity ? CHART.amber : CHART.slateSoft} />
             ))}
           </Bar>
           <Line
             yAxisId="conv"
             type="monotone"
             dataKey="conv_enter_pct"
-            stroke="#2DD4BF"
+            stroke={CHART.brand}
             strokeWidth={2.5}
             dot={false}
-            activeDot={{ r: 4, fill: "#2DD4BF" }}
+            activeDot={{ r: 4, fill: CHART.brand }}
           />
         </ComposedChart>
       </ResponsiveContainer>

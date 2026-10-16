@@ -30,11 +30,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
             // cada cambio de sección mientras se sigue notando "en vivo".
             staleTime: 60_000,
             gcTime: 15 * 60_000,
-            // Un dashboard abierto no debe multiplicar consultas cuando la
-            // instancia ya está sin presupuesto de I/O. Los sondeos y el botón
-            // Actualizar proporcionan recuperación sin una tormenta de retries.
-            retry: false,
+            // Un par de reintentos con backoff (no una tormenta): un RPC que
+            // responde lento o un fallo transitorio de red se recupera solo en
+            // vez de dejar la vista en error. TanStack deduplica, así que no
+            // se multiplican las consultas.
+            retry: 2,
+            retryDelay: (attempt) => Math.min(1_000 * 2 ** attempt, 8_000),
             refetchOnWindowFocus: false,
+            refetchOnReconnect: true,
             // Al cambiar de filtro mantiene los datos previos en pantalla en
             // vez de vaciarla: se acabó el parpadeo a "sin datos".
             placeholderData: <T,>(prev: T) => prev,

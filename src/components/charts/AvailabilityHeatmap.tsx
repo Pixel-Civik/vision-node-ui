@@ -1,6 +1,7 @@
 "use client";
 
 import type { HourSlot } from "@/hooks/useUptime";
+import { CHART } from "@/lib/chartTheme";
 
 interface Props {
   slots: HourSlot[];
@@ -67,11 +68,8 @@ export function AvailabilityHeatmap({ slots, loading }: Props) {
                   <div
                     key={h}
                     title={`${date} ${h}:00 — ${hasData ? "Online" : missing ? "Sin datos esperados" : "Sin señal"}`}
-                    className={`flex-1 h-5 rounded-sm min-w-[18px] transition-colors ${
-                      hasData  ? "bg-emerald-400" :
-                      noData   ? "bg-red-400" :
-                      "bg-slate-100"
-                    }`}
+                    className="flex-1 h-5 rounded-sm min-w-[18px] transition-colors"
+                    style={{ backgroundColor: hasData ? CHART.emerald : noData ? CHART.rose : CHART.slateSoft }}
                   />
                 );
               })}
@@ -83,13 +81,13 @@ export function AvailabilityHeatmap({ slots, loading }: Props) {
       {/* Legend */}
       <div className="flex items-center gap-4 mt-3">
         <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
-          <div className="w-3 h-3 rounded-sm bg-emerald-400" /> Online
+          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: CHART.emerald }} /> Online
         </div>
         <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
-          <div className="w-3 h-3 rounded-sm bg-red-400" /> Sin señal
+          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: CHART.rose }} /> Sin señal
         </div>
         <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
-          <div className="w-3 h-3 rounded-sm bg-slate-100" /> Fuera de rango
+          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: CHART.slateSoft }} /> Fuera de rango
         </div>
       </div>
     </div>

@@ -32,7 +32,7 @@ export function MultiSelect({ label, options, selected, onChange }: MultiSelectP
           {label}
         </span>
         <button
-          className="text-xs text-[#2DD4BF] hover:underline"
+          className="text-xs text-brand hover:underline"
           onClick={() => onChange(allSelected ? [] : [...options])}
         >
           {allSelected ? "Ninguno" : "Todos"}

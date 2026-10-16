@@ -9,6 +9,7 @@ import { TrendingUp, TrendingDown, Minus, Trophy } from "lucide-react";
 import { useComparisonData, type CompareMode } from "@/hooks/useComparisonData";
 import type { DashboardFilters, KPIResult, HourlyRow } from "@/lib/types";
 import { fmtHour } from "@/lib/fmt";
+import { CHART, AXIS_TICK, GRID_PROPS, TOOLTIP_STYLE, CHART_SKELETON_CLASS } from "@/lib/chartTheme";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -89,9 +90,9 @@ function KPICompareCard({
   loading:   boolean;
 }) {
   return (
-    <div className="relative bg-white rounded-2xl border border-slate-100 shadow-sm p-5 overflow-hidden">
+    <div className="relative panel p-6 overflow-hidden">
       {/* teal top bar */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-[#2DD4BF] rounded-t-2xl" />
+      <div className="absolute top-0 left-0 right-0 h-1 bg-brand rounded-t-2xl" />
 
       <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">{label}</p>
 
@@ -117,14 +118,14 @@ function KPICompareCard({
         <div className="mt-4 pt-4 border-t border-slate-100">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-xs text-slate-500 flex items-center gap-1.5">
-              <Trophy size={11} className="text-[#2DD4BF]" />
+              <Trophy size={11} className="text-brand" />
               Ranking entre tiendas
             </span>
             {loading || !siteRank ? (
               <div className="h-5 w-16 bg-slate-100 animate-pulse rounded-full" />
             ) : (
               <span className="text-xs font-bold text-slate-700">
-                <span className="bg-[#0B1222] text-[#2DD4BF] text-xs font-bold px-2 py-0.5 rounded-lg mr-1">
+                <span className="bg-navy text-brand text-xs font-bold px-2 py-0.5 rounded-lg mr-1">
                   #{siteRank.rank}
                 </span>
                 de {siteRank.total}
@@ -135,13 +136,13 @@ function KPICompareCard({
             <>
               <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-[#2DD4BF] rounded-full"
+                  className="h-full bg-brand rounded-full"
                   style={{ width: `${Math.round(((siteRank.total - siteRank.rank + 1) / siteRank.total) * 100)}%` }}
                 />
               </div>
               <div className="flex justify-between text-[9px] text-slate-400 mt-0.5">
                 <span>#{ siteRank.total} peor</span>
-                <span className="text-[#2DD4BF] font-semibold">#{siteRank.rank}</span>
+                <span className="text-brand font-semibold">#{siteRank.rank}</span>
                 <span>#1 mejor</span>
               </div>
             </>
@@ -222,7 +223,7 @@ export function ComparisonPanel({
               onClick={() => setMode(m)}
               className={`text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-colors ${
                 mode === m
-                  ? "bg-[#0B1222] text-[#2DD4BF]"
+                  ? "bg-navy text-brand"
                   : "text-slate-500 hover:text-slate-700"
               }`}
             >
@@ -255,7 +256,7 @@ export function ComparisonPanel({
       </div>
 
       {/* ── REQ 1: comparison chart ── */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+      <div className="panel p-6">
         <h4 className="text-xs font-semibold text-slate-600 mb-0.5">
           Entradas por hora — período actual vs referencia
         </h4>
@@ -264,7 +265,7 @@ export function ComparisonPanel({
         </p>
 
         {loading ? (
-          <div className="h-52 bg-slate-50 animate-pulse rounded-xl" />
+          <div className={`h-52 ${CHART_SKELETON_CLASS}`} />
         ) : chartData.every((d) => d.actual === 0 && d.referencia === 0) ? (
           <div className="h-52 bg-slate-50 rounded-xl flex items-center justify-center">
             <p className="text-xs text-slate-400">Sin datos de entradas por hora para este período</p>
@@ -272,16 +273,16 @@ export function ComparisonPanel({
         ) : (
           <ResponsiveContainer width="100%" height={210}>
             <BarChart data={chartData} barSize={12} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+              <CartesianGrid {...GRID_PROPS} />
               <XAxis
                 dataKey="hour"
                 tickFormatter={(h) => fmtHour(Number(h))}
-                tick={{ fontSize: 10, fill: "#94A3B8" }}
+                tick={AXIS_TICK}
                 axisLine={false} tickLine={false}
               />
-              <YAxis tick={{ fontSize: 10, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+              <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} />
               <Tooltip
-                contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 11 }}
+                contentStyle={TOOLTIP_STYLE}
                 labelFormatter={(h) => fmtHour(Number(h))}
                 formatter={(v, name) => [v, name === "actual" ? "Actual" : "Referencia"]}
               />
@@ -290,13 +291,13 @@ export function ComparisonPanel({
                 wrapperStyle={{ fontSize: 11, paddingTop: 6 }}
               />
               {/* Reference bars (always slate) */}
-              <Bar dataKey="referencia" fill="#CBD5E1" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="referencia" fill={CHART.slateSoft} radius={[3, 3, 0, 0]} />
               {/* Actual bars: teal when >= reference, red when below */}
               <Bar dataKey="actual" radius={[3, 3, 0, 0]}>
                 {chartData.map((d, i) => (
                   <Cell
                     key={i}
-                    fill={d.actual < d.referencia && d.referencia > 0 ? "#FCA5A5" : "#2DD4BF"}
+                    fill={d.actual < d.referencia && d.referencia > 0 ? CHART.rose : CHART.brand}
                   />
                 ))}
               </Bar>

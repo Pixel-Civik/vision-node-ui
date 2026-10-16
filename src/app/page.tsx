@@ -115,6 +115,11 @@ export default function App() {
 
   // useDataFreshnessAlert();  // desactivada — ver nota en el import
 
+  // Mientras el bootstrap (rango de apertura + opciones) no termina, el
+  // dashboard aún no se consulta: sin unificar el estado, las gráficas se
+  // pintaban como "sin datos" en vez de mantener el skeleton.
+  const loading = opts.loading || data.loading;
+
   const hasConversion = data.conversion.some((r) => r.pasantes > 0);
   const hasTIZ        = data.tizKpis.length > 0;
 
@@ -130,7 +135,7 @@ export default function App() {
   return (
     <>
     <Toaster position="top-right" />
-    <div className="flex h-dvh min-h-0 overflow-hidden bg-slate-50">
+    <div className="flex h-dvh min-h-0 overflow-hidden bg-surface">
       {/* ── Mobile overlay ───────────────────────────────────────────────── */}
       {sidebarOpen && (
         <div
@@ -143,7 +148,7 @@ export default function App() {
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
       <aside
         id="app-sidebar"
-        className={`fixed inset-y-0 left-0 z-50 flex h-dvh max-h-dvh w-[min(18rem,86vw)] shrink-0 flex-col overflow-hidden bg-[#0B1222] shadow-2xl transition-transform duration-300 ease-out
+        className={`fixed inset-y-0 left-0 z-50 flex h-dvh max-h-dvh w-[min(18rem,86vw)] shrink-0 flex-col overflow-hidden bg-navy shadow-2xl transition-transform duration-300 ease-out
           sm:w-64 xl:sticky xl:inset-auto xl:top-0 xl:flex xl:h-dvh xl:w-56 xl:self-start xl:translate-x-0 xl:shadow-none ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <button
@@ -156,7 +161,7 @@ export default function App() {
         <Sidebar
           section={section}
           onNavigate={navigate}
-          loading={data.loading}
+          loading={loading || data.refreshing}
           onRefresh={data.refresh}
           dateRange={{ start: fv.startDate, end: fv.endDate }}
           alertCount={shopliftingAlertCount}
@@ -167,67 +172,82 @@ export default function App() {
       <div className="flex h-dvh min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <TopBar open={sidebarOpen} onOpen={() => setSidebarOpen(true)} onClose={() => setSidebarOpen(false)} />
 
-        <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
-          {data.error && (
-            <div className="mx-6 mt-4 flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
-              <AlertTriangle size={15} />
-              {data.error}
+        <main className="scroll-slim min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
+          {/* Barra de progreso sutil al revalidar con datos ya en pantalla */}
+          {data.refreshing && (
+            <div className="sticky top-0 z-20 h-0.5 w-full overflow-hidden bg-transparent">
+              <div className="h-full w-1/3 animate-[loading-bar_1.1s_ease-in-out_infinite] bg-brand" />
             </div>
           )}
 
-          {/* Sections — all mounted; visibility toggled via CSS `hidden` */}
-          <div className={section !== "inicio"     ? "hidden" : undefined}>
+          {data.error && (
+            <div className="mx-6 mt-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertTriangle size={15} className="shrink-0" />
+              <span className="flex-1">{data.error}</span>
+              <button
+                onClick={data.refresh}
+                className="shrink-0 rounded-lg border border-red-200 bg-white px-2.5 py-1 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100"
+              >
+                Reintentar
+              </button>
+            </div>
+          )}
+
+          {/* Sections — all mounted; visibility toggled via CSS `hidden`.
+             `cv-auto` deja que el navegador salte el render de lo que está
+             fuera de pantalla: menos trabajo por frame al hacer scroll. */}
+          <div className={section !== "inicio" ? "hidden" : "cv-auto"}>
             <InicioSection
               kpis={data.kpis} hourly={data.hourly} hourlyAvg={data.hourlyAvg}
               zoneBreakdown={data.zoneBreakdown} channelBreakdown={data.channelBreakdown}
               conversion={data.conversion} tizKpis={data.tizKpis} totals={totals}
-              filters={filters} loading={data.loading}
+              filters={filters} loading={loading}
               dateRange={{ start: fv.startDate, end: fv.endDate }}
               onNavigateToReporte={() => navigate("reporte")}
             />
           </div>
 
-          <div className={section !== "reporte"    ? "hidden" : undefined}>
+          <div className={section !== "reporte" ? "hidden" : "cv-auto"}>
             <ReporteSection
               kpis={data.kpis} hourly={data.hourly} hourlyAvg={data.hourlyAvg} heatmap={data.heatmap}
               zoneBreakdown={data.zoneBreakdown} channelBreakdown={data.channelBreakdown}
               conversion={data.conversion} tizKpis={data.tizKpis}
               totals={totals} filters={filters} filterValues={fv} opts={opts}
-              loading={data.loading} hasConversion={hasConversion} hasTIZ={hasTIZ}
+              loading={loading} hasConversion={hasConversion} hasTIZ={hasTIZ}
               onFilterChange={(patch) => setFv((prev) => ({ ...prev, ...patch }))}
             />
           </div>
 
           {section === "alertas" && <AlertasSection />}
 
-          <div className={section !== "entradas"   ? "hidden" : undefined}>
+          <div className={section !== "entradas" ? "hidden" : "cv-auto"}>
             <EntradasView
               kpis={data.kpis} hourly={data.hourly} zoneBreakdown={data.zoneBreakdown}
               channelBreakdown={data.channelBreakdown} heatmap={data.heatmap}
               genderEnter={analytics.genderEnter} ageEnter={analytics.ageEnter}
-              loading={data.loading} analyticsLoading={analytics.analyticsLoading} filters={filters}
+              loading={loading} analyticsLoading={analytics.analyticsLoading} filters={filters}
             />
           </div>
 
-          <div className={section !== "visitantes" ? "hidden" : undefined}>
+          <div className={section !== "visitantes" ? "hidden" : "cv-auto"}>
             <VisitantesView
               hourly={data.hourly} conversion={data.conversion}
               genderVisitor={analytics.genderVisitor}
-              loading={data.loading} analyticsLoading={analytics.analyticsLoading} filters={filters}
+              loading={loading} analyticsLoading={analytics.analyticsLoading} filters={filters}
             />
           </div>
 
-          <div className={section !== "tiz"        ? "hidden" : undefined}>
+          <div className={section !== "tiz" ? "hidden" : "cv-auto"}>
             <TIZView
               tizKpis={data.tizKpis} tizDistribution={analytics.tizDistribution}
-              loading={data.loading} analyticsLoading={analytics.analyticsLoading} filters={filters}
+              loading={loading} analyticsLoading={analytics.analyticsLoading} filters={filters}
             />
           </div>
 
           {section === "tecnico" && (
             <TecnicoSection
               hourly={data.hourly}
-              loading={data.loading}
+              loading={loading}
               kpis={data.kpis}
               totals={totals}
               filterValues={fv}

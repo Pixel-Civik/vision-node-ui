@@ -1,11 +1,12 @@
 "use client";
 
 import type { HourlyRow } from "@/lib/types";
+import { CHART } from "@/lib/chartTheme";
 
 const PERIODS = [
-  { label: "Mañana",  range: "7 – 11h",  hours: [7, 8, 9, 10, 11],           color: "#3B82F6", bg: "#EFF6FF" },
-  { label: "Tarde",   range: "12 – 17h", hours: [12, 13, 14, 15, 16, 17],     color: "#8B5CF6", bg: "#F5F3FF" },
-  { label: "Noche",   range: "18 – 22h", hours: [18, 19, 20, 21, 22],         color: "#F59E0B", bg: "#FFFBEB" },
+  { label: "Mañana",  range: "7 – 11h",  hours: [7, 8, 9, 10, 11],           color: CHART.sky, bg: "#EFF6FF" },
+  { label: "Tarde",   range: "12 – 17h", hours: [12, 13, 14, 15, 16, 17],     color: CHART.brandStrong, bg: "#F0FDFA" },
+  { label: "Noche",   range: "18 – 22h", hours: [18, 19, 20, 21, 22],         color: CHART.navy, bg: "#F1F5F9" },
 ];
 
 export function TrafficPeriodChart({ rows, loading }: { rows: HourlyRow[]; loading: boolean }) {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchDashboardBootstrap } from "@/lib/api";
 import type { DefaultRange } from "@/lib/types";
@@ -46,23 +47,25 @@ export function useFilterOptions(): FilterOptions {
     staleTime: 10 * 60_000,
   });
 
-  if (!bootstrap.data) {
-    return { ...EMPTY, loading: bootstrap.isPending };
-  }
-
   const data = bootstrap.data;
 
-  return {
-    sites:          data.sites ?? [],
-    channels:       data.channels ?? [],
-    zones:          data.zones ?? [],
-    minDate:        data.min_date ?? TODAY,
-    maxDate:        data.max_date ?? TODAY,
-    availableDates: new Set(data.available_dates ?? []),
-    defaultRange:   data.default_range ?? null,
-    // El rango de apertura es obligatorio antes de consultar: sin él page.tsx
-    // dispararía una consulta con fechas provisionales y luego otra con las
-    // reales — la doble carga que ya existía antes.
-    loading:        bootstrap.isPending,
-  };
+  // useMemo: sin él, cada render devolvía un objeto nuevo (y un `Set` nuevo en
+  // availableDates), invalidando cualquier memoización aguas abajo y
+  // re-renderizando las secciones aunque los filtros no hubieran cambiado.
+  return useMemo<FilterOptions>(
+    () =>
+      data
+        ? {
+            sites:          data.sites ?? [],
+            channels:       data.channels ?? [],
+            zones:          data.zones ?? [],
+            minDate:        data.min_date ?? TODAY,
+            maxDate:        data.max_date ?? TODAY,
+            availableDates: new Set(data.available_dates ?? []),
+            defaultRange:   data.default_range ?? null,
+            loading:        bootstrap.isPending,
+          }
+        : { ...EMPTY, loading: bootstrap.isPending },
+    [data, bootstrap.isPending]
+  );
 }

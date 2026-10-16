@@ -2,27 +2,28 @@
 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import type { ZoneBreakdownRow, ChannelBreakdownRow } from "@/lib/types";
+import { CHART, AXIS_TICK, CHART_SKELETON_CLASS } from "@/lib/chartTheme";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const COLORS: Record<string, string> = {
-  enter: "#10B981",
-  exit: "#EF4444",
-  pasante: "#6B7280",
-  visitor: "#3B82F6",
-  visit: "#7C3AED",
+  enter: CHART.emerald,
+  exit: CHART.rose,
+  pasante: CHART.slate,
+  visitor: CHART.sky,
+  visit: CHART.slateDark,
 };
 
-function HBar({ data, label }: { data: { name: string; value: number; type: string }[]; label: string }) {
+function HBar({ data }: { data: { name: string; value: number; type: string }[] }) {
   if (!data.length) return <p className="text-xs text-gray-400 py-4 text-center">Sin datos</p>;
   return (
     <ResponsiveContainer width="100%" height={Math.max(120, data.length * 28)}>
       <BarChart layout="vertical" data={data} margin={{ left: 4, right: 16, top: 4, bottom: 4 }}>
-        <XAxis type="number" tick={{ fontSize: 10 }} />
-        <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={90} />
+        <XAxis type="number" tick={AXIS_TICK} />
+        <YAxis type="category" dataKey="name" tick={AXIS_TICK} width={90} />
         <Tooltip formatter={(v, _, p) => [v, p.payload.type]} />
         <Bar dataKey="value" radius={[0, 4, 4, 0]}>
           {data.map((d, i) => (
-            <Cell key={i} fill={COLORS[d.type] ?? "#94A3B8"} />
+            <Cell key={i} fill={COLORS[d.type] ?? CHART.slate} />
           ))}
         </Bar>
       </BarChart>
@@ -42,8 +43,8 @@ export function ZonePanel({
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="h-40 bg-gray-100 rounded-lg animate-pulse" />
-        <div className="h-40 bg-gray-100 rounded-lg animate-pulse" />
+        <div className={`h-40 ${CHART_SKELETON_CLASS}`} />
+        <div className={`h-40 ${CHART_SKELETON_CLASS}`} />
       </div>
     );
   }
@@ -64,7 +65,7 @@ export function ZonePanel({
         </CardHeader>
         <CardContent className="px-2 pb-3">
           {zoneData.length ? (
-            <HBar data={zoneData} label="Zona" />
+            <HBar data={zoneData} />
           ) : (
             <p className="text-xs text-gray-400 text-center py-4">Sin datos por zona</p>
           )}
@@ -76,7 +77,7 @@ export function ZonePanel({
         </CardHeader>
         <CardContent className="px-2 pb-3">
           {channelData.length ? (
-            <HBar data={channelData} label="Cámara" />
+            <HBar data={channelData} />
           ) : (
             <p className="text-xs text-gray-400 text-center py-4">Sin datos por cámara</p>
           )}
