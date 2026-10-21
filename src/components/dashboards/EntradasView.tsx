@@ -116,6 +116,7 @@ export function EntradasView({
               channels={channelBreakdown}
               conversion={[]}
               tiz={[]}
+              filters={filters}
               startTs={filters.startTs}
               endTs={filters.endTs}
             />

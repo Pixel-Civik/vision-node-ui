@@ -4,8 +4,10 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Download, FileText, Table2 } from "lucide-react";
-import type { KPIResult, HourlyRow, ZoneBreakdownRow, ChannelBreakdownRow, ConversionHourRow, TIZKpiRow } from "@/lib/types";
+import { Download, FileText, Table2, Loader2 } from "lucide-react";
+import type { KPIResult, HourlyRow, ZoneBreakdownRow, ChannelBreakdownRow, ConversionHourRow, TIZKpiRow, DashboardFilters, AttrsBreakdown } from "@/lib/types";
+import { fetchAttrsBreakdown } from "@/lib/api";
+import { buildAttrsExportTables } from "@/lib/attrsExport";
 import { exportPDF } from "@/lib/exportPDF";
 import * as XLSX from "xlsx";
 
@@ -18,9 +20,17 @@ interface Props {
   tiz: TIZKpiRow[];
   startTs: string;
   endTs: string;
+  /** Con filtros se ofrece la sección "Perfil de visitantes" (edad y género). */
+  filters?: DashboardFilters;
 }
 
-function exportExcel(data: Props, sections: string[]) {
+/** Un rango de hasta 24 h se desglosa por hora; más largo, por día. */
+async function loadAttrs(filters: DashboardFilters): Promise<AttrsBreakdown> {
+  const span = Date.parse(filters.endTs) - Date.parse(filters.startTs);
+  return fetchAttrsBreakdown(filters, span <= 24 * 3600 * 1000 ? "hour" : "day");
+}
+
+function exportExcel(data: Props, sections: string[], attrs: AttrsBreakdown | null) {
   const wb = XLSX.utils.book_new();
 
   if (data.kpis) {
@@ -109,6 +119,23 @@ function exportExcel(data: Props, sections: string[]) {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(tiz), "TIZ_Por_Zona");
   }
 
+  if (sections.includes("attrs") && attrs) {
+    const t = buildAttrsExportTables(attrs);
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.aoa_to_sheet([["Categoría", "Entradas", "% del total", "% de las etiquetadas"], ...t.summary]),
+      "Perfil_Resumen",
+    );
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.aoa_to_sheet([
+        [t.bucketLabel, "Entradas", "Niños", "Adultos", "Sin edad", "Hombres", "Mujeres", "Sin género"],
+        ...t.perBucket,
+      ]),
+      t.bucketLabel === "Hora" ? "Perfil_Por_Hora" : "Perfil_Por_Dia",
+    );
+  }
+
   const fname = `vision_node_${new Date().toISOString().slice(0, 16).replace(/[T:]/g, "_")}.xlsx`;
   XLSX.writeFile(wb, fname);
 }
@@ -145,11 +172,43 @@ function Preview({ kpis }: { kpis: KPIResult | null }) {
 
 export function ExportDialog(props: Props) {
   const [open, setOpen] = useState(false);
-  const [sections, setSections] = useState(["enter_exit", "conversion", "tiz"]);
+  const [sections, setSections] = useState(["enter_exit", "conversion", "tiz", "attrs"]);
+  const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<"opciones" | "preview">("opciones");
 
   const hasConv = props.conversion.length > 0;
   const hasTiz = props.tiz.length > 0;
+
+  async function attrsIfSelected(): Promise<AttrsBreakdown | null> {
+    if (!props.filters || !sections.includes("attrs")) return null;
+    return loadAttrs(props.filters);
+  }
+
+  async function run(kind: "excel" | "pdf") {
+    setBusy(true);
+    try {
+      const attrs = await attrsIfSelected();
+      if (kind === "excel") {
+        exportExcel(props, sections, attrs);
+      } else {
+        exportPDF({
+          title: "Reporte de Tráfico",
+          subtitle: "Análisis completo del período seleccionado",
+          startTs: props.startTs,
+          endTs: props.endTs,
+          kpis: props.kpis,
+          hourly: props.hourly,
+          zones: props.zones,
+          channels: props.channels,
+          attrs,
+          include: { attrs: !!attrs },
+        });
+      }
+      setOpen(false);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   function toggleSection(s: string) {
     setSections((prev) => prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]);
@@ -191,6 +250,9 @@ export function ExportDialog(props: Props) {
                   { id: "enter_exit", label: "Entradas y Salidas (por hora y zona)", always: true },
                   { id: "conversion", label: "Conversión Pasantes → Ingreso (por hora)", always: hasConv },
                   { id: "tiz", label: "Tiempo en Zona", always: hasTiz },
+                  ...(props.filters
+                    ? [{ id: "attrs", label: "Perfil de visitantes (niños/adultos, hombres/mujeres)", always: true }]
+                    : []),
                 ].map(({ id, label, always }) => (
                   <label key={id} className="flex items-center gap-2.5 cursor-pointer">
                     <Checkbox
@@ -209,28 +271,17 @@ export function ExportDialog(props: Props) {
             <div className="flex gap-3 pt-2">
               <Button
                 className="flex-1 gap-1.5"
-                onClick={() => { exportExcel(props, sections); setOpen(false); }}
-                disabled={!sections.length}
+                onClick={() => run("excel")}
+                disabled={!sections.length || busy}
               >
-                <Table2 size={14} />
+                {busy ? <Loader2 size={14} className="animate-spin" /> : <Table2 size={14} />}
                 Descargar Excel
               </Button>
               <Button
                 variant="outline"
                 className="flex-1 gap-1.5"
-                onClick={() => {
-                  exportPDF({
-                    title: "Reporte de Tráfico",
-                    subtitle: "Análisis completo del período seleccionado",
-                    startTs: props.startTs,
-                    endTs: props.endTs,
-                    kpis: props.kpis,
-                    hourly: props.hourly,
-                    zones: props.zones,
-                    channels: props.channels,
-                  });
-                  setOpen(false);
-                }}
+                onClick={() => run("pdf")}
+                disabled={busy}
               >
                 <FileText size={14} />
                 Descargar PDF

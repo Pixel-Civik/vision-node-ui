@@ -52,6 +52,7 @@ export function InicioSection({
             channels={channelBreakdown}
             conversion={conversion}
             tiz={tizKpis}
+            filters={filters}
             startTs={filters.startTs}
             endTs={filters.endTs}
           />

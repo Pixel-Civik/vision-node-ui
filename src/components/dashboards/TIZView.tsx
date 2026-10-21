@@ -120,6 +120,7 @@ export function TIZView({ tizKpis, tizDistribution, loading, analyticsLoading, f
               zones={[]}
               conversion={[]}
               tiz={tizKpis}
+              filters={filters}
               startTs={filters.startTs}
               endTs={filters.endTs}
             />

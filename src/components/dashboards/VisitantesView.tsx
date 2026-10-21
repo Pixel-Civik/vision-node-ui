@@ -166,6 +166,7 @@ export function VisitantesView({
               zones={[]}
               conversion={conversion}
               tiz={[]}
+              filters={filters}
               startTs={filters.startTs}
               endTs={filters.endTs}
             />
