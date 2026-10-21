@@ -110,6 +110,7 @@ export function ReporteSection({
               startTs={filters.startTs}
               endTs={filters.endTs}
               filters={filters}
+              attrsGranularity={filterValues.startDate === filterValues.endDate ? "hour" : "day"}
             />
           </>
         }

@@ -5,10 +5,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Download, BarChart2, Table2, Loader2, FileSpreadsheet, FileText } from "lucide-react";
-import type { KPIResult, HourlyRow, HeatmapRow, ZoneBreakdownRow, ChannelBreakdownRow, DashboardFilters } from "@/lib/types";
+import type { KPIResult, HourlyRow, HeatmapRow, ZoneBreakdownRow, ChannelBreakdownRow, DashboardFilters, AttrsGranularity, AttrsBreakdown } from "@/lib/types";
 import { exportPDF } from "@/lib/exportPDF";
 import { exportExcelReporte } from "@/lib/exportExcel";
-import { fetchDailyTotals } from "@/lib/api";
+import { fetchDailyTotals, fetchAttrsBreakdown } from "@/lib/api";
 
 // ── Chart definitions (must match the `id` on chart wrapper divs in the page) ──
 const CHART_OPTIONS = [
@@ -20,6 +20,8 @@ const CHART_OPTIONS = [
   { id: "export-chart-heatmap",    label: "Mapa de calor hora × día",            desc: "Intensidad de tráfico en la semana" },
   { id: "export-chart-behavior",   label: "Entradas y salidas por hora",         desc: "Gráfico de barras + línea de tendencia" },
   { id: "export-chart-opportunity", label: "Zona de oportunidad de captación",    desc: "Horas con alto tráfico de pasantes y baja conversión" },
+  { id: "export-chart-attrs-age",   label: "Perfil: niños vs adultos",            desc: "Totales, serie por hora/día y distribución por edad" },
+  { id: "export-chart-attrs-gender", label: "Perfil: hombres vs mujeres",         desc: "Distribución de entradas por género" },
 ];
 
 // ── Table definitions ──
@@ -32,6 +34,7 @@ const TABLE_OPTIONS = [
   { id: "bands",      label: "Tabla franjas horarias",             desc: "Mañana / Tarde / Noche con entradas absolutas y %" },
   { id: "zones",      label: "Desglose por zona",                  desc: "Entradas, salidas, neto y % por zona de detección" },
   { id: "channels",   label: "Desglose por cámara",               desc: "Entradas, salidas, neto y % por cámara" },
+  { id: "attrs",      label: "Perfil de visitantes (edad y género)", desc: "Niños, adultos, hombres, mujeres y sin etiqueta: resumen y por día/hora" },
 ];
 
 interface Props {
@@ -43,6 +46,8 @@ interface Props {
   startTs: string;
   endTs: string;
   filters: DashboardFilters;
+  /** Misma granularidad que la sección "Perfil de visitantes" (1 día → hora). */
+  attrsGranularity?: AttrsGranularity;
 }
 
 async function captureElement(id: string): Promise<string | null> {
@@ -56,14 +61,14 @@ async function captureElement(id: string): Promise<string | null> {
   }
 }
 
-export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, startTs, endTs, filters }: Props) {
+export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, startTs, endTs, filters, attrsGranularity = "day" }: Props) {
   const [open, setOpen] = useState(false);
   const [format, setFormat] = useState<"pdf" | "excel">("pdf");
   const [selCharts, setSelCharts] = useState<Set<string>>(
-    new Set(["export-chart-combined", "export-chart-funnel", "export-chart-dow"]),
+    new Set(["export-chart-combined", "export-chart-funnel", "export-chart-dow", "export-chart-attrs-age"]),
   );
   const [selTables, setSelTables] = useState<Set<string>>(
-    new Set(["kpi", "daily", "hourly", "peak_hours"]),
+    new Set(["kpi", "daily", "hourly", "peak_hours", "attrs"]),
   );
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
@@ -81,6 +86,11 @@ export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, st
     setProgress(null);
     try {
       const inc = Object.fromEntries(TABLE_OPTIONS.map((t) => [t.id, selTables.has(t.id)])) as Record<string, boolean>;
+      let attrs: AttrsBreakdown | null = null;
+      if (inc.attrs) {
+        setProgress("Cargando perfil de visitantes...");
+        attrs = await fetchAttrsBreakdown(filters, attrsGranularity);
+      }
 
       if (format === "excel") {
         setProgress("Generando Excel...");
@@ -97,6 +107,7 @@ export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, st
           heatmap,
           zones,
           channels,
+          attrs,
           startTs,
           endTs,
           include: {
@@ -108,6 +119,7 @@ export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, st
             bands: inc.bands,
             zones: inc.zones,
             channels: inc.channels,
+            attrs: inc.attrs,
           },
         });
         setOpen(false);
@@ -135,6 +147,7 @@ export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, st
         heatmap: inc.dow ? heatmap : undefined,
         zones: inc.zones ? zones : undefined,
         channels: inc.channels ? channels : undefined,
+        attrs,
         include: {
           kpi: inc.kpi,
           hourly: inc.hourly,
@@ -143,6 +156,7 @@ export function ReporteExportDialog({ kpis, hourly, heatmap, zones, channels, st
           bands: inc.bands,
           zones: inc.zones,
           channels: inc.channels,
+          attrs: inc.attrs,
         },
         chartImages,
       });

@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
-import type { KPIResult, HourlyRow, HeatmapRow, ZoneBreakdownRow, ChannelBreakdownRow, GenderRow, AgeRow } from "./types";
+import type { KPIResult, HourlyRow, HeatmapRow, ZoneBreakdownRow, ChannelBreakdownRow, GenderRow, AgeRow, AttrsBreakdown } from "./types";
+import { buildAttrsExportTables } from "./attrsExport";
 
 const TEAL: [number, number, number] = [45, 212, 191];
 const DARK: [number, number, number] = [11, 18, 34];
@@ -201,6 +202,7 @@ export type PDFInclude = {
   gender_age?: boolean;
   zones?: boolean;
   channels?: boolean;
+  attrs?: boolean;
 };
 
 export function exportPDF(opts: {
@@ -215,6 +217,7 @@ export function exportPDF(opts: {
   channels?: ChannelBreakdownRow[];
   gender?: GenderRow[];
   age?: AgeRow[];
+  attrs?: AttrsBreakdown | null;
   include?: PDFInclude;
   sections?: { title: string; rows: [string, string][] }[];
   chartImages?: { label: string; dataUrl: string }[];
@@ -399,6 +402,37 @@ export function exportPDF(opts: {
         y,
         [70, 60, 52],
         [false, true, true],
+        opts.title,
+        period,
+      );
+    }
+  }
+
+  // ── Perfil de visitantes (edad / género) ──
+  if (inc.attrs && opts.attrs) {
+    const t = buildAttrsExportTables(opts.attrs);
+    ensureSpace(80);
+    y = sectionTitle(doc, "Perfil de visitantes: edad y género", y);
+    y = pdfTable(
+      doc,
+      ["Categoría", "Entradas", "% del total", "% etiquetadas"],
+      t.summary.map(([c, n, a, b]) => [c, n.toLocaleString("es-PE"), a, b]),
+      y,
+      [60, 40, 40, 42],
+      [false, true, true, true],
+      opts.title,
+      period,
+    );
+    if (t.perBucket.length > 1) {
+      ensureSpace(60);
+      y = sectionTitle(doc, `Perfil de visitantes por ${t.bucketLabel === "Hora" ? "hora" : "día"}`, y);
+      y = pdfTable(
+        doc,
+        [t.bucketLabel, "Entradas", "Niños", "Adultos", "Sin edad", "Hombres", "Mujeres", "Sin gén."],
+        t.perBucket.map((r) => r.map((v) => (typeof v === "number" ? v.toLocaleString("es-PE") : v))),
+        y,
+        [28, 22, 22, 22, 22, 22, 22, 22],
+        [false, true, true, true, true, true, true, true],
         opts.title,
         period,
       );

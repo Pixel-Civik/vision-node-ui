@@ -81,6 +81,7 @@ export function PerfilVisitantesSection({ filters, filterValues, enabled }: Prop
         </div>
       )}
 
+      <div id="export-chart-attrs-age" className="space-y-5">
       <div className="grid grid-cols-2 gap-5 lg:grid-cols-4">
         <StatTile
           icon={<Users size={14} />} label="Entradas" value={totals.all} loading={busy}
@@ -125,9 +126,14 @@ export function PerfilVisitantesSection({ filters, filterValues, enabled }: Prop
               <AgeShare totals={totals} loading={busy} />
             </div>
           </div>
+        </>
+      )}
+      </div>
 
+      {!empty && (
+        <>
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-            <div className="panel p-6">
+            <div id="export-chart-attrs-gender" className="panel p-6">
               <PanelTitle title="Hombres vs mujeres" hint="Participación sobre el total de entradas" />
               <GenderShare totals={totals} loading={busy} />
             </div>

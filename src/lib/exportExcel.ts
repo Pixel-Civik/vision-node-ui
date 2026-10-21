@@ -1,4 +1,5 @@
-import type { KPIResult, HourlyRow, HeatmapRow, ZoneBreakdownRow, ChannelBreakdownRow, DailyRow } from "./types";
+import type { KPIResult, HourlyRow, HeatmapRow, ZoneBreakdownRow, ChannelBreakdownRow, DailyRow, AttrsBreakdown } from "./types";
+import { buildAttrsExportTables } from "./attrsExport";
 
 const DOWS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
@@ -19,6 +20,7 @@ export interface ExcelReporteInclude {
   bands?: boolean;
   zones?: boolean;
   channels?: boolean;
+  attrs?: boolean;
 }
 
 type CellValue = string | number;
@@ -114,11 +116,12 @@ export async function exportExcelReporte(params: {
   heatmap: HeatmapRow[];
   zones: ZoneBreakdownRow[];
   channels: ChannelBreakdownRow[];
+  attrs?: AttrsBreakdown | null;
   startTs: string;
   endTs: string;
   include: ExcelReporteInclude;
 }) {
-  const { kpis, daily, hourly, heatmap, zones, channels, startTs, endTs, include: inc } = params;
+  const { kpis, daily, hourly, heatmap, zones, channels, attrs, startTs, endTs, include: inc } = params;
   const sheets: Parameters<typeof buildWorkbook>[0] = [];
 
   // ── KPI summary ──────────────────────────────────────────────────────────────
@@ -283,6 +286,23 @@ export async function exportExcelReporte(params: {
           enters,
           totalE > 0 ? ((enters / totalE) * 100).toFixed(1) + "%" : "0%",
         ]),
+    });
+  }
+
+  // ── Perfil de visitantes (edad / género) ─────────────────────────────────────
+  if (inc.attrs && attrs) {
+    const t = buildAttrsExportTables(attrs);
+    sheets.push({
+      name: "Perfil Resumen",
+      headers: ["Categoría", "Entradas", "% del total", "% de las etiquetadas"],
+      colWidths: [22, 14, 14, 22],
+      rows: t.summary,
+    });
+    sheets.push({
+      name: t.bucketLabel === "Hora" ? "Perfil por Hora" : "Perfil por Día",
+      headers: [t.bucketLabel, "Entradas", "Niños", "Adultos", "Sin edad", "Hombres", "Mujeres", "Sin género"],
+      colWidths: [14, 12, 12, 12, 12, 12, 12, 12],
+      rows: t.perBucket,
     });
   }
 
