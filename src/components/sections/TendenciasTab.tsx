@@ -397,7 +397,7 @@ export function TendenciasTab({
   // Fetch kpis + hourly for local period (for KPI cards + intraday chart)
   // Un solo dashboard_overview sustituye las antiguas RPC separadas de KPI y
   // serie horaria, y comparte la misma caché/cancelación del panel principal.
-  const { kpis: localKpis, hourly: localHourly, loading: kpiLoading } =
+  const { kpis: localKpis, hourly: localHourly, loading: kpiLoading, error: kpiError } =
     useDashboard(localFilters);
 
   // Comparison data (REQ 1 + REQ 2)
@@ -408,7 +408,7 @@ export function TendenciasTab({
     );
 
   // Trend data for charts
-  const { daily, dowData, projection, loading: trendLoading, hasEnoughData } = useTrendData(localFilters);
+  const { daily, dowData, projection, loading: trendLoading, hasEnoughData, error: trendError } = useTrendData(localFilters);
 
   const loading       = parentLoading || kpiLoading || trendLoading;
   const compareLoading = loading || compLoading;
@@ -442,6 +442,7 @@ export function TendenciasTab({
 
   return (
     <div className="space-y-6">
+      {(kpiError || trendError) && <p role="alert" className="text-sm text-red-700">No se pudieron cargar las tendencias. Actualiza para reintentar.</p>}
 
       {/* ── Period filter ── */}
       <div className="panel p-5">

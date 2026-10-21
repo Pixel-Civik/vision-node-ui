@@ -1,6 +1,6 @@
 "use client";
 
-import type { TIZKpiRow, TIZDistributionResult, DashboardFilters } from "@/lib/types";
+import type { TIZKpiRow, TIZDistribution, DashboardFilters } from "@/lib/types";
 import { TIZPanel } from "@/components/dashboard/TIZPanel";
 import { TIZDistributionChart } from "@/components/charts/TIZDistributionChart";
 import { ExportDialog } from "@/components/export/ExportDialog";
@@ -10,7 +10,7 @@ import { FileText, Clock, BarChart2, Activity } from "lucide-react";
 
 interface Props {
   tizKpis: TIZKpiRow[];
-  tizDistribution: TIZDistributionResult | null;
+  tizDistribution: TIZDistribution | null;
   loading: boolean;
   analyticsLoading: boolean;
   filters: DashboardFilters;
@@ -63,7 +63,7 @@ function InlineKPI({ label, value, sub, borderColor, Icon, loading }: InlineKPIP
 }
 
 export function TIZView({ tizKpis, tizDistribution, loading, analyticsLoading, filters }: Props) {
-  const totalVisitas = tizDistribution?.total ?? 0;
+  const totalVisitas = tizDistribution?.count ?? 0;
   const medianVal = tizDistribution?.median_s ?? 0;
   const avgVal = tizDistribution?.avg_s ?? 0;
   const p90Val = tizDistribution?.p90_s ?? 0;
@@ -78,7 +78,7 @@ export function TIZView({ tizKpis, tizDistribution, loading, analyticsLoading, f
         {
           title: "KPIs de Permanencia",
           rows: [
-            ["Total visitas (raw)", totalVisitas.toLocaleString()],
+            ["Total visitas", totalVisitas.toLocaleString()],
             ["Mediana de permanencia", fmtSecs(medianVal)],
             ["Promedio de permanencia", fmtSecs(avgVal)],
             ["P90 (visitas largas)", fmtSecs(p90Val)],

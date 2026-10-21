@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { filterKey } from "@/lib/dashboard-filters";
 import { fetchDailyTrends, type DailyTrendRow } from "@/lib/api";
 import type { DashboardFilters } from "@/lib/types";
 
@@ -65,14 +66,7 @@ const DOWS_ES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
 export function useTrendData(filters: DashboardFilters) {
   const query = useQuery({
-    queryKey: [
-      "daily-trends", filters.startTs, filters.endTs,
-      filters.sites?.join(",") ?? "*",
-      filters.channels?.join(",") ?? "*",
-      filters.zones?.join(",") ?? "*",
-      filters.hourMin, filters.hourMax,
-      filters.dows?.join(",") ?? "*",
-    ],
+    queryKey: ["daily-trends", ...filterKey(filters)],
     queryFn: ({ signal }) => fetchDailyTrends(filters, signal),
     staleTime: 15 * 60_000,
   });
@@ -135,6 +129,7 @@ export function useTrendData(filters: DashboardFilters) {
     dowData,
     projection,
     loading: query.isPending || query.isFetching,
+    error: query.error,
     hasEnoughData: raw.length >= 2,
   };
 }

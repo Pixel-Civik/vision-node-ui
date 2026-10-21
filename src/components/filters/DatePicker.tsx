@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { format, parse, isValid } from "date-fns"
 import { es } from "date-fns/locale"
 import { Calendar as CalendarIcon, CalendarRange, AlertTriangle, Info } from "lucide-react"
@@ -143,6 +143,8 @@ export function DatePicker({
     setPrevFilterWarn(filterWarning)
     if (filterWarning) setInputWarn(null)
   }
+  // Limpia el temporizador del aviso al desmontar.
+  useEffect(() => () => clearTimeout(warnTimer.current), [])
 
   const minD = isoToLocal(minDate)
   const maxD = isoToLocal(maxDate)

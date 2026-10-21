@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, SlidersHorizontal } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
@@ -33,16 +33,21 @@ function fmtShort(iso: string): string {
   return `${d} ${M[m - 1]} ${y}`;
 }
 
-// Fechas "de hoy" calculadas una sola vez al cargar el módulo. Llamar a
-// `new Date()`/`Date.now()` durante el render es una función impura (rompe la
-// pureza de React y dispara renders inestables); a nivel de módulo queda fuera
-// del ciclo de render. Mismo patrón que ya usa page.tsx / useFilterOptions.
-const TODAY        = isoDate(new Date());
-const _now         = new Date();
-const YESTERDAY    = isoDate(new Date(Date.now() - 86_400_000));
-const AGO_7        = isoDate(new Date(Date.now() - 7 * 86_400_000));
-const MONTH_START  = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-01`;
-const LIMA_HOUR    = new Date(Date.now() - 5 * 3_600_000).getUTCHours();
+/**
+ * Fechas de referencia ("hoy", "ayer", etc., hora Lima) para un instante dado.
+ * Función pura: el instante viene de un estado que se refresca cada minuto, así
+ * que los atajos no se quedan en el día en que se abrió la pestaña.
+ */
+function dayRefs(nowMs: number) {
+  const today = isoDate(new Date(nowMs));
+  return {
+    TODAY:       today,
+    YESTERDAY:   isoDate(new Date(nowMs - 86_400_000)),
+    AGO_7:       isoDate(new Date(nowMs - 7 * 86_400_000)),
+    MONTH_START: `${today.slice(0, 8)}01`,
+    LIMA_HOUR:   new Date(nowMs - 5 * 3_600_000).getUTCHours(),
+  };
+}
 
 interface Props {
   opts: FilterOptions;
@@ -51,6 +56,13 @@ interface Props {
 }
 
 export function FilterPanel({ opts, values, onChange }: Props) {
+  const [referenceNow, setReferenceNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setReferenceNow(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+  const { TODAY, YESTERDAY, AGO_7, MONTH_START, LIMA_HOUR } = useMemo(() => dayRefs(referenceNow), [referenceNow]);
+
   const [datePickerMode, setDatePickerMode] = useState<DateMode>(
     values.startDate === values.endDate ? "single" : "range",
   );
@@ -69,7 +81,7 @@ export function FilterPanel({ opts, values, onChange }: Props) {
     if (!opts.loading && opts.minDate < TODAY && startDate === opts.minDate && endDate === YESTERDAY)
       return "promedio";
     return "personalizado";
-  }, [forcedPersonalizado, values, opts.loading, opts.minDate]);
+  }, [forcedPersonalizado, values, opts.loading, opts.minDate, TODAY, YESTERDAY, AGO_7, MONTH_START]);
 
   function applyMode(m: QuickMode) {
     if (m === "personalizado") {
@@ -112,7 +124,7 @@ export function FilterPanel({ opts, values, onChange }: Props) {
     if (e >= TODAY)
       return { type: "info", msg: "Los datos de hoy están incompletos (día en curso)" };
     return null;
-  }, [mode, values.startDate, values.endDate, opts.loading, opts.minDate]);
+  }, [mode, values.startDate, values.endDate, opts.loading, opts.minDate, TODAY]);
 
   const MODES: { id: QuickMode; label: string }[] = [
     { id: "promedio",      label: "Promedio"     },

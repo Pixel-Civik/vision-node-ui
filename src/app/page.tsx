@@ -13,6 +13,8 @@
  */
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { fetchFreshness } from "@/lib/api";
 import { useState, useMemo } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -21,9 +23,6 @@ const Toaster = dynamic(
   () => import("@/components/ui/sonner").then((m) => ({ default: m.Toaster })),
   { ssr: false }
 );
-// Alerta de frescura desactivada: el stream de Supabase está cortado y solo hay
-// data histórica, por lo que esta alerta dispararía permanentemente.
-// import { useDataFreshnessAlert } from "@/hooks/useDataFreshnessAlert";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { type Section } from "@/components/layout/nav";
@@ -55,7 +54,7 @@ function limaToUtc(date: string, h: number, m: number, s: number): string {
 export default function App() {
   const [section, setSection]       = useState<Section>("reporte");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { data: shopliftingAlertCount = 0 } = useShopliftingAlertCount();
+  const { data: shopliftingAlertCount, error: alertCountError } = useShopliftingAlertCount();
 
   const opts = useFilterOptions();
 
@@ -104,7 +103,8 @@ export default function App() {
 
   // No consultar hasta conocer el rango de apertura: si no, se dispararía una
   // consulta con fechas provisionales y otra con las definitivas.
-  const dashboardReady = !opts.loading && !!dr;
+  const dashboardReady = !!(fvRaw.startDate && fvRaw.endDate) || (!opts.loading && !opts.error);
+  const freshness = useQuery({ queryKey: ["freshness"], queryFn: ({ signal }) => fetchFreshness(signal), staleTime: 60_000, refetchInterval: 60_000 });
 
   const data      = useDashboard(filters, { enabled: dashboardReady });
   const analytics = useAnalytics(filters, {
@@ -113,7 +113,6 @@ export default function App() {
     tiz: dashboardReady && section === "tiz",
   });
 
-  // useDataFreshnessAlert();  // desactivada — ver nota en el import
 
   // Mientras el bootstrap (rango de apertura + opciones) no termina, el
   // dashboard aún no se consulta: sin unificar el estado, las gráficas se
@@ -177,6 +176,30 @@ export default function App() {
           {data.refreshing && (
             <div className="sticky top-0 z-20 h-0.5 w-full overflow-hidden bg-transparent">
               <div className="h-full w-1/3 animate-[loading-bar_1.1s_ease-in-out_infinite] bg-brand" />
+            </div>
+          )}
+
+          {alertCountError && <p role="status" className="mx-6 mt-3 text-xs text-amber-700">Contador de alertas no disponible.</p>}
+          {opts.error && (
+            <div role="alert" className="mx-6 mt-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertTriangle size={15} className="shrink-0" />
+              <span className="flex-1">{opts.error}</span>
+              <button
+                onClick={opts.retry}
+                className="shrink-0 rounded-lg border border-red-200 bg-white px-2.5 py-1 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100"
+              >
+                Reintentar
+              </button>
+            </div>
+          )}
+          {freshness.data && <p className="mx-6 mt-3 text-xs text-slate-500">
+            Último evento: {freshness.data.last_event_at ? new Date(freshness.data.last_event_at).toLocaleString("es-PE", { timeZone: "America/Lima" }) : "sin eventos"} · Consulta: {new Date(freshness.data.queried_at).toLocaleString("es-PE", { timeZone: "America/Lima" })} (hora Lima). El período seleccionado puede ser histórico.
+          </p>}
+          {freshness.error && <p role="status" className="mx-6 mt-3 text-xs text-amber-700">Frescura de datos no disponible.</p>}
+          {!data.error && analytics.analyticsError && (
+            <div role="alert" className="mx-6 mt-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertTriangle size={15} className="shrink-0" />
+              <span className="flex-1">{analytics.analyticsError}</span>
             </div>
           )}
 

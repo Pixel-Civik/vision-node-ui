@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchDashboardBootstrap } from "@/lib/api";
+import { fetchFilterOptions, fetchDataDays, fetchDefaultRange } from "@/lib/api";
 import type { DefaultRange } from "@/lib/types";
 
 export interface FilterOptions {
@@ -14,11 +14,13 @@ export interface FilterOptions {
   availableDates: Set<string>;  // días que REALMENTE tienen datos
   defaultRange: DefaultRange | null;  // rango de apertura decidido por la BD
   loading: boolean;
+  error: string | null;
+  retry: () => void;
 }
 
 const TODAY = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima" }).format(new Date());
 
-const EMPTY: Omit<FilterOptions, "loading"> = {
+const EMPTY: Omit<FilterOptions, "loading" | "error" | "retry"> = {
   sites: [], channels: [], zones: [],
   minDate: TODAY, maxDate: TODAY,
   availableDates: new Set<string>(),
@@ -41,31 +43,55 @@ const EMPTY: Omit<FilterOptions, "loading"> = {
  *    podía servir datos rancios indefinidamente dentro de una sesión.
  */
 export function useFilterOptions(): FilterOptions {
-  const bootstrap = useQuery({
-    queryKey: ["dashboard-bootstrap"],
-    queryFn: ({ signal }) => fetchDashboardBootstrap(signal),
+  // Tres consultas en paralelo contra RPCs que existen en producción
+  // (dashboard_bootstrap no está desplegado: llamarlo costaba un round-trip
+  // fallido en cada carga antes del respaldo).
+  const opts = useQuery({
+    queryKey: ["filter-options"],
+    queryFn: ({ signal }) => fetchFilterOptions(signal),
+    staleTime: 10 * 60_000,   // catálogos: cambian poco
+  });
+
+  const range = useQuery({
+    queryKey: ["default-range"],
+    queryFn: ({ signal }) => fetchDefaultRange(signal),
+    staleTime: 5 * 60_000,
+  });
+
+  const days = useQuery({
+    queryKey: ["data-days"],
+    queryFn: ({ signal }) => fetchDataDays(undefined, undefined, signal),
     staleTime: 10 * 60_000,
   });
 
-  const data = bootstrap.data;
+  const hasError = !!(opts.error || range.error || days.error);
+  const { refetch: refetchOpts } = opts;
+  const { refetch: refetchRange } = range;
+  const { refetch: refetchDays } = days;
+  const retry = useCallback(() => {
+    void refetchOpts(); void refetchRange(); void refetchDays();
+  }, [refetchOpts, refetchRange, refetchDays]);
 
   // useMemo: sin él, cada render devolvía un objeto nuevo (y un `Set` nuevo en
-  // availableDates), invalidando cualquier memoización aguas abajo y
-  // re-renderizando las secciones aunque los filtros no hubieran cambiado.
-  return useMemo<FilterOptions>(
-    () =>
-      data
-        ? {
-            sites:          data.sites ?? [],
-            channels:       data.channels ?? [],
-            zones:          data.zones ?? [],
-            minDate:        data.min_date ?? TODAY,
-            maxDate:        data.max_date ?? TODAY,
-            availableDates: new Set(data.available_dates ?? []),
-            defaultRange:   data.default_range ?? null,
-            loading:        bootstrap.isPending,
-          }
-        : { ...EMPTY, loading: bootstrap.isPending },
-    [data, bootstrap.isPending]
-  );
+  // availableDates), invalidando cualquier memoización aguas abajo.
+  return useMemo<FilterOptions>(() => {
+    const error = hasError ? "No se pudieron cargar el rango y los filtros del dashboard." : null;
+    if (!opts.data) {
+      return { ...EMPTY, defaultRange: range.data ?? null, loading: opts.isPending || range.isPending, error, retry };
+    }
+    return {
+      sites:          opts.data.sites,
+      channels:       opts.data.channels,
+      zones:          opts.data.zones,
+      minDate:        opts.data.minDate,
+      maxDate:        opts.data.maxDate,
+      availableDates: new Set(days.data ?? []),
+      defaultRange:   range.data ?? null,
+      // El rango de apertura es obligatorio antes de consultar: sin él page.tsx
+      // dispararía una consulta con fechas provisionales y luego otra con las
+      // reales — la doble carga que ya existía antes.
+      loading:        opts.isPending || range.isPending,
+      error, retry,
+    };
+  }, [opts.data, opts.isPending, range.data, range.isPending, days.data, hasError, retry]);
 }

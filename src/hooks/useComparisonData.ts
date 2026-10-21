@@ -56,6 +56,7 @@ export function useComparisonData(
   _allSites?: string[],
   { enabled = true }: { enabled?: boolean } = {},
 ): ComparisonData {
+  void _curKpis; void _curHourly; void _allSites;
   const { data, isPending, isFetching } = useQuery({
     queryKey: [
       "compare", mode,

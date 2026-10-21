@@ -10,11 +10,11 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import type { TIZDistributionBucket } from "@/lib/types";
+import type { TIZDistribution } from "@/lib/types";
 import { CATEGORICAL, AXIS_TICK, GRID_PROPS, TOOLTIP_STYLE, CHART_SKELETON_CLASS } from "@/lib/chartTheme";
 
 interface Props {
-  data: TIZDistributionBucket[];
+  data: TIZDistribution["buckets"];
   loading: boolean;
 }
 
@@ -32,7 +32,7 @@ export function TIZDistributionChart({ data, loading }: Props) {
   }
 
   const chartData = data.map((bucket, index) => ({
-    rango: bucket.range,
+    rango: bucket.label,
     cantidad: bucket.count,
     fill: CATEGORICAL[index] ?? CATEGORICAL.at(-1),
   }));

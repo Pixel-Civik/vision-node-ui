@@ -54,7 +54,7 @@ export function KPIStrip({ visitors, pasantes, conv, uniqueTracks, days = 1, loa
     {
       label: "Tracks únicos",
       value: uniqueTracks.toLocaleString("es-PE"),
-      sub: "Personas distintas detectadas",
+      sub: "IDs de trayectoria detectados",
       accent: "#0B1222",
       Icon: Fingerprint,
     },

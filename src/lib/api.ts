@@ -1,19 +1,8 @@
-import type { DashboardFilters, KPIResult, HourlyRow, ZoneBreakdownRow, ChannelBreakdownRow, HeatmapRow, TIZKpiRow, ConversionHourRow, GenderRow, AgeRow, DailyRow, OverviewResult, CompareResult, DefaultRange, DashboardBootstrap, TIZDistributionResult } from "./types";
+import type { DashboardFilters, KPIResult, HourlyRow, GenderRow, AgeRow, TIZDistribution, DailyRow, OverviewResult, CompareResult, DefaultRange } from "./types";
 import type { AttrsBreakdown, AttrsGranularity, AttrBucketRow, AgeLabel, GenderLabel } from "./types";
 import { rpc, rpcOne, supabase } from "./supabase";
 
-function buildPayload(f: DashboardFilters) {
-  return {
-    p_start_ts: f.startTs,
-    p_end_ts: f.endTs,
-    p_sites: f.sites,
-    p_channels: f.channels,
-    p_zones: f.zones,
-    p_hour_min: f.hourMin,
-    p_hour_max: f.hourMax,
-    p_dows: f.dows,
-  };
-}
+import { filterPayload as buildPayload } from "./dashboard-filters";
 
 const EMPTY_KPI: KPIResult = { enters: 0, exits: 0, net: 0, unique_tracks: 0, days: 0, enters_per_day: 0, exits_per_day: 0 };
 
@@ -27,10 +16,9 @@ export const EMPTY_OVERVIEW: OverviewResult = {
 // ── RPCs v7 — la lógica vive en la BD ────────────────────────────────────────
 
 /**
- * Un solo round-trip para todo el dashboard. Sustituye la cadena en serie de
- * fetchKPIs → fetchHourly → fetchZoneBreakdown → fetchChannelBreakdown →
- * fetchHeatmap → fetchTIZKpis, y trae ya calculados totals, hourly_avg y
- * conversion, que antes se derivaban en JS.
+ * Un solo round-trip para todo el dashboard. Sustituyó a una cadena en serie de
+ * seis llamadas y trae ya calculados totals, hourly_avg y conversion, que antes
+ * se derivaban en JS. Aquellas funciones se eliminaron al quedar sin uso.
  */
 export async function fetchOverview(f: DashboardFilters, signal?: AbortSignal): Promise<OverviewResult> {
   const data = await rpcOne<OverviewResult | null>("dashboard_overview", buildPayload(f), signal);
@@ -77,60 +65,14 @@ export async function fetchHourly(f: DashboardFilters): Promise<HourlyRow[]> {
   return rpc<HourlyRow>("dashboard_hourly_totals", buildPayload(f));
 }
 
-export async function fetchHourlyAvg(f: DashboardFilters): Promise<HourlyRow[]> {
-  return rpc<HourlyRow>("dashboard_hourly_avg", buildPayload(f));
-}
-
-export async function fetchZoneBreakdown(f: DashboardFilters): Promise<ZoneBreakdownRow[]> {
-  return rpc<ZoneBreakdownRow>("dashboard_breakdown_zone", buildPayload(f));
-}
-
-export async function fetchChannelBreakdown(f: DashboardFilters): Promise<ChannelBreakdownRow[]> {
-  return rpc<ChannelBreakdownRow>("dashboard_breakdown_channel", buildPayload(f));
-}
-
-export async function fetchHeatmap(f: DashboardFilters): Promise<HeatmapRow[]> {
-  return rpc<HeatmapRow>("dashboard_heatmap_dow_hour", buildPayload(f));
-}
-
-export async function fetchTIZKpis(f: DashboardFilters): Promise<TIZKpiRow[]> {
-  return rpc<TIZKpiRow>("dashboard_tiz_zone_stats", buildPayload(f));
-}
-
-export function computeConversionFromHourly(rows: HourlyRow[]): ConversionHourRow[] {
-  const map = new Map<number, { pasantes: number; visitors: number; enters: number }>();
-  for (const r of rows) {
-    if (!["pasante", "visitor", "enter"].includes(r.event_type)) continue;
-    const cur = map.get(r.hour) ?? { pasantes: 0, visitors: 0, enters: 0 };
-    if (r.event_type === "pasante") cur.pasantes += r.count;
-    if (r.event_type === "visitor") cur.visitors += r.count;
-    if (r.event_type === "enter") cur.enters += r.count;
-    map.set(r.hour, cur);
-  }
-  return Array.from(map.entries())
-    .sort((a, b) => a[0] - b[0])
-    .map(([hour, d]) => ({
-      hour,
-      pasantes: d.pasantes,
-      visitors: d.visitors,
-      enters: d.enters,
-      conv_enter_pct: d.pasantes > 0 ? Math.round((d.enters / d.pasantes) * 1000) / 10 : 0,
-      conv_visitor_pct: d.pasantes > 0 ? Math.round((d.visitors / d.pasantes) * 1000) / 10 : 0,
-    }));
-}
-
-export async function fetchConversionByHour(f: DashboardFilters): Promise<ConversionHourRow[]> {
-  return computeConversionFromHourly(await fetchHourly(f));
-}
-
 export async function fetchGenderAge(
-  startTs: string,
-  endTs: string,
-  eventTypes: string[]
+  filters: DashboardFilters,
+  eventTypes: string[],
+  signal?: AbortSignal
 ): Promise<{ gender: GenderRow[]; age: AgeRow[] }> {
   const rows = await rpc<{ dimension: string; value: string; count: number }>(
-    "dashboard_gender_age",
-    { p_start_ts: startTs, p_end_ts: endTs, p_event_types: eventTypes }
+    "dashboard_gender_age_filtered",
+    { ...buildPayload(filters), p_event_types: eventTypes }, signal
   );
   return {
     gender: rows.filter((r) => r.dimension === "gender").map(({ value: gender, count }) => ({ gender, count })),
@@ -138,50 +80,28 @@ export async function fetchGenderAge(
   };
 }
 
-export async function fetchTIZDistribution(
-  startTs: string,
-  endTs: string,
-  signal?: AbortSignal,
-): Promise<TIZDistributionResult> {
-  return rpcOne<TIZDistributionResult>(
-    "dashboard_tiz_distribution",
-    { p_start_ts: startTs, p_end_ts: endTs },
-    signal,
-  );
+/**
+ * Distribución exacta de permanencia con TODOS los filtros (sitio, cámara,
+ * zona, horas, días). La versión en producción devuelve `count` y buckets con
+ * `label`; una versión anterior del RPC devolvía `total` y `range`. Se aceptan
+ * ambas para no romper la vista si la BD queda en la versión vieja.
+ */
+export async function fetchTIZDistribution(filters: DashboardFilters, signal?: AbortSignal): Promise<TIZDistribution> {
+  const raw = await rpcOne<{
+    count?: number; total?: number; avg_s?: number; median_s?: number; p90_s?: number;
+    buckets?: { label?: string; range?: string; count: number }[] | null;
+  } | null>("dashboard_tiz_distribution", buildPayload(filters), signal);
+  return {
+    count:    Number(raw?.count ?? raw?.total ?? 0),
+    avg_s:    Number(raw?.avg_s ?? 0),
+    median_s: Number(raw?.median_s ?? 0),
+    p90_s:    Number(raw?.p90_s ?? 0),
+    buckets:  (raw?.buckets ?? []).map((b) => ({ label: b.label ?? b.range ?? "", count: Number(b.count) })),
+  };
 }
 
-export async function fetchDashboardBootstrap(
-  signal?: AbortSignal,
-): Promise<DashboardBootstrap> {
-  try {
-    return await rpcOne<DashboardBootstrap>("dashboard_bootstrap", {}, signal);
-  } catch (err) {
-    // La migración 20260903172000_dashboard_bootstrap puede no estar aplicada
-    // en la base (el RPC responde PGRST202). Sin él el dashboard no arrancaba y
-    // mostraba "sin datos" con un error: componemos el mismo resultado con las
-    // tres funciones que sí existen. Si el error es de red, esto también falla
-    // y se propaga para reintentar.
-    if (signal?.aborted) throw err;
-
-    const [options, range, days] = await Promise.all([
-      rpc<{ sites: string[]; channels: string[]; zones: string[]; min_date: string | null; max_date: string | null }>(
-        "dashboard_filter_options", {}, signal,
-      ),
-      rpc<DefaultRange>("dashboard_default_range", {}, signal),
-      rpc<{ day: string; events: number }>("dashboard_data_days", { p_from: null, p_to: null }, signal),
-    ]);
-
-    const o = options[0];
-    return {
-      sites:           o?.sites    ?? [],
-      channels:        o?.channels ?? [],
-      zones:           o?.zones    ?? [],
-      min_date:        o?.min_date ?? null,
-      max_date:        o?.max_date ?? null,
-      default_range:   range[0] ?? null,
-      available_dates: days.map((d) => d.day),
-    };
-  }
+export async function fetchFreshness(signal?: AbortSignal): Promise<{ last_event_at: string | null; queried_at: string }> {
+  return rpcOne("dashboard_freshness", {}, signal);
 }
 
 export async function fetchDailyTotals(f: DashboardFilters): Promise<DailyRow[]> {

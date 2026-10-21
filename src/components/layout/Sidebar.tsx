@@ -24,7 +24,7 @@ export function Sidebar({
   loading,
   onRefresh,
   dateRange,
-  alertCount = 0,
+  alertCount,
 }: SidebarProps) {
   return (
     <>
@@ -85,7 +85,7 @@ export function Sidebar({
 function NavList({
   section,
   onNavigate,
-  alertCount = 0,
+  alertCount,
 }: Pick<SidebarProps, "section" | "onNavigate" | "alertCount">) {
   return (
     <>
@@ -121,9 +121,9 @@ function NavList({
                 className={active ? "text-brand" : "transition-colors group-hover:text-slate-200"}
               />
               <span className="truncate">{label}</span>
-              {id === "alertas" && alertCount > 0 && (
+              {id === "alertas" && (alertCount ?? 0) > 0 && (
                 <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow-sm shadow-red-950/30">
-                  {alertCount > 99 ? "99+" : alertCount}
+                  {(alertCount ?? 0) > 99 ? "99+" : alertCount}
                 </span>
               )}
             </button>
