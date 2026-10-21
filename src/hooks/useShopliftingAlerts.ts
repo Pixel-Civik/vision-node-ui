@@ -51,6 +51,78 @@ async function signPaths(paths: string[]): Promise<Map<string, string>> {
   return signed;
 }
 
+const ALERT_COLUMNS = [
+  "id", "site", "camera_id", "camera_name", "occurred_at", "risk_score",
+  "risk_reasons", "status", "thumbnail_path", "duration_sec", "metadata",
+  "created_at", "reviewed_at", "video_status", "video_uploaded_at", "video_size_bytes",
+].join(",");
+
+function alertsQuery() {
+  return supabase
+    .from("shoplifting_alerts")
+    .select(ALERT_COLUMNS, { count: "exact" })
+    .contains("metadata", { evidence_generation: EVIDENCE_GENERATION });
+}
+
+async function countByStatus(status: ShopliftingAlertStatus): Promise<number> {
+  const { count, error } = await supabase
+    .from("shoplifting_alerts")
+    .select("id", { count: "exact", head: true })
+    .contains("metadata", { evidence_generation: EVIDENCE_GENERATION })
+    .eq("status", status);
+  if (error) throw new Error(`No se pudieron contar las alertas: ${error.message}`);
+  return count ?? 0;
+}
+
+/** Cámaras distintas sin leer toda la tabla: un salto por cámara (son pocas). */
+async function distinctCameras(): Promise<string[]> {
+  const cams: string[] = [];
+  let last: string | null = null;
+  for (let i = 0; i < 50; i++) {
+    let q = supabase
+      .from("shoplifting_alerts")
+      .select("camera_id")
+      .contains("metadata", { evidence_generation: EVIDENCE_GENERATION })
+      .not("camera_id", "is", null)
+      .order("camera_id", { ascending: true })
+      .limit(1);
+    if (last !== null) q = q.gt("camera_id", last);
+    const { data, error } = await q;
+    if (error || !data?.length) break;
+    last = (data[0] as { camera_id: string }).camera_id;
+    cams.push(last);
+  }
+  return cams;
+}
+
+/**
+ * Respaldo mientras la migración dashboard_shoplifting_alert_page no esté en la BD:
+ * misma respuesta que el RPC, armada con consultas directas a shoplifting_alerts.
+ */
+async function fetchAlertPageClient(params: AlertPageParams): Promise<AlertPageRpc> {
+  const offset = Math.max(0, params.page - 1) * params.pageSize;
+  const limit = Math.min(Math.max(params.pageSize, 1), 100);
+  let page = alertsQuery();
+  if (params.camera) page = page.eq("camera_id", params.camera);
+  if (params.status) page = page.eq("status", params.status);
+  const [pageRes, newCount, confirmedCount, dismissedCount, cameras] = await Promise.all([
+    page.order("occurred_at", { ascending: false }).range(offset, offset + limit - 1),
+    countByStatus("new"),
+    countByStatus("confirmed"),
+    countByStatus("dismissed"),
+    distinctCameras(),
+  ]);
+  if (pageRes.error) throw new Error(`No se pudieron cargar las alertas: ${pageRes.error.message}`);
+  return {
+    alerts: (pageRes.data ?? []) as unknown as ShopliftingAlert[],
+    total: pageRes.count ?? 0,
+    new_count: newCount,
+    confirmed_count: confirmedCount,
+    dismissed_count: dismissedCount,
+    cameras,
+  };
+}
+
 async function fetchAlertPage(params: AlertPageParams): Promise<ShopliftingAlertPage> {
   const { data, error } = await supabase.rpc("dashboard_shoplifting_alert_page", {
     p_offset: Math.max(0, params.page - 1) * params.pageSize,
@@ -58,8 +130,16 @@ async function fetchAlertPage(params: AlertPageParams): Promise<ShopliftingAlert
     p_camera_id: params.camera,
     p_status: params.status,
   });
-  if (error) throw new Error(`No se pudieron cargar las alertas: ${error.message}`);
-  const result = (data ?? {}) as AlertPageRpc;
+  let result: AlertPageRpc;
+  if (error) {
+    // RPC aún no desplegado en la BD: armar la página desde la tabla.
+    if (!/Could not find the function|PGRST202/.test(`${error.code} ${error.message}`)) {
+      throw new Error(`No se pudieron cargar las alertas: ${error.message}`);
+    }
+    result = await fetchAlertPageClient(params);
+  } else {
+    result = (data ?? {}) as AlertPageRpc;
+  }
   const rows = result.alerts ?? [];
   const urls = await signPaths(rows.map((row) => row.thumbnail_path ?? ""));
   const alerts = rows.map((row) => {
